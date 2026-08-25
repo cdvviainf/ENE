@@ -1,0 +1,31 @@
+# Env files con valores reales — NUNCA subir al repo
+.env
+.env.local
+.env.demo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+
+# Estado local de agentes
+.claude/
+.agents/
+.codex/
+
+# Reportes del ciclo QA Claude -> Codex
+.qa-workflow/
+
+# Node
+node_modules/
+.next/
+dist/
+
+# Adjuntos locales
+data/adjuntos/
+
+# Duplicado en la raíz de docker/pgadmin-servers.json (el original en docker/ SÍ se versiona)
+/pgadmin-servers.json

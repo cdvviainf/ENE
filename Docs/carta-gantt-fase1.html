@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extremo Norte Expediciones · Carta Gantt — Fase 1</title>
+<style>
+  :root{
+    --ink:#17222e; --ink-soft:#33475b; --terra:#c65a2e; --terra-dark:#a2461f;
+    --ochre:#e0a458; --teal:#1f8a70; --teal-dark:#146b57;
+    --sand:#faf5ee; --sand-2:#f3ebe0; --card:#ffffff; --line:#e7ddce;
+    --muted:#7c7264; --text:#26313c; --c-blue:#2a78d6; --plum:#6b4a7a;
+    --shadow:0 1px 2px rgba(23,34,46,.06),0 12px 30px rgba(23,34,46,.08);
+    --shadow-sm:0 1px 2px rgba(23,34,46,.05),0 4px 12px rgba(23,34,46,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);
+    background:var(--sand);line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{color:var(--ink);line-height:1.2;letter-spacing:-.01em}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  header.hero{background:
+      radial-gradient(1200px 500px at 85% -10%, rgba(224,164,88,.28), transparent 60%),
+      radial-gradient(900px 600px at -5% 110%, rgba(31,138,112,.16), transparent 55%),
+      linear-gradient(160deg,#12202c 0%,#1b2d3d 55%,#243a4d 100%);
+    color:#f6efe4;position:relative;overflow:hidden}
+  .hero .wrap{padding:54px 24px 58px;position:relative;z-index:2}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--ochre);
+    border:1px solid rgba(224,164,88,.4);padding:6px 13px;border-radius:999px;margin-bottom:20px}
+  .hero h1{color:#fff;font-size:clamp(28px,4.4vw,42px);max-width:20ch;margin-bottom:14px}
+  .hero .lead{font-size:clamp(15px,1.8vw,18px);color:#d4cdbf;max-width:66ch}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:26px;margin-top:32px;padding-top:24px;
+    border-top:1px solid rgba(255,255,255,.13)}
+  .hero-meta div span{display:block;font-size:12px;color:#9fb0bd;text-transform:uppercase;letter-spacing:.06em}
+  .hero-meta div strong{display:block;color:#fff;font-size:15.5px;font-weight:600;margin-top:3px}
+
+  section{padding:54px 0;border-bottom:1px solid var(--line)}
+  section:nth-of-type(even){background:var(--sand-2)}
+  .kicker{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--terra);margin-bottom:12px;display:flex;align-items:center;gap:9px}
+  .kicker::before{content:"";width:26px;height:2px;background:var(--terra);border-radius:2px}
+  section h2{font-size:clamp(22px,3vw,30px);margin-bottom:14px;max-width:26ch}
+  .section-lead{font-size:16.5px;color:var(--ink-soft);max-width:74ch;margin-bottom:26px}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:860px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)}
+  .card h3{font-size:16px;margin-bottom:6px}
+  .card p{font-size:14px;color:var(--ink-soft)}
+  .card .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+    font-size:18px;margin-bottom:12px;background:var(--sand-2)}
+
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:15px 17px;box-shadow:var(--shadow-sm)}
+  .stat .lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .stat .val{font-size:23px;font-weight:700;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums}
+  .stat .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+  .callout{background:rgba(31,138,112,.08);border:1px solid rgba(31,138,112,.25);
+    border-left:4px solid var(--teal);border-radius:10px;padding:15px 18px;font-size:14.5px;color:var(--ink-soft)}
+  .callout strong{color:var(--ink)}
+
+  .gantt-wrap{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden}
+  .gantt-scroll{overflow-x:auto}
+  .gantt{min-width:1260px;padding-bottom:6px}
+  .g-head-w,.g-head-d,.g-row,.g-hitos{display:grid;grid-template-columns:340px repeat(38,1fr)}
+  .g-head-w{background:var(--sand-2);border-bottom:1px solid var(--line)}
+  .g-head-w .g-corner{padding:11px 16px;font-size:11.5px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.05em}
+  .g-week{text-align:center;font-size:11.5px;font-weight:700;color:var(--ink);
+    padding:11px 0;border-left:1px solid var(--line)}
+  .g-head-d{background:var(--sand-2);border-bottom:1px solid var(--line)}
+  .g-head-d .g-corner{padding:4px 16px 8px;font-size:11px;color:var(--muted)}
+  .g-day{text-align:center;font-size:9.5px;color:var(--muted);padding:2px 0 7px;font-variant-numeric:tabular-nums}
+  .g-day.fer{background:rgba(198,90,46,.13);color:var(--terra-dark);font-weight:700}
+
+  .g-group{display:flex;align-items:center;gap:9px;padding:14px 16px 8px;font-size:11.5px;
+    font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .g-group i{width:9px;height:9px;border-radius:3px;display:inline-block}
+
+  .g-row{position:relative;align-items:center;min-height:40px;border-bottom:1px solid #f4eee4}
+  .g-row:hover{background:#fdfaf5}
+  .g-lbl{padding:7px 16px;grid-column:1;display:flex;align-items:center;gap:11px}
+  .g-num{flex:0 0 22px;height:22px;border-radius:6px;background:var(--sand-2);color:var(--ink);
+    display:grid;place-items:center;font-size:11.5px;font-weight:700;border:1px solid var(--line)}
+  .g-num.tr{color:var(--muted);border-style:dashed}
+  .g-txt{min-width:0}
+  .g-name{display:block;font-size:13px;color:var(--ink);font-weight:600;line-height:1.3}
+  .g-dates{display:block;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .g-bg{grid-column:2/40;grid-row:1;height:100%;
+    background:repeating-linear-gradient(to right,var(--line) 0 1px,transparent 1px calc(100%/38)),
+               repeating-linear-gradient(to right,#ded2c0 0 1px,transparent 1px calc(100%/38*5))}
+  .g-fer{grid-column:18/20;grid-row:1;height:100%;background:rgba(198,90,46,.10)}
+  .g-bar{grid-row:1;height:20px;border-radius:5px;margin:0 2px;
+    box-shadow:0 1px 2px rgba(23,34,46,.14);z-index:2}
+
+  .g-hitos{position:relative;padding:15px 0 7px;background:var(--sand-2);border-top:1px solid var(--line)}
+  .g-hitos .g-corner{padding:0 16px;font-size:11.5px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.05em;grid-column:1}
+  .g-hito{grid-row:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .g-hito .hd{width:12px;height:12px;background:var(--terra);transform:rotate(45deg);
+    border-radius:2px;box-shadow:0 0 0 3px rgba(198,90,46,.16)}
+  .g-hito .hl{font-size:10px;font-weight:700;color:var(--terra-dark)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:16px;padding:14px 18px;border-top:1px solid var(--line);background:var(--sand-2)}
+  .legend span{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-soft)}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  .etapas{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:900px){.etapas{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.etapas{grid-template-columns:1fr}}
+  .et-card{background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .et-h{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px;padding-bottom:9px;
+    border-bottom:2px solid var(--sand-2)}
+  .et-n{flex:0 0 26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700}
+  .et-card h3{font-size:14.5px}
+  .et-d{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .et-card p{font-size:13px;color:var(--ink-soft)}
+
+  .hitos{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:860px){.hitos{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.hitos{grid-template-columns:1fr}}
+  .hito-item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--terra);
+    border-radius:11px;padding:14px 16px;box-shadow:var(--shadow-sm)}
+  .hito-code{font-size:11.5px;font-weight:700;color:var(--terra);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:5px}
+  .hito-code em{font-style:normal;color:var(--teal-dark)}
+  .hito-body strong{display:block;font-size:14.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .hito-body span{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
+
+  .lst{list-style:none}
+  .lst li{font-size:13.5px;color:var(--ink-soft);padding:5px 0 5px 18px;position:relative;line-height:1.5}
+  .lst li::before{content:"";position:absolute;left:0;top:13px;width:8px;height:1.5px;background:var(--muted);border-radius:2px}
+
+  table.dep{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.dep th,table.dep td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.dep th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  table.dep tr:last-child td{border-bottom:0}
+  table.dep td.w{white-space:nowrap;font-weight:700;color:var(--ink)}
+  .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.r{background:rgba(198,90,46,.14);color:var(--terra-dark)}
+  .pill.o{background:rgba(224,164,88,.20);color:#8a5806}
+
+  footer{padding:32px 0;text-align:center;color:var(--muted);font-size:13px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:12px;font-style:italic}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Plan de trabajo · VIAIN</span>
+    <h1>Carta Gantt · Fase 1 del sistema de gestión</h1>
+    <p class="lead">Doce etapas consecutivas para construir el núcleo operativo de Extremo Norte Expediciones: desde el modelo de datos y los maestros hasta la Orden de Trabajo, las órdenes de compra y la facturación.</p>
+    <div class="hero-meta">
+      <div><span>Inicio</span><strong>Miércoles 26 de agosto</strong></div>
+      <div><span>Término desarrollo</span><strong>Lunes 12 de octubre</strong></div>
+      <div><span>Puesta en marcha</span><strong>Viernes 16 de octubre</strong></div>
+      <div><span>Equipo</span><strong>1 desarrollador</strong></div>
+      <div><span>Duración</span><strong>36 días hábiles</strong></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Resumen</div>
+    <h2>Doce etapas, una después de otra</h2>
+    <p class="section-lead">Las etapas se ejecutan de forma consecutiva, sin superposición, siguiendo la dependencia natural del sistema: primero el modelo de datos y el mecanismo de versionado, luego los maestros que alimentan el costeo, el costeo que alimenta la cotización, la cotización que se convierte en OT, la OT que genera las órdenes de compra y, al final, la facturación. Ninguna comienza antes de tener lista la anterior. Cierra la reportería —el dashboard de OT y la conexión a Excel— y, como última etapa, las pruebas integrales y la puesta en marcha, con cuatro días propios dentro del plan.</p>
+
+    <div class="grid g4">
+      <div class="stat"><div class="lbl">Etapas</div><div class="val">12</div><div class="sub">consecutivas</div></div>
+      <div class="stat"><div class="lbl">Días hábiles</div><div class="val">36</div><div class="sub">26 ago – 16 oct</div></div>
+      <div class="stat"><div class="lbl">Desarrollo</div><div class="val">32</div><div class="sub">etapas 1 a 11</div></div>
+      <div class="stat"><div class="lbl">Demostraciones</div><div class="val">3</div><div class="sub">con usuarios reales</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Programación</div>
+    <h2>Carta Gantt</h2>
+    <p class="section-lead">Cada barra muestra su rango de fechas y los días hábiles que consume. Las columnas sombreadas del 17 y 18 de septiembre no se consideran días de trabajo.</p>
+
+    <div class="gantt-wrap">
+      <div class="gantt-scroll">
+        <div class="gantt">
+          <div class="g-head-w"><div class="g-corner">Etapa</div><div class="g-week" style="grid-column:span 5">Semana 1</div><div class="g-week" style="grid-column:span 5">Semana 2</div><div class="g-week" style="grid-column:span 5">Semana 3</div><div class="g-week" style="grid-column:span 5">Semana 4</div><div class="g-week" style="grid-column:span 5">Semana 5</div><div class="g-week" style="grid-column:span 5">Semana 6</div><div class="g-week" style="grid-column:span 5">Semana 7</div><div class="g-week" style="grid-column:span 3">Semana 8</div></div>
+          <div class="g-head-d"><div class="g-corner">agosto · septiembre · octubre</div><div class="g-day">26</div><div class="g-day">27</div><div class="g-day">28</div><div class="g-day">31</div><div class="g-day">1</div><div class="g-day">2</div><div class="g-day">3</div><div class="g-day">4</div><div class="g-day">7</div><div class="g-day">8</div><div class="g-day">9</div><div class="g-day">10</div><div class="g-day">11</div><div class="g-day">14</div><div class="g-day">15</div><div class="g-day">16</div><div class="g-day fer">17</div><div class="g-day fer">18</div><div class="g-day">21</div><div class="g-day">22</div><div class="g-day">23</div><div class="g-day">24</div><div class="g-day">25</div><div class="g-day">28</div><div class="g-day">29</div><div class="g-day">30</div><div class="g-day">1</div><div class="g-day">2</div><div class="g-day">5</div><div class="g-day">6</div><div class="g-day">7</div><div class="g-day">8</div><div class="g-day">9</div><div class="g-day">12</div><div class="g-day">13</div><div class="g-day">14</div><div class="g-day">15</div><div class="g-day">16</div></div>
+
+          <div class="g-group"><i style="background:var(--terra)"></i>Etapas del proyecto</div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">1</span><span class="g-txt"><span class="g-name">Arranque, ambientes y modelo de datos</span><span class="g-dates">26 ago – 27 ago · 2 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:2/4;background:var(--ink);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">2</span><span class="g-txt"><span class="g-name">Versionado · mecanismo transversal</span><span class="g-dates">28 ago – 2 sep · 4 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:4/8;background:var(--ink);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">3</span><span class="g-txt"><span class="g-name">Autenticación, usuarios y perfiles</span><span class="g-dates">3 sep – 3 sep · 1 día</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:8/9;background:var(--ink);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">4</span><span class="g-txt"><span class="g-name">Maestros generales</span><span class="g-dates">4 sep – 8 sep · 3 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:9/12;background:var(--c-blue);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">5</span><span class="g-txt"><span class="g-name">Maestros de tarifas</span><span class="g-dates">9 sep – 9 sep · 1 día</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:12/13;background:var(--c-blue);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">6</span><span class="g-txt"><span class="g-name">Motor de costeo</span><span class="g-dates">10 sep – 15 sep · 4 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:13/17;background:var(--terra);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">7</span><span class="g-txt"><span class="g-name">Cotización con sus estados</span><span class="g-dates">16 sep – 22 sep · 3 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:17/22;background:var(--terra);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">8</span><span class="g-txt"><span class="g-name">Orden de Trabajo</span><span class="g-dates">23 sep – 28 sep · 4 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:22/26;background:var(--teal);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">9</span><span class="g-txt"><span class="g-name">Generación de órdenes de compra</span><span class="g-dates">29 sep – 1 oct · 3 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:26/29;background:var(--teal);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">10</span><span class="g-txt"><span class="g-name">Facturación</span><span class="g-dates">2 oct – 8 oct · 5 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:29/34;background:var(--ochre);color:var(--ink)"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">11</span><span class="g-txt"><span class="g-name">Reportería · Dashboard (Radar) y conexión Excel</span><span class="g-dates">9 oct – 12 oct · 2 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:34/36;background:var(--plum);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num">12</span><span class="g-txt"><span class="g-name">Pruebas integrales finales y puesta en marcha</span><span class="g-dates">13 oct – 16 oct · 4 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:36/40;background:var(--terra-dark);color:#fff"></div>
+      </div>
+
+          <div class="g-group"><i style="background:var(--muted)"></i>Actividades Extremo Norte</div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num tr">·</span><span class="g-txt"><span class="g-name">Carga maestros de datos</span><span class="g-dates">4 sep – 15 sep · 8 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:9/17;background:var(--muted);color:#fff"></div>
+      </div>
+      <div class="g-row">
+        <div class="g-lbl"><span class="g-num tr">·</span><span class="g-txt"><span class="g-name">Pruebas de cliente</span><span class="g-dates">9 sep – 12 oct · 22 días</span></span></div>
+        <div class="g-bg"></div><div class="g-fer"></div>
+        <div class="g-bar" style="grid-column:12/36;background:var(--muted);color:#fff"></div>
+      </div>
+
+          <div class="g-hitos"><div class="g-corner">Hitos</div>
+<div class="g-hito" style="grid-column:7/8"><span class="hd"></span><span class="hl">H1</span></div><div class="g-hito" style="grid-column:12/13"><span class="hd"></span><span class="hl">H2</span></div><div class="g-hito" style="grid-column:21/22"><span class="hd"></span><span class="hl">H3</span></div><div class="g-hito" style="grid-column:28/29"><span class="hd"></span><span class="hl">H4</span></div><div class="g-hito" style="grid-column:35/36"><span class="hd"></span><span class="hl">H5</span></div><div class="g-hito" style="grid-column:39/40"><span class="hd"></span><span class="hl">H6</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--ink)"></i>Base técnica</span>
+        <span><i style="background:var(--c-blue)"></i>Maestros</span>
+        <span><i style="background:var(--terra)"></i>Costeo y cotización</span>
+        <span><i style="background:var(--teal)"></i>OT y órdenes de compra</span>
+        <span><i style="background:var(--ochre)"></i>Facturación</span>
+        <span><i style="background:var(--plum)"></i>Reportería</span>
+        <span><i style="background:var(--terra-dark)"></i>Pruebas y puesta en marcha</span>
+        <span><i style="background:var(--muted)"></i>Actividades Extremo Norte</span>
+        <span><i style="background:rgba(198,90,46,.30)"></i>No hábil</span>
+      </div>
+    </div>
+    <p class="note">Las actividades de Extremo Norte corren en paralelo al desarrollo y no consumen días del equipo técnico. Las pruebas unitarias de cada etapa están consideradas dentro de su propia duración.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Contenido</div>
+    <h2>Qué construye cada etapa</h2>
+    <div class="etapas">
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--ink);color:#fff">1</span>
+          <div><h3>Arranque, ambientes y modelo de datos</h3><span class="et-d">26 ago – 27 ago · 2 días</span></div></div>
+        <p>Repositorio, ambientes de desarrollo y pruebas, control de versiones, y el esquema completo de la base: clientes, pasajeros, proveedores, servicios, tarifas, OT, líneas de servicio, órdenes de compra y documentos. El modelo distingue las dos áreas de negocio —turismo receptivo y eventos empresa— como un atributo de la operación, no como flujos separados.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--ink);color:#fff">2</span>
+          <div><h3>Versionado · mecanismo transversal</h3><span class="et-d">28 ago – 2 sep · 4 días</span></div></div>
+        <p>Contrato único de cabecera, versiones y líneas para Cotización, OT y Orden de Compra. Creación serializada con advisory lock, guarda de inmutabilidad sobre versiones históricas y consulta de una versión tal como estaba. Se construye una vez acá y las etapas siguientes lo consumen en vez de reimplementarlo tres veces.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--ink);color:#fff">3</span>
+          <div><h3>Autenticación, usuarios y perfiles</h3><span class="et-d">3 sep – 3 sep · 1 día</span></div></div>
+        <p>Ingreso al sistema, gestión de usuarios y definición de perfiles con sus permisos por módulo.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--c-blue);color:#fff">4</span>
+          <div><h3>Maestros generales</h3><span class="et-d">4 sep – 8 sep · 3 días</span></div></div>
+        <p>Clientes con sus ejecutivos, pasajeros y grupos, proveedores con razón social, RUT, alias, cuentas y condiciones de pago, servicios con descripción en español e inglés y margen sugerido, y zonas de operación.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--c-blue);color:#fff">5</span>
+          <div><h3>Maestros de tarifas</h3><span class="et-d">9 sep – 9 sep · 1 día</span></div></div>
+        <p>Tarifarios por proveedor y servicio, con tramos de pasajeros, acomodación y suplemento single, moneda y vigencia desde/hasta.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--terra);color:#fff">6</span>
+          <div><h3>Motor de costeo</h3><span class="et-d">10 sep – 15 sep · 4 días</span></div></div>
+        <p>Cálculo de líneas estándar según tramo o acomodación, líneas a medida, margen global o diferenciado por servicio, valorización por línea y total de la OT, y conversión de moneda.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--terra);color:#fff">7</span>
+          <div><h3>Cotización con sus estados</h3><span class="et-d">16 sep – 22 sep · 3 días</span></div></div>
+        <p>Cabecera e itinerario día / AM-PM, ciclo de estados desde borrador hasta aprobada o perdida, versionado de la negociación y generación del PDF en español o inglés, con valor total o desglosado por ítem.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--teal);color:#fff">8</span>
+          <div><h3>Orden de Trabajo</h3><span class="et-d">23 sep – 28 sep · 4 días</span></div></div>
+        <p>Conversión de la cotización aprobada en OT, congelamiento de la línea base, numeración y estados del ciclo de vida, registro del estado de cada servicio contratado y espacio de adjuntos.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--teal);color:#fff">9</span>
+          <div><h3>Generación de órdenes de compra</h3><span class="et-d">29 sep – 1 oct · 3 días</span></div></div>
+        <p>Emisión por proveedor a partir de la OT, control de correspondencia entre OT, OC y costeo, registro del costo real por línea y generación del PDF de la orden.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--ochre);color:var(--ink)">10</span>
+          <div><h3>Facturación</h3><span class="et-d">2 oct – 8 oct · 5 días</span></div></div>
+        <p>Emisión de la factura asociada a la OT mediante API de facturación electrónica, cuenta corriente por cliente con abonos contra OT, aplicación de facturas y registro de pagos recibidos y a proveedores.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--plum);color:#fff">11</span>
+          <div><h3>Reportería · Dashboard (Radar) y conexión Excel</h3><span class="et-d">9 oct – 12 oct · 2 días</span></div></div>
+        <p>Tablero de OT próximas con ventanas de aviso fijas y semáforo por estado, más las vistas de solo lectura y la conexión directa desde Excel para explotar los datos.</p>
+      </div>
+      <div class="et-card">
+        <div class="et-h"><span class="et-n" style="background:var(--terra-dark);color:#fff">12</span>
+          <div><h3>Pruebas integrales finales y puesta en marcha</h3><span class="et-d">13 oct – 16 oct · 4 días</span></div></div>
+        <p>Recorrido completo del ciclo con datos reales, de la cotización a la factura. Corrección de las observaciones detectadas, capacitación de los usuarios y arranque en producción.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Participación del cliente</div>
+    <h2>Actividades Extremo Norte</h2>
+    <p class="section-lead">Dos actividades corren junto al desarrollo y son responsabilidad de Extremo Norte. No consumen días del equipo técnico, pero sí requieren dedicación del equipo interno.</p>
+    <div class="grid g2">
+      <div class="card">
+        <div class="ico">📥</div>
+        <h3>Carga maestros de datos</h3>
+        <p><strong>4 sep al 15 sep.</strong> Traspaso de proveedores, servicios y tarifarios vigentes a las estructuras del sistema, a medida que los mantenedores quedan disponibles.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧪</div>
+        <h3>Pruebas de cliente</h3>
+        <p><strong>9 sep al 12 oct.</strong> A medida que cada etapa se cierra, el equipo la prueba con casos reales y reporta observaciones. Es lo que permite que las correcciones lleguen dentro del proyecto y no después.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Control</div>
+    <h2>Hitos y demostraciones</h2>
+    <p class="section-lead">Tres de los seis hitos son demostraciones con usuarios reales. La idea es corregir el rumbo durante el proyecto y no al final, cuando ya no hay margen.</p>
+    <div class="hitos">
+      <div class="hito-item">
+        <div class="hito-code">H1</div>
+        <div class="hito-body"><strong>2 sep</strong><span>Modelo de datos y versionado operativos</span></div>
+      </div>
+      <div class="hito-item">
+        <div class="hito-code">H2 · <em>Demo 1</em></div>
+        <div class="hito-body"><strong>9 sep</strong><span>Maestros generales y de tarifas</span></div>
+      </div>
+      <div class="hito-item">
+        <div class="hito-code">H3 · <em>Demo 2</em></div>
+        <div class="hito-body"><strong>22 sep</strong><span>Motor de costeo y cotización valorizada</span></div>
+      </div>
+      <div class="hito-item">
+        <div class="hito-code">H4 · <em>Demo 3</em></div>
+        <div class="hito-body"><strong>1 oct</strong><span>OT generada y órdenes de compra emitidas</span></div>
+      </div>
+      <div class="hito-item">
+        <div class="hito-code">H5</div>
+        <div class="hito-body"><strong>12 oct</strong><span>Desarrollo completo con reportería</span></div>
+      </div>
+      <div class="hito-item">
+        <div class="hito-code">H6 · <em>Cierre</em></div>
+        <div class="hito-body"><strong>16 oct</strong><span>Pruebas cerradas y sistema en marcha</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Responsabilidades del cliente</div>
+    <h2>Lo que Extremo Norte debe entregar, y cuándo</h2>
+    <p class="section-lead">Al ser etapas consecutivas, un atraso no se absorbe en paralelo: corre toda la cadena. Estas dependencias son la principal fuente de riesgo del plan.</p>
+    <table class="dep">
+      <thead><tr><th>Fecha límite</th><th>Qué se necesita</th><th>Por qué es crítico</th><th>Criticidad</th></tr></thead>
+      <tbody>
+        <tr><td class="w">2 de septiembre</td>
+            <td>Reglas de tarifa confirmadas: tramos de pasajeros, acomodación y tratamiento del suplemento single.</td>
+            <td>La etapa 5 se construye el 9 de septiembre y define cómo el costeo trae los valores.</td>
+            <td><span class="pill r">Alta</span></td></tr>
+        <tr><td class="w">3 de septiembre</td>
+            <td>Maestro de proveedores y tarifarios vigentes en el formato que acordemos.</td>
+            <td>La carga comienza el 4 de septiembre. Sin datos reales no hay demostración útil el 9 de septiembre.</td>
+            <td><span class="pill r">Alta</span></td></tr>
+        <tr><td class="w">14 de septiembre</td>
+            <td>Formato oficial de la cotización y su versión en inglés.</td>
+            <td>La generación del PDF forma parte de la etapa 7, que parte el 16 de septiembre.</td>
+            <td><span class="pill o">Media</span></td></tr>
+        <tr><td class="w">24 de septiembre</td>
+            <td>Formato oficial de la orden de compra.</td>
+            <td>Se construye en la etapa 9, desde el 29 de septiembre.</td>
+            <td><span class="pill o">Media</span></td></tr>
+        <tr><td class="w">1 de octubre</td>
+            <td>Credenciales del proveedor de facturación electrónica en ambiente de prueba.</td>
+            <td>La etapa 10 comienza el 2 de octubre y queda poco margen de recuperación en la cadena.</td>
+            <td><span class="pill r">Alta</span></td></tr>
+        <tr><td class="w">9 sep, 22 sep y 1 oct</td>
+            <td>Disponibilidad de los usuarios para las tres demostraciones.</td>
+            <td>Validar tarde obliga a rehacer sobre etapas ya cerradas.</td>
+            <td><span class="pill o">Media</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section style="border-bottom:0">
+  <div class="wrap">
+    <div class="kicker">Alcance y riesgos</div>
+    <h2>Lo que queda para la fase siguiente</h2>
+    <div class="grid g2" style="margin-bottom:22px">
+      <div class="card">
+        <div class="ico">📋</div>
+        <h3>Fuera de estas nueve etapas</h3>
+        <ul class="lst">
+          <li>Ventanas de aviso configurables por usuario y avisos programados del dashboard</li>
+          <li>Control de releases, vencimientos y reconfirmación con agencias</li>
+          <li>Portal de proveedores</li>
+          <li>Comunicaciones por correo y bitácora de la OT</li>
+                              <li>Panel de gestión para gerencia</li>
+          <li>Ficha operativa y captura de gastos en terreno</li>
+          <li>Cierre económico con descomposición de efecto costo y tipo de cambio</li>
+          <li>Reporte de documentos por vencer y nómina de pago semanal</li>
+                  </ul>
+        <div class="callout" style="margin-top:14px;font-size:13.5px">
+          <strong>Nada de esto se pierde.</strong> La etapa 1 construye el modelo de datos completo, de modo que estos módulos se levantan sobre la misma base sin rehacer trabajo.
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="ico">🔗</div>
+          <h3>Cadena sin paralelismo</h3>
+          <p>Al ser etapas consecutivas, cualquier atraso se traslada íntegro a la fecha de término. El plan no contempla holgura: la etapa 12 está destinada a pruebas integrales y puesta en marcha, no a recuperar tiempo.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="ico">⚠️</div>
+          <h3>Credenciales de facturación</h3>
+          <p>La etapa 10 depende de un tercero. Si las credenciales no están el 1 de octubre, la facturación se traslada a la fase siguiente y la fase 1 cierra con el ciclo completo hasta la orden de compra.</p>
+        </div>
+        <div class="card">
+          <div class="ico">📊</div>
+          <h3>Calidad de los datos maestros</h3>
+          <p>El plan contempla la carga, no la depuración. Si los tarifarios llegan incompletos o con criterios inconsistentes, el trabajo de normalización consume días que no están presupuestados.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <strong>Supuestos del plan.</strong> Las definiciones funcionales ya acordadas no cambian durante la ejecución · Extremo Norte cumple las dependencias en las fechas indicadas · las validaciones y las pruebas de Extremo Norte se realizan dentro de las fechas programadas · no se incorporan requerimientos nuevos sin ajustar la fecha de término.
+    </div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    Carta Gantt preparada por VIAIN para Extremo Norte Expediciones · Fase 1 · Agosto 2026<br>
+    26 de agosto al 16 de octubre de 2026 · 12 etapas consecutivas · 36 días hábiles
+  </div>
+</footer>
+
+</body></html>

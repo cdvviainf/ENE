@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "ENE — PostgreSQL 17",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "ene_db",
+      "Username": "ene_user",
+      "Password": "ene_pass",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/pgpassfile"
+    }
+  }
+}

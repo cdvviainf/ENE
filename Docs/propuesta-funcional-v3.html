@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extremo Norte Expediciones · Sistema de Gestión de Operaciones — Propuesta de Desarrollo</title>
+<style>
+  :root{
+    --ink:#17222e;
+    --ink-soft:#33475b;
+    --terra:#c65a2e;
+    --terra-dark:#a2461f;
+    --ochre:#e0a458;
+    --teal:#1f8a70;
+    --teal-dark:#146b57;
+    --sand:#faf5ee;
+    --sand-2:#f3ebe0;
+    --card:#ffffff;
+    --line:#e7ddce;
+    --muted:#7c7264;
+    --text:#26313c;
+    /* dataviz validated categorical */
+    --c-blue:#2a78d6;
+    --c-orange:#eb6834;
+    --c-aqua:#1baf7a;
+    --c-yellow:#eda100;
+    --c-magenta:#e87ba4;
+    --plum:#6b4a7a;
+    --shadow:0 1px 2px rgba(23,34,46,.06),0 12px 30px rgba(23,34,46,.08);
+    --shadow-sm:0 1px 2px rgba(23,34,46,.05),0 4px 12px rgba(23,34,46,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--text);
+    background:var(--sand);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{color:var(--ink);line-height:1.2;letter-spacing:-.01em}
+  a{color:var(--terra);text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* NAV */
+  nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(250,245,238,.88);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{display:flex;align-items:center;gap:18px;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink);font-size:15px;white-space:nowrap}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--terra);box-shadow:0 0 0 3px rgba(198,90,46,.18)}
+  .nav-links{display:flex;gap:2px;margin-left:auto;overflow-x:auto}
+  .nav-links a{
+    color:var(--ink-soft);font-size:12.5px;font-weight:500;
+    padding:6px 9px;border-radius:8px;white-space:nowrap;transition:.15s;
+  }
+  .nav-links a:hover{background:var(--sand-2);color:var(--ink)}
+  @media(max-width:980px){.nav-links{display:none}}
+
+  /* HERO */
+  header.hero{
+    background:
+      radial-gradient(1200px 500px at 85% -10%, rgba(224,164,88,.28), transparent 60%),
+      radial-gradient(900px 600px at -5% 110%, rgba(31,138,112,.16), transparent 55%),
+      linear-gradient(160deg,#12202c 0%,#1b2d3d 55%,#243a4d 100%);
+    color:#f6efe4;position:relative;overflow:hidden;
+  }
+  header.hero::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,transparent 60%,rgba(198,90,46,.10));
+    pointer-events:none;
+  }
+  .hero .wrap{padding:70px 24px 78px;position:relative;z-index:2}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ochre);border:1px solid rgba(224,164,88,.4);
+    padding:6px 13px;border-radius:999px;margin-bottom:22px;
+  }
+  .hero h1{color:#fff;font-size:clamp(30px,5vw,50px);max-width:17ch;margin-bottom:18px}
+  .hero .lead{font-size:clamp(16px,2vw,20px);color:#d4cdbf;max-width:62ch}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:26px;margin-top:38px;padding-top:26px;border-top:1px solid rgba(255,255,255,.13)}
+  .hero-meta div span{display:block;font-size:12px;color:#9fb0bd;text-transform:uppercase;letter-spacing:.06em}
+  .hero-meta div strong{display:block;color:#fff;font-size:15.5px;font-weight:600;margin-top:3px}
+
+  /* SECTIONS */
+  section{padding:64px 0;border-bottom:1px solid var(--line)}
+  section:nth-of-type(even){background:var(--sand-2)}
+  .kicker{
+    font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--terra);margin-bottom:12px;display:flex;align-items:center;gap:9px;
+  }
+  .kicker::before{content:"";width:26px;height:2px;background:var(--terra);border-radius:2px}
+  section h2{font-size:clamp(24px,3.4vw,34px);margin-bottom:16px;max-width:24ch}
+  .section-lead{font-size:17px;color:var(--ink-soft);max-width:72ch;margin-bottom:30px}
+
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+
+  /* GRID + CARDS */
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:860px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .split{display:grid;grid-template-columns:1.15fr .85fr;gap:24px}
+  @media(max-width:860px){.split{grid-template-columns:1fr}}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px;box-shadow:var(--shadow-sm);
+  }
+  .card h3{font-size:17px;margin-bottom:7px}
+  .card p{font-size:14.5px;color:var(--ink-soft)}
+  .card .ico{
+    width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+    font-size:20px;margin-bottom:14px;background:var(--sand-2);
+  }
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--sand-2);color:var(--ink-soft);margin:3px 5px 0 0;border:1px solid var(--line)}
+
+  /* FLOW */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:860px){.flow{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.flow{grid-template-columns:1fr}}
+  .step{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 16px;
+    box-shadow:var(--shadow-sm);position:relative;
+  }
+  .step .num{
+    width:30px;height:30px;border-radius:9px;background:var(--ink);color:#fff;
+    font-weight:700;font-size:14px;display:grid;place-items:center;margin-bottom:12px;
+  }
+  .step:nth-child(1) .num{background:var(--terra)}
+  .step:nth-child(2) .num{background:var(--ochre);color:var(--ink)}
+  .step:nth-child(3) .num{background:var(--teal)}
+  .step:nth-child(4) .num{background:var(--c-blue)}
+  .step:nth-child(5) .num{background:var(--terra-dark)}
+  .step:nth-child(6) .num{background:var(--ink)}
+  .step:nth-child(7) .num{background:var(--teal-dark)}
+  .step:nth-child(8) .num{background:var(--muted)}
+  .step h4{font-size:15px;margin-bottom:6px}
+  .step p{font-size:13px;color:var(--muted)}
+
+  /* MOCKUP */
+  .mock{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .mock-bar{display:flex;align-items:center;gap:7px;padding:11px 15px;background:var(--sand-2);border-bottom:1px solid var(--line)}
+  .mock-bar .d{width:11px;height:11px;border-radius:50%}
+  .mock-bar .d1{background:#e57373}.mock-bar .d2{background:#f0b64d}.mock-bar .d3{background:#7cc47c}
+  .mock-bar .title{margin-left:8px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+  .mock-body{padding:20px}
+
+  /* itinerary */
+  .itin-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-bottom:16px;border-bottom:1px dashed var(--line);margin-bottom:8px}
+  .itin-head .kv span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .itin-head .kv strong{font-size:14.5px;color:var(--ink)}
+  .day{padding:14px 0;border-bottom:1px solid var(--line)}
+  .day:last-child{border-bottom:0}
+  .day-title{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink);font-size:14.5px;margin-bottom:8px}
+  .day-badge{background:var(--terra);color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px}
+  .slot{display:flex;gap:12px;padding:6px 0 6px 4px}
+  .slot .ampm{flex:0 0 42px;font-size:11px;font-weight:700;color:var(--teal);padding-top:2px}
+  .slot .desc{font-size:13.5px;color:var(--ink-soft)}
+  .slot .desc .inc{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .price-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px;padding-top:14px;border-top:2px solid var(--ink)}
+  .price-row span{font-size:13px;color:var(--muted)}
+  .price-row strong{font-size:22px;color:var(--ink);display:block;font-variant-numeric:tabular-nums}
+  .price-row .pp{font-size:12.5px;color:var(--muted);font-weight:500}
+
+  /* tables */
+  table.cost{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.cost th,table.cost td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  table.cost th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  table.cost td.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.cost tr:last-child td{border-bottom:0}
+  table.cost tr.tot td{border-top:2px solid var(--ink);border-bottom:0;font-weight:700;color:var(--ink);padding-top:11px}
+  .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.g{background:rgba(31,138,112,.12);color:var(--teal-dark)}
+  .pill.o{background:rgba(224,164,88,.20);color:#8a5806}
+  .pill.b{background:rgba(42,120,214,.12);color:#1a5599}
+  .pill.r{background:rgba(198,90,46,.14);color:var(--terra-dark)}
+  .pill.n{background:var(--sand-2);color:var(--muted);border:1px solid var(--line)}
+
+  .margin-box{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+  .margin-box .mb{flex:1;min-width:110px;background:var(--sand-2);border:1px solid var(--line);border-radius:11px;padding:13px 15px}
+  .margin-box .mb span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .margin-box .mb strong{display:block;font-size:19px;margin-top:3px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .margin-box .mb.hi{background:rgba(31,138,112,.10);border-color:rgba(31,138,112,.3)}
+  .margin-box .mb.hi strong{color:var(--teal-dark)}
+  .margin-box .mb small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+
+  /* KPI + charts */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:16px 17px;box-shadow:var(--shadow-sm)}
+  .kpi .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .kpi .val{font-size:26px;font-weight:700;color:var(--ink);margin-top:5px;font-variant-numeric:tabular-nums}
+  .kpi .delta{font-size:12.5px;font-weight:600;margin-top:3px;color:var(--muted)}
+  .kpi .delta.up{color:#006300}
+  .chart-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)}
+  .chart-card h4{font-size:14.5px;margin-bottom:2px}
+  .chart-card .sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+  .bar-row .name{flex:0 0 128px;font-size:13px;color:var(--ink-soft)}
+  .bar-track{flex:1;background:var(--sand-2);border-radius:6px;height:16px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:6px}
+  .bar-row .amt{flex:0 0 74px;text-align:right;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px}
+  .legend span{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft)}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  /* data model */
+  .er{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:900px){.er{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.er{grid-template-columns:1fr}}
+  .entity{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow-sm)}
+  .entity .eh{background:var(--ink);color:#fff;font-weight:700;font-size:13px;padding:9px 12px;display:flex;align-items:center;gap:8px}
+  .entity.core .eh{background:var(--terra)}
+  .entity ul{list-style:none;padding:10px 12px}
+  .entity li{font-size:12.5px;color:var(--ink-soft);padding:3px 0;display:flex;gap:7px}
+  .entity li::before{content:"•";color:var(--ochre)}
+  .entity li.key::before{content:"◆";color:var(--terra)}
+
+  /* benefits */
+  .ben{display:flex;gap:14px;align-items:flex-start}
+  .ben .b-ico{flex:0 0 40px;height:40px;border-radius:10px;background:var(--sand-2);display:grid;place-items:center;font-size:19px}
+
+  /* roadmap */
+  .road{position:relative}
+  .phase{display:grid;grid-template-columns:170px 1fr;gap:20px;padding:18px 0;border-bottom:1px solid var(--line)}
+  @media(max-width:640px){.phase{grid-template-columns:1fr;gap:6px}}
+  .phase:last-child{border-bottom:0}
+  .phase .pl{font-weight:700;color:var(--ink)}
+  .phase .pl span{display:block;font-size:12px;font-weight:600;color:var(--terra);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+  .phase .pd p{font-size:14px;color:var(--ink-soft)}
+
+  /* badges de fase */
+  .fase{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;padding:3px 10px;
+    border-radius:999px;letter-spacing:.05em;text-transform:uppercase;margin-left:auto;white-space:nowrap}
+  .fase.f1{background:rgba(31,138,112,.14);color:var(--teal-dark)}
+  .fase.f1p{background:rgba(224,164,88,.24);color:#8a5806}
+  .fase.f2{background:var(--sand-2);color:var(--muted);border:1px solid var(--line)}
+
+  /* etapas fase 1 */
+  .ph{display:grid;grid-template-columns:44px 1fr 150px;gap:16px;align-items:start;
+    padding:14px 0;border-bottom:1px solid var(--line)}
+  @media(max-width:640px){.ph{grid-template-columns:36px 1fr;gap:12px}.ph .ph-d{grid-column:2}}
+  .ph:last-child{border-bottom:0}
+  .ph-n{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+    font-size:13px;font-weight:700;color:#fff;background:var(--ink)}
+  .ph-t strong{display:block;font-size:15px;color:var(--ink)}
+  .ph-t span{display:block;font-size:13.5px;color:var(--ink-soft);margin-top:2px}
+  .ph-d{text-align:right;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}
+  @media(max-width:640px){.ph-d{text-align:left}}
+  .ph-d b{display:block;color:var(--ink);font-size:13px}
+
+  .f2list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 22px;margin-top:6px}
+  @media(max-width:640px){.f2list{grid-template-columns:1fr}}
+  .f2list div{font-size:13.5px;color:var(--ink-soft);padding:4px 0 4px 18px;position:relative}
+  .f2list div::before{content:"";position:absolute;left:0;top:12px;width:8px;height:1.5px;background:var(--muted);border-radius:2px}
+
+  /* alcance */
+  table.repl{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.repl th,table.repl td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  table.repl th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  table.repl tr:last-child td{border-bottom:0}
+  table.repl td.arrow{color:var(--terra);font-weight:700;text-align:center;width:36px}
+  table.repl td.now{color:var(--muted)}
+  table.repl td.next{color:var(--ink);font-weight:600}
+  .excl{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:860px){.excl{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.excl{grid-template-columns:1fr}}
+  .ex{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .ex h4{font-size:14.5px;margin-bottom:10px;padding-bottom:9px;border-bottom:2px solid var(--sand-2)}
+  .ex ul{list-style:none}
+  .ex li{font-size:13px;color:var(--ink-soft);padding:4px 0 4px 16px;position:relative;line-height:1.5}
+  .ex li::before{content:"";position:absolute;left:2px;top:12px;width:7px;height:1.5px;background:var(--terra);border-radius:2px}
+  .pend{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:640px){.pend{grid-template-columns:1fr}}
+  .pd-item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ochre);border-radius:9px;padding:13px 16px}
+  .pd-item strong{display:block;font-size:13.5px;color:var(--ink);margin-bottom:2px}
+  .pd-item span{font-size:12.5px;color:var(--muted)}
+
+  /* CTA */
+  .cta{background:linear-gradient(160deg,#12202c,#243a4d);color:#f6efe4;border-radius:18px;padding:44px 40px;text-align:center;box-shadow:var(--shadow)}
+  .cta h2{color:#fff;margin:0 auto 12px;max-width:26ch}
+  .cta p{color:#cfc7b9;max-width:58ch;margin:0 auto 22px;font-size:16px}
+
+  footer{padding:34px 0;text-align:center;color:var(--muted);font-size:13px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:14px;font-style:italic}
+  .callout{background:rgba(31,138,112,.08);border:1px solid rgba(31,138,112,.25);border-left:4px solid var(--teal);border-radius:10px;padding:16px 18px;font-size:14.5px;color:var(--ink-soft)}
+  .callout.warn{background:rgba(224,164,88,.12);border-color:rgba(198,90,46,.28);border-left-color:var(--terra)}
+  .callout strong{color:var(--ink)}
+  .api-flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0 4px}
+  .api-node{background:var(--sand-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink)}
+  .api-arrow{color:var(--terra);font-weight:700;font-size:18px}
+
+  /* estados OT */
+  .states{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+  .st{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:600;color:var(--ink-soft);box-shadow:var(--shadow-sm)}
+  .st.hot{border-color:rgba(198,90,46,.4);background:rgba(198,90,46,.07);color:var(--terra-dark)}
+  .st.wait{border-color:rgba(224,164,88,.5);background:rgba(224,164,88,.14);color:#8a5806}
+  .st.done{border-color:rgba(31,138,112,.35);background:rgba(31,138,112,.08);color:var(--teal-dark)}
+  .st-arrow{color:var(--muted);font-weight:700}
+
+  /* dos lineas de negocio */
+  .lines{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:720px){.lines{grid-template-columns:1fr}}
+  .line-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)}
+  .line-card .lh{padding:14px 20px;font-weight:700;font-size:15.5px;color:#fff;display:flex;align-items:center;gap:9px}
+  .line-card.recep .lh{background:linear-gradient(120deg,#1b2d3d,#2a4a5e)}
+  .line-card.event .lh{background:linear-gradient(120deg,#a2461f,#c65a2e)}
+  .line-card .lb{padding:18px 20px}
+  .line-card dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px}
+  .line-card dt{color:var(--muted);white-space:nowrap}
+  .line-card dd{color:var(--ink-soft);font-weight:500}
+
+  /* radar */
+  table.radar{width:100%;border-collapse:collapse;font-size:13px}
+  table.radar th,table.radar td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  table.radar th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  table.radar tr:last-child td{border-bottom:0}
+  table.radar td.ot{font-weight:700;color:var(--ink);white-space:nowrap}
+  table.radar td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* tarifa models */
+  .tar{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:820px){.tar{grid-template-columns:1fr}}
+  .tar .t{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .tar .t h4{font-size:14.5px;margin-bottom:4px}
+  .tar .t .d{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .tar .t table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tar .t td{padding:5px 0;border-bottom:1px dashed var(--line);color:var(--ink-soft)}
+  .tar .t td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+  .tar .t tr:last-child td{border-bottom:0}
+
+  /* utilidad decomposition */
+  .decomp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+  @media(max-width:640px){.decomp{grid-template-columns:1fr}}
+  .dc{border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:var(--sand-2)}
+  .dc span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block}
+  .dc strong{display:block;font-size:21px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .dc small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+  .dc.pos strong{color:var(--teal-dark)}
+  .dc.neg strong{color:var(--terra-dark)}
+  .dc.net{background:var(--ink);border-color:var(--ink)}
+  .dc.net span,.dc.net small{color:#9fb0bd}
+  .dc.net strong{color:#fff}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span>Extremo Norte Expediciones</div>
+    <div class="nav-links">
+      <a href="#negocio">El negocio</a>
+      <a href="#flujo">Flujo</a>
+      <a href="#mantenedores">Mantenedores</a>
+      <a href="#cotizacion">Cotización</a>
+      <a href="#ot">La OT</a>
+      <a href="#radar">Dashboard</a>
+      <a href="#compras">Reservas y OC</a>
+      <a href="#operacion">Operación</a>
+      <a href="#facturacion">Cobros y pagos</a>
+      <a href="#comunicaciones">Comunicaciones</a>
+      <a href="#proveedores">Portal proveedores</a>
+      <a href="#gestion">Gestión y accesos</a>
+      <a href="#reportes">Reportería</a>
+      <a href="#etapas">Etapas</a>
+      <a href="#alcance">Alcance</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Propuesta de desarrollo · VIAIN</span>
+    <h1>Sistema de gestión de operaciones</h1>
+    <p class="lead">Una plataforma a la medida de Extremo Norte Expediciones construida alrededor de la Orden de Trabajo: desde la cotización hasta el cierre económico, con los costos, los cobros y la utilidad real de cada operación en un solo lugar.</p>
+    <div class="hero-meta">
+      <div><span>Preparado para</span><strong>Extremo Norte Expediciones</strong></div>
+      <div><span>Áreas de negocio</span><strong>Turismo receptivo · Eventos empresa</strong></div>
+      <div><span>Desarrolla</span><strong>VIAIN</strong></div>
+      <div><span>Documento</span><strong>Presentación funcional · v3</strong></div>
+      <div><span>Fecha</span><strong>Agosto 2026</strong></div>
+      <div><span>Fase 1</span><strong>26 ago – 12 oct 2026</strong></div>
+    </div>
+  </div>
+</header>
+
+<!-- NEGOCIO -->
+<section id="negocio">
+  <div class="wrap">
+    <div class="kicker reveal">Entendimiento del negocio</div>
+    <h2 class="reveal">Sabemos cómo opera Extremo Norte, y ese es el punto de partida</h2>
+    <p class="section-lead reveal">Extremo Norte Expediciones arma y opera experiencias a lo largo del país en dos áreas de negocio distintas. En ambas, un cliente institucional solicita un presupuesto, ese presupuesto se aprueba y se convierte en una <strong>Orden de Trabajo</strong>, y desde ese momento todo gira en torno a ese documento. Hoy esa información vive repartida en correos, carpetas y planillas. El sistema propuesto la ordena en un flujo único.</p>
+
+    <div class="lines reveal" style="margin-bottom:22px">
+      <div class="line-card recep">
+        <div class="lh">🗺️ Turismo receptivo</div>
+        <div class="lb">
+          <dl>
+            <dt>Cliente</dt><dd>Agencias de viajes</dd>
+            <dt>Se cotiza en</dt><dd>Dólares (USD)</dd>
+            <dt>Horizonte</dt><dd>Hasta más de un año de anticipación</dd>
+            <dt>Zonas</dt><dd>Arica, Antofagasta, San Pedro, Valparaíso, Viñas, Santiago</dd>
+            <dt>Proveedores</dt><dd>Hoteles, guías, transporte, restaurantes, viñas, entradas</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="line-card event">
+        <div class="lh">🎪 Eventos empresa</div>
+        <div class="lb">
+          <dl>
+            <dt>Cliente</dt><dd>Empresas</dd>
+            <dt>Se cotiza en</dt><dd>Pesos (CLP)</dd>
+            <dt>Horizonte</dt><dd>Plazos más acotados</dd>
+            <dt>Particularidad</dt><dd>Catálogo corporativo propio y coordinación en terreno</dd>
+            <dt>Gastos</dt><dd>Admite gastos sin OC previa, con rendición posterior</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-bottom:22px">
+      <strong>Una sola plataforma para las dos áreas.</strong> Eventos empresa no es un sistema aparte: se resuelve como un tipo de operación dentro del mismo costeo, la misma OT y las mismas órdenes de compra, con su moneda y su catálogo propios. Lo que cambia son los datos, no el flujo.
+    </div>
+    <div class="grid g3">
+      <div class="card reveal">
+        <div class="ico">🎯</div>
+        <h3>El objetivo</h3>
+        <p>Centralizar el ciclo completo de la operación —cotizar, confirmar, reservar, operar, facturar y medir— en torno a la OT, para reducir el trabajo manual y no perder trazabilidad de ningún costo ni de la utilidad real.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico">⚠️</div>
+        <h3>El dolor actual</h3>
+        <p>La misma información se re-digita en varias planillas. Cotizaciones y costeos rehechos a mano, OT y OC que pueden quedar descuadradas entre sí, y operaciones que se activan porque alguien se acuerda de revisar la bitácora.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico">✅</div>
+        <h3>Lo que gana</h3>
+        <p>Un costeo confiable y reutilizable, avisos automáticos cuando una OT entra en ventana de preparación, coherencia garantizada entre OT, OC y costos, y la utilidad real de cada operación a la vista.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLUJO -->
+<section id="flujo">
+  <div class="wrap">
+    <div class="kicker reveal">El flujo de trabajo</div>
+    <h2 class="reveal">Un solo recorrido, de la primera consulta al cierre económico</h2>
+    <p class="section-lead reveal">El sistema sigue exactamente el proceso real de Extremo Norte. La cotización aprobada se transforma en la OT, la OT puede permanecer en espera durante meses, y al acercarse la fecha se activa la contratación de proveedores. Todo lo que ocurre después queda colgando de esa misma OT.</p>
+    <div class="flow reveal">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>Solicitud</h4>
+        <p>Una agencia o empresa pide un presupuesto. Se registra cliente, ejecutivo, pasajero o grupo, fechas y requerimientos.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Cotización y costeo</h4>
+        <p>Se arma el itinerario, se cargan los costos desde el tarifario y se aplica el margen. Una sola cifra de venta.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>Aprobación → OT</h4>
+        <p>El cliente aprueba y la cotización <strong>se convierte en la Orden de Trabajo</strong>, congelando costos, margen y valor de venta.</p>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <h4>Espera</h4>
+        <p>La OT queda vigente a la espera de su fecha. El radar la vigila y avisa cuando entra en ventana de preparación.</p>
+      </div>
+      <div class="step">
+        <div class="num">5</div>
+        <h4>Reservas y OC</h4>
+        <p>Se contacta y confirma a cada proveedor. Cada confirmación genera una OC asociada a la OT, con su costo real.</p>
+      </div>
+      <div class="step">
+        <div class="num">6</div>
+        <h4>Operación</h4>
+        <p>Ficha operativa, reconfirmaciones, ejecución del servicio y registro de incidencias y gastos adicionales.</p>
+      </div>
+      <div class="step">
+        <div class="num">7</div>
+        <h4>Facturación y cobros</h4>
+        <p>Emisión y envío del documento tributario, abonos a cuenta corriente, pagos a proveedores y estado de cada saldo.</p>
+      </div>
+      <div class="step">
+        <div class="num">8</div>
+        <h4>Cierre y reportes</h4>
+        <p>Costo real consolidado, utilidad de la operación y consolidación en los indicadores de gestión.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MANTENEDORES -->
+<section id="mantenedores">
+  <div class="wrap">
+    <div class="kicker reveal">Mantenedores · Datos maestros</div>
+    <h2 class="reveal">La base sobre la que se construye cada operación</h2>
+    <p class="section-lead reveal">Antes de cotizar, el sistema se apoya en datos maestros que se cargan una vez y se reutilizan siempre. Son la fuente única de clientes, proveedores, servicios y tarifas — y lo que hace que armar un costeo sea rápido y consistente.</p>
+    <div class="grid g3">
+      <div class="card reveal">
+        <div class="ico">🏢</div>
+        <h3>Clientes</h3>
+        <p>Agencias de viajes (receptivo) y empresas (eventos), con sus ejecutivos de contacto, condiciones comerciales y moneda habitual de trabajo.</p>
+        <div><span class="tag">Agencia</span><span class="tag">Empresa</span><span class="tag">Ejecutivos</span></div>
+      </div>
+      <div class="card reveal">
+        <div class="ico">👥</div>
+        <h3>Pasajeros y grupos</h3>
+        <p>Ficha del pasajero o grupo identificada por apellido, con nacionalidad, origen, idioma, edades, restricciones alimentarias y requerimientos especiales.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico">🏨</div>
+        <h3>Proveedores</h3>
+        <p>Razón social, RUT, nombre comercial y alias, contactos, cuentas bancarias, condiciones de pago y políticas de cancelación. Clasificados por tipo de servicio.</p>
+        <div><span class="tag">Hotel</span><span class="tag">Guía</span><span class="tag">Transporte</span><span class="tag">Viña</span><span class="tag">Restaurant</span></div>
+      </div>
+      <div class="card reveal">
+        <div class="ico">🧭</div>
+        <h3>Servicios</h3>
+        <p>Catálogo de servicios con su zona, duración, tipo de proveedor, modelo de tarifa y <strong>margen sugerido por defecto</strong>. Cada servicio guarda su <strong>descripción en español e inglés</strong>. Es el catálogo de <strong>costos</strong>: el precio de venta se calcula al cotizar.</p>
+        <div><span class="tag">Traslado</span><span class="tag">City Tour</span><span class="tag">Viñas</span><span class="tag">Alojamiento</span><span class="tag">ES / EN</span></div>
+      </div>
+      <div class="card reveal">
+        <div class="ico">💲</div>
+        <h3>Tarifarios</h3>
+        <p>Valores de costo por proveedor y servicio, con tramos de pasajeros, tipo de acomodación, moneda y vigencia. Alimentan automáticamente el costeo.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico">🗺️</div>
+        <h3>Zonas</h3>
+        <p>Territorios donde se opera, para agrupar servicios, proveedores y reportes.</p>
+        <div><span class="tag">Arica</span><span class="tag">Antofagasta</span><span class="tag">San Pedro</span><span class="tag">Valparaíso</span><span class="tag">Santiago</span></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin:34px 0 8px">Los modelos de tarifa que reconoce el sistema</h3>
+    <p class="section-lead" style="margin-bottom:18px">El costo de un servicio no siempre se calcula igual. El tarifario contempla las distintas lógicas con las que realmente se cotiza.</p>
+    <div class="tar reveal">
+      <div class="t">
+        <h4>Por tramo de pasajeros</h4>
+        <div class="d">El valor del servicio completo cambia según el tamaño del grupo.</div>
+        <table>
+          <tr><td>Traslado · 1 a 2 pax</td><td>$95.000</td></tr>
+          <tr><td>Traslado · 3 a 5 pax</td><td>$130.000</td></tr>
+          <tr><td>Traslado · 6 o más pax</td><td>$185.000</td></tr>
+        </table>
+      </div>
+      <div class="t">
+        <h4>Por acomodación</h4>
+        <div class="d">Base habitación doble. Si se piden habitaciones separadas, aplica suplemento single.</div>
+        <table>
+          <tr><td>Habitación · 1 pax</td><td>$100.000</td></tr>
+          <tr><td>Habitación · 2 pax</td><td>$140.000</td></tr>
+          <tr><td>Suplemento single</td><td>$60.000</td></tr>
+        </table>
+      </div>
+      <div class="t">
+        <h4>Servicio a medida</h4>
+        <div class="d">No está en el tarifario. Se ingresa como «Otro» con descripción y valor al confeccionar la cotización.</div>
+        <table>
+          <tr><td>Almuerzo Restaurant Z</td><td>$60.000</td></tr>
+          <tr><td>Actividad especial</td><td>a definir</td></tr>
+          <tr><td>Servicio adicional</td><td>a definir</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="callout reveal" style="margin-top:20px">
+      <strong>El tarifario ayuda, la OT manda.</strong> El tarifario existe para traer el costo rápido y sin errores al momento de cotizar. Una vez cargado, <strong>el costo queda plasmado en la OT</strong> y no se altera aunque el maestro de tarifas cambie después. La OT conserva siempre el costo con que fue cotizada.
+    </div>
+  </div>
+</section>
+
+<!-- COTIZACION -->
+<section id="cotizacion">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 1 · Cotización y costeo<span class="fase f1">Fase 1</span></div>
+    <h2 class="reveal">El itinerario a medida, costeado línea por línea</h2>
+    <p class="section-lead reveal">Cada solicitud registra el <strong>cliente</strong> (agencia o empresa), el <strong>ejecutivo</strong> que la pide y el <strong>pasajero o grupo</strong> que viaja. Sobre eso se arma el itinerario día por día con bloques AM y PM. Cada línea trae su costo desde el tarifario según el tramo que corresponda, o se ingresa a medida. El valor de venta se calcula sobre el total.</p>
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Cotización COT-2026-0142 · en negociación · v2</span></div>
+        <div class="mock-body">
+          <div class="itin-head">
+            <div class="kv"><span>Cliente</span><strong>Agencia Andes Travel</strong></div>
+            <div class="kv"><span>Ejecutivo</span><strong>C. Fuentes</strong></div>
+            <div class="kv"><span>Grupo</span><strong>Müller · 4 pax</strong></div>
+            <div class="kv"><span>Zona</span><strong>Zona Central</strong></div>
+          </div>
+          <div class="day">
+            <div class="day-title"><span class="day-badge">Día 1</span> Llegada de los pasajeros</div>
+            <div class="slot"><div class="ampm">AM</div><div class="desc">Retiro desde Aeropuerto SCL y traslado al Hotel W</div></div>
+            <div class="slot"><div class="ampm">PM</div><div class="desc">Descanso <span class="inc">Sin servicios programados</span></div></div>
+          </div>
+          <div class="day">
+            <div class="day-title"><span class="day-badge">Día 2</span> Viñas Zona Central</div>
+            <div class="slot"><div class="ampm">AM</div><div class="desc">Traslado Hotel W → Viña Santa Elena<span class="inc">Incluye acceso, tour interno y degustación estándar</span></div></div>
+            <div class="slot"><div class="ampm">PM</div><div class="desc">Almuerzo en Restaurant Z y traslado de regreso al hotel<span class="inc">Servicio a medida — valor ingresado manualmente</span></div></div>
+          </div>
+          <div class="price-row">
+            <span>Valor de la cotización<br>Grupo de 4 pasajeros</span>
+            <div style="text-align:right"><strong>USD 4.500</strong><span class="pp">USD 1.125 por pasajero</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Cómo se calcula la venta</h3>
+          <p>Cada línea lleva su costo y su porcentaje de margen. El valor de venta de la OT es la suma de esas líneas valorizadas. El margen puede aplicarse <strong>igual para toda la operación o distinto para cada servicio</strong>, según convenga a la negociación.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Servicios estándar y a medida</h3>
+          <p>Las líneas estándar traen su costo del tarifario según el tramo de pasajeros o la acomodación. Las que no están en catálogo se ingresan como <strong>«Otro»</strong>, con descripción y valor digitados al armar la cotización.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Versiones de la negociación</h3>
+          <p>Cada cambio solicitado por el cliente genera una nueva versión numerada, conservando el historial de qué cambió y quién lo pidió. Al aprobar, queda claro cuál fue la versión aceptada.</p>
+        </div>
+        <div class="card">
+          <h3>Documento en español o inglés</h3>
+          <p>El sistema <strong>genera el PDF de la cotización</strong> con el formato de Extremo Norte, en el idioma que corresponda al cliente. Buena parte de las agencias receptivas son extranjeras, por lo que el catálogo, los descriptivos y el documento final contemplan ambos idiomas.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock reveal" style="margin-top:24px">
+      <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Costeo COT-2026-0142 · v2</span></div>
+      <div class="mock-body" style="overflow-x:auto">
+        <table class="cost">
+          <thead><tr><th>Línea de servicio</th><th>Proveedor</th><th>Tarifa</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">Venta</th></tr></thead>
+          <tbody>
+            <tr><td>Transporte 4 días</td><td>Transportes Cordillera</td><td><span class="pill o">Tramo 3–5</span></td><td class="num">$780.000</td><td class="num">50%</td><td class="num">$1.170.000</td></tr>
+            <tr><td>Guía bilingüe 4 días</td><td>M. Rojas</td><td><span class="pill o">Tramo 3–5</span></td><td class="num">$640.000</td><td class="num">60%</td><td class="num">$1.024.000</td></tr>
+            <tr><td>Hotel W · 3 noches · 2 dobles</td><td>Hotel W</td><td><span class="pill b">Acomodación</span></td><td class="num">$840.000</td><td class="num">40%</td><td class="num">$1.176.000</td></tr>
+            <tr><td>Entradas y visitas</td><td>Viña Santa Elena</td><td><span class="pill b">Por pasajero</span></td><td class="num">$320.000</td><td class="num">60%</td><td class="num">$512.000</td></tr>
+            <tr><td>Alimentación programada</td><td>Varios</td><td><span class="pill b">Por pasajero</span></td><td class="num">$360.000</td><td class="num">50%</td><td class="num">$540.000</td></tr>
+            <tr><td>Almuerzo Restaurant Z</td><td>Restaurant Z</td><td><span class="pill n">Otro</span></td><td class="num">$60.000</td><td class="num">30%</td><td class="num">$78.000</td></tr>
+            <tr class="tot"><td colspan="3">Totales de la OT</td><td class="num">$3.000.000</td><td class="num">50% prom.</td><td class="num">$4.500.000</td></tr>
+          </tbody>
+        </table>
+        <div class="margin-box">
+          <div class="mb"><span>Costo teórico</span><strong>$3.000.000</strong></div>
+          <div class="mb"><span>Margen</span><strong>$1.500.000</strong><small>50% promedio ponderado</small></div>
+          <div class="mb hi"><span>Venta</span><strong>USD 4.500</strong><small>$4.500.000 · TC 1.000</small></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g3 reveal" style="margin-top:20px">
+      <div class="card">
+        <div class="ico">📐</div>
+        <h3>El margen es un porcentaje sobre el costo</h3>
+        <p>Cada línea se valoriza como costo × (1 + margen). En el ejemplo, el total de $3.000.000 de costo produce $4.500.000 de venta, que al tipo de cambio de la cotización equivale a <strong>USD 4.500</strong> para el grupo.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🎚️</div>
+        <h3>Margen global o por servicio</h3>
+        <p>Se puede aplicar un mismo porcentaje a toda la operación, o diferenciarlo: menos margen en lo que es traspaso puro como el alojamiento, y más en aquello donde Extremo Norte agrega valor propio, como guías y visitas.</p>
+      </div>
+      <div class="card">
+        <div class="ico">👥</div>
+        <h3>Varias bases de pasajeros</h3>
+        <p>Como las tarifas funcionan por tramo, el costo por persona baja al crecer el grupo. El sistema calcula en paralelo distintas bases —2, 4 o 6 pasajeros— para que la agencia elija sobre valores reales.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin:38px 0 8px">Dos formas de presentar la cotización</h3>
+    <p class="section-lead" style="margin-bottom:18px">El mismo costeo puede salir hacia el cliente como una cifra única o desglosado servicio por servicio. Se elige al generar el documento, sin rehacer el trabajo.</p>
+    <div class="grid g2" style="gap:20px">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Modalidad A · Valor total</span></div>
+        <div class="mock-body">
+          <div class="itin-head" style="margin-bottom:14px">
+            <div class="kv"><span>Programa</span><strong>Zona Central · 4 días</strong></div>
+            <div class="kv"><span>Grupo</span><strong>Müller · 4 pax</strong></div>
+          </div>
+          <p style="font-size:13.5px;color:var(--ink-soft)">Incluye traslados, alojamiento, guía bilingüe, entradas, visitas y alimentación según el itinerario adjunto.</p>
+          <div class="price-row">
+            <span>Valor total del programa</span>
+            <div style="text-align:right"><strong>USD 4.500</strong><span class="pp">USD 1.125 por pasajero</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Modalidad B · Desglosado por ítem</span></div>
+        <div class="mock-body">
+          <table class="cost">
+            <tbody>
+              <tr><td>Traslados y transporte</td><td class="num">USD 1.170</td></tr>
+              <tr><td>Guía bilingüe · 4 días</td><td class="num">USD 1.024</td></tr>
+              <tr><td>Alojamiento · 3 noches</td><td class="num">USD 1.176</td></tr>
+              <tr><td>Entradas y visitas</td><td class="num">USD 512</td></tr>
+              <tr><td>Alimentación programada</td><td class="num">USD 540</td></tr>
+              <tr><td>Almuerzo Restaurant Z</td><td class="num">USD 78</td></tr>
+              <tr class="tot"><td>Valor total del programa</td><td class="num">USD 4.500</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="callout reveal" style="margin-top:18px">
+      <strong>El desglose facilita la negociación.</strong> Cuando la agencia pide sacar o cambiar un servicio, el valor a descontar está calculado y no hay que rehacer el costeo completo. El margen de cada línea queda a la vista internamente, aunque el cliente vea solo el precio.
+    </div>
+  </div>
+</section>
+
+<!-- OT -->
+<section id="ot">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 2 · Orden de Trabajo<span class="fase f1">Fase 1</span></div>
+    <h2 class="reveal">La OT es el corazón del sistema</h2>
+    <p class="section-lead reveal">Cuando el cliente aprueba, la cotización <strong>se convierte</strong> en la Orden de Trabajo. No se copia ni se vuelve a escribir: es el mismo documento que cambia de estado y congela su línea base. Desde ese momento y hasta el cierre económico, todo cuelga de la OT — las reservas, las órdenes de compra, los costos reales, las facturas, los abonos, las incidencias y la utilidad.</p>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">OT-2026-0142 · v1 · Grupo Müller</span></div>
+        <div class="mock-body">
+          <div class="itin-head">
+            <div class="kv"><span>Estado</span><strong>En espera</strong></div>
+            <div class="kv"><span>Fecha de operación</span><strong>14 oct 2027</strong></div>
+            <div class="kv"><span>Cliente</span><strong>Andes Travel</strong></div>
+            <div class="kv"><span>Grupo</span><strong>Müller · 4 pax</strong></div>
+          </div>
+          <table class="cost" style="margin-top:12px">
+            <tbody>
+              <tr><td>Cotización de origen</td><td class="num">COT-2026-0142 v2</td></tr>
+              <tr><td>Costo teórico congelado</td><td class="num">$3.000.000</td></tr>
+              <tr><td>Margen aplicado</td><td class="num">50% promedio</td></tr>
+              <tr><td>Valor de venta</td><td class="num">USD 4.500</td></tr>
+              <tr><td>Tipo de cambio de cotización</td><td class="num">1.000</td></tr>
+              <tr><td>Órdenes de compra emitidas</td><td class="num">0 de 6</td></tr>
+              <tr><td>Abonos recibidos</td><td class="num">USD 0</td></tr>
+            </tbody>
+          </table>
+          <div class="states" style="margin-top:16px">
+            <span class="st done">Aprobada</span><span class="st-arrow">→</span>
+            <span class="st wait">En espera</span><span class="st-arrow">→</span>
+            <span class="st">Preparación</span><span class="st-arrow">→</span>
+            <span class="st">Operación</span><span class="st-arrow">→</span>
+            <span class="st">Cierre</span>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Línea base congelada</h3>
+          <p>Al aprobarse quedan fijos el programa, el costo teórico de cada línea, el margen, el valor de venta y el tipo de cambio de referencia. Es el compromiso contra el cual se medirá todo lo que venga después.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Identificación y versiones</h3>
+          <p>Número de OT estable más número de versión, con el <strong>apellido del pasajero o grupo</strong> siempre visible como identificador de búsqueda. Las modificaciones generan nueva versión sin borrar las anteriores.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Trazabilidad completa</h3>
+          <p>Desde la OT se llega a la cotización que la originó, a cada OC, a cada proveedor, a la factura, a los abonos y a cada gasto registrado en terreno. Y en sentido inverso también.</p>
+        </div>
+        <div class="card">
+          <h3>Espacio de adjuntos</h3>
+          <p>Cada OT tiene su propio repositorio de documentos: cotizaciones recibidas de proveedores, respaldos de reserva, agreements, mapas, brochures, facturas de proveedor, boletas de gastos y comprobantes. Reemplaza a la carpeta de Drive.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RADAR -->
+<section id="radar">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 3 · Dashboard (Radar)<span class="fase f1p">Fase 1 · parcial</span></div>
+    <h2 class="reveal">Que ninguna OT se despierte tarde</h2>
+    <p class="section-lead reveal">En turismo receptivo una OT puede quedar aprobada y en espera durante más de un año. Hoy la fase operativa se activa cuando alguien recuerda revisar la bitácora. El dashboard convierte esa memoria en un tablero: cada OT aparece cuando entra en su ventana de preparación, con semáforo por estado y foco en lo que requiere gestión.</p>
+    <div class="callout warn reveal" style="margin-bottom:22px">
+      <strong>Qué entra en la fase 1.</strong> El tablero se construye con <strong>ventanas de aviso fijas</strong> por tipo de servicio, junto con la reportería (etapa 10). Las ventanas configurables por usuario y los avisos programados por correo quedan para la fase 2.
+    </div>
+
+    <div class="kpis reveal">
+      <div class="kpi"><div class="lbl">OT en espera</div><div class="val">54</div><div class="delta">$412M comprometidos</div></div>
+      <div class="kpi"><div class="lbl">En ventana</div><div class="val">9</div><div class="delta">requieren gestión ahora</div></div>
+      <div class="kpi"><div class="lbl">Sin OC emitida</div><div class="val">4</div><div class="delta">con fecha próxima</div></div>
+      <div class="kpi"><div class="lbl">Vencimientos</div><div class="val">6</div><div class="delta">releases y abonos en 15 días</div></div>
+    </div>
+
+    <div class="mock reveal">
+      <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Radar de OT · próximas operaciones</span></div>
+      <div class="mock-body" style="overflow-x:auto">
+        <table class="radar">
+          <thead><tr><th>OT</th><th>Grupo</th><th>Operación</th><th>Faltan</th><th>Estado</th><th>Aviso</th><th class="num">Venta</th></tr></thead>
+          <tbody>
+            <tr><td class="ot">OT-2026-0098</td><td>Bianchi · 6 pax</td><td>12 sep 2026</td><td>25 días</td><td><span class="pill b">Preparación</span></td><td><span class="pill r">Release hotel en 4 días</span></td><td class="num">USD 8.200</td></tr>
+            <tr><td class="ot">OT-2026-0104</td><td>Nakamura · 2 pax</td><td>28 sep 2026</td><td>41 días</td><td><span class="pill b">Preparación</span></td><td><span class="pill r">Sin OC emitida</span></td><td class="num">USD 3.150</td></tr>
+            <tr><td class="ot">OT-2026-0111</td><td>Congreso Minero</td><td>03 oct 2026</td><td>46 días</td><td><span class="pill b">Preparación</span></td><td><span class="pill o">Abono cliente pendiente</span></td><td class="num">$14.800.000</td></tr>
+            <tr><td class="ot">OT-2026-0117</td><td>Lefèvre · 4 pax</td><td>19 oct 2026</td><td>62 días</td><td><span class="pill o">Entra en ventana</span></td><td><span class="pill o">Iniciar contacto proveedores</span></td><td class="num">USD 5.400</td></tr>
+            <tr><td class="ot">OT-2026-0142</td><td>Müller · 4 pax</td><td>14 oct 2027</td><td>422 días</td><td><span class="pill n">En espera</span></td><td><span class="pill g">Sin acción requerida</span></td><td class="num">USD 4.500</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid g3 reveal" style="margin-top:20px">
+      <div class="card">
+        <div class="ico">⏱️</div>
+        <h3>Ventanas de aviso <span class="fase f1" style="margin-left:6px">Fase 1</span></h3>
+        <p>Cada tipo de servicio define con cuánta antelación debe gestionarse: hoteles con dos meses, guías con tres semanas, entradas con quince días. En la fase 1 esas ventanas son fijas; en la fase 2 se configuran por usuario.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔔</div>
+        <h3>Avisos programados <span class="fase f2" style="margin-left:6px">Fase 2</span></h3>
+        <p>Notificaciones automáticas al responsable de la OT cuando entra en ventana, cuando se acerca un release o una fecha límite de cancelación, y cuando falta un abono para sostener una reserva.</p>
+      </div>
+      <div class="card">
+        <div class="ico">📅</div>
+        <h3>Carga futura a la vista</h3>
+        <p>Vista de la cartera de OT por mes de operación, con la venta comprometida. Permite anticipar meses cargados y planificar capacidad de equipo y proveedores.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESERVAS Y OC -->
+<section id="compras">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 4 · Reservas y Órdenes de Compra<span class="fase f1p">Fase 1 · parcial</span></div>
+    <h2 class="reveal">Contratar a cada proveedor, con el costo real asociado a la OT</h2>
+    <p class="section-lead reveal">Al acercarse la fecha se contacta a los proveedores: restaurantes, hoteles, guías, viñas, transportes. Cada servicio se reserva y confirma individualmente, y esas confirmaciones generan <strong>una o más órdenes de compra asociadas a la OT</strong>. La OC es donde queda registrado el costo real de cada línea.</p>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">OT-2026-0098 · Reservas y OC</span></div>
+        <div class="mock-body" style="overflow-x:auto">
+          <table class="cost">
+            <thead><tr><th>Servicio</th><th>Proveedor</th><th>Estado</th><th>Reconfirmación</th><th class="num">Teórico</th><th class="num">Real</th></tr></thead>
+            <tbody>
+              <tr><td>Transporte 4 días</td><td>T. Cordillera</td><td><span class="pill g">OC-0098-1</span></td><td><span class="pill g">Vigente · 04 ago</span></td><td class="num">$780.000</td><td class="num">$760.000</td></tr>
+              <tr><td>Guía bilingüe</td><td>M. Rojas</td><td><span class="pill g">OC-0098-2</span></td><td><span class="pill g">Vigente · 04 ago</span></td><td class="num">$640.000</td><td class="num">$640.000</td></tr>
+              <tr><td>Hotel W · 3 noches</td><td>Hotel W</td><td><span class="pill o">Confirmado</span></td><td><span class="pill o">Por reconfirmar</span></td><td class="num">$840.000</td><td class="num">—</td></tr>
+              <tr><td>Entradas y visitas</td><td>Viña Sta. Elena</td><td><span class="pill o">Tentativo</span></td><td><span class="pill o">Por reconfirmar</span></td><td class="num">$320.000</td><td class="num">—</td></tr>
+              <tr><td>Alimentación</td><td>Varios</td><td><span class="pill n">Pendiente</span></td><td><span class="pill n">—</span></td><td class="num">$360.000</td><td class="num">—</td></tr>
+              <tr><td>Almuerzo Restaurant Z</td><td>Restaurant Z</td><td><span class="pill n">Pendiente</span></td><td><span class="pill r">Modificado por agencia</span></td><td class="num">$60.000</td><td class="num">—</td></tr>
+            </tbody>
+          </table>
+          <div class="callout warn" style="margin-top:14px;font-size:13.5px">
+            <strong>Release Hotel W vence en 4 días.</strong> Requiere abono de $250.000 para sostener la reserva.
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Estado servicio por servicio</h3>
+          <p>Una OT no está lista solo porque existe. Cada servicio tiene su propio estado —pendiente, tentativo, confirmado, rechazado— con evidencia de la confirmación, persona de contacto y fecha.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Releases y vencimientos</h3>
+          <p>Fechas límite de cancelación, releases de habitaciones, abonos requeridos y penalidades quedan registrados con alerta automática. No se pierde un plazo por descuido.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Coherencia OT ↔ OC ↔ costeo</h3>
+          <p>Antes de emitir una OC, el sistema verifica que servicio, fecha, pasajeros y tarifa correspondan a la OT vigente. Una diferencia advierte o bloquea la emisión.</p>
+        </div>
+        <div class="card">
+          <h3>Reconfirmación con la agencia</h3>
+          <p>Cada servicio contratado lleva además su <strong>estado de reconfirmación con el cliente</strong>: vigente, por reconfirmar, modificado o cancelado por la agencia. Permite emitir el listado mensual de servicios del mes siguiente y detectar diferencias antes de operar.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout reveal" style="margin-top:20px">
+      <strong>Una OT, varias OC.</strong> La cantidad de órdenes de compra depende de cuántos proveedores participen. Cada OC queda vinculada a la OT y a su versión, se puede modificar conservando el historial, y aporta el costo real de las líneas que cubre.
+    </div>
+    <div class="callout warn reveal" style="margin-top:14px">
+      <strong>Qué entra en la fase 1.</strong> La emisión de órdenes de compra con su versionado, el control de correspondencia entre OT, OC y costeo y el registro del costo real son parte de la etapa 8. El control de releases y vencimientos y la reconfirmación con agencias quedan para la fase 2.
+    </div>
+    <div class="callout reveal" style="margin-top:14px">
+      <strong>Doble confirmación: proveedor y agencia.</strong> Un servicio puede estar confirmado con el proveedor y, al mismo tiempo, haber sido modificado por la agencia. Al llevar ambos estados en la misma línea, el sistema deja a la vista esas diferencias — que hoy solo se detectan enviando listados a mano mes a mes.
+    </div>
+  </div>
+</section>
+
+<!-- OPERACION -->
+<section id="operacion">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 5 · Operación y cierre<span class="fase f2">Fase 2</span></div>
+    <h2 class="reveal">Ejecutar el servicio y cerrarlo con el costo real completo</h2>
+    <p class="section-lead reveal">En los días previos se consolida toda la información en una ficha operativa y se reconfirma con cada proveedor. Durante la ejecución se registran los cambios y gastos que aparecen en terreno. Al terminar, la operación se cierra en dos tiempos: primero operativo, después económico.</p>
+    <div class="grid g3">
+      <div class="card reveal">
+        <div class="ico" style="background:rgba(31,138,112,.12)">📋</div>
+        <h3>Ficha operativa</h3>
+        <p>Programa final, rooming list, contactos de pasajeros, guías, choferes y proveedores, horarios, requerimientos especiales, restricciones alimentarias y contingencias previstas. Distribuida a cada actor con la última versión.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico" style="background:rgba(224,164,88,.20)">☑️</div>
+        <h3>Reconfirmación con evidencia</h3>
+        <p>Checklist de reconfirmación por servicio, con fecha, persona de contacto y respaldo. La ausencia de respuesta no cuenta como confirmación: los servicios críticos deben quedar validados expresamente.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ico" style="background:rgba(42,120,214,.12)">📱</div>
+        <h3>Incidencias y gastos en terreno</h3>
+        <p>Registro inmediato de cambios, incidentes y gastos adicionales, con responsable, autorización y respaldo fotográfico. <strong>Se accede desde el navegador del teléfono</strong>, con una pantalla simple pensada para usar en terreno — sin instalar ninguna aplicación. Se capturan una sola vez y se propagan al costo real y al cierre.</p>
+      </div>
+    </div>
+
+    <div class="split" style="margin-top:24px">
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Cierre operativo</h3>
+          <p>El servicio se realizó. Se confirma la ejecución, se registran incidencias y pendientes con responsable y fecha. Una reserva cancelada no pasa a cierre como servicio realizado, salvo NO SHOW.</p>
+        </div>
+        <div class="card">
+          <h3>Cierre económico</h3>
+          <p>Todos los costos reales recibidos y validados contra su OC, facturas de proveedor conciliadas, cobros al cliente completos. Recién ahí la OT se cierra y su utilidad es definitiva.</p>
+        </div>
+      </div>
+      <div class="callout reveal" style="align-self:start">
+        <strong>Todo cuelga de la misma OT.</strong> Ficha operativa, reconfirmaciones, incidencias, gastos, OC y documentos comparten el mismo expediente. Desde una factura se puede llegar al itinerario, al proveedor y a cada gasto registrado en terreno — y al revés.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FACTURACION -->
+<section id="facturacion">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 6 · Facturación, cobros y pagos<span class="fase f1">Fase 1</span></div>
+    <h2 class="reveal">Cuenta corriente por cliente, con abonos contra la OT</h2>
+    <p class="section-lead reveal">La operación se factura desde el mismo sistema mediante integración con facturación electrónica. Pero el cobro no siempre empieza por una factura: es habitual recibir un <strong>abono asociado a la OT</strong> mucho antes de emitir cualquier documento. El sistema lleva una cuenta corriente por cliente que permite aplicar facturas contra abonos disponibles y registrar los pagos posteriores.</p>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Cuenta corriente · Agencia Andes Travel</span></div>
+        <div class="mock-body" style="overflow-x:auto">
+          <table class="cost">
+            <thead><tr><th>Fecha</th><th>Movimiento</th><th>OT</th><th class="num">Cargo</th><th class="num">Abono</th><th class="num">Saldo</th></tr></thead>
+            <tbody>
+              <tr><td>12 mar</td><td>Abono a cuenta</td><td>OT-0098</td><td class="num">—</td><td class="num">USD 2.500</td><td class="num">USD 2.500</td></tr>
+              <tr><td>04 jun</td><td>Abono a cuenta</td><td>OT-0104</td><td class="num">—</td><td class="num">USD 1.500</td><td class="num">USD 4.000</td></tr>
+              <tr><td>15 sep</td><td>Factura 4.182</td><td>OT-0098</td><td class="num">USD 8.200</td><td class="num">—</td><td class="num">−USD 4.200</td></tr>
+              <tr><td>28 sep</td><td>Pago recibido</td><td>OT-0098</td><td class="num">—</td><td class="num">USD 4.200</td><td class="num">USD 0</td></tr>
+              <tr><td>02 oct</td><td>Factura 4.219</td><td>OT-0104</td><td class="num">USD 3.150</td><td class="num">—</td><td class="num">−USD 3.150</td></tr>
+            </tbody>
+          </table>
+          <div class="margin-box">
+            <div class="mb"><span>Abonos disponibles</span><strong>USD 0</strong></div>
+            <div class="mb"><span>Facturado sin pagar</span><strong>USD 3.150</strong></div>
+            <div class="mb"><span>Saldo cliente</span><strong>−USD 3.150</strong></div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Abonos sin factura</h3>
+          <p>Un abono puede recibirse contra la OT sin que exista aún documento tributario. Queda registrado en la cuenta corriente y disponible para aplicarse a la factura cuando esta se emita.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Facturación electrónica vía API</h3>
+          <div class="api-flow">
+            <span class="api-node">Venta en el sistema</span>
+            <span class="api-arrow">→</span>
+            <span class="api-node">API facturación</span>
+            <span class="api-arrow">→</span>
+            <span class="api-node">SII</span>
+          </div>
+          <p style="margin-top:8px">Se emite factura afecta o exenta sin salir del sistema. Folio, PDF y XML quedan asociados a la OT.</p>
+        </div>
+        <div class="card">
+          <h3>Facturas de proveedor</h3>
+          <p>La factura recibida se <strong>adjunta a la OT referenciando su OC</strong>. El sistema muestra ambos valores lado a lado para que la revisión se haga a la vista; la validación de la diferencia es una decisión de la persona, no automática.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock reveal" style="margin-top:24px">
+      <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Reporte de pagos · nómina viernes 22 de agosto</span></div>
+      <div class="mock-body" style="overflow-x:auto">
+        <table class="cost">
+          <thead><tr><th>Proveedor</th><th>OT</th><th>OC</th><th>Documento</th><th>Vence</th><th class="num">OC</th><th class="num">Factura</th></tr></thead>
+          <tbody>
+            <tr><td>Transportes Cordillera</td><td>OT-0098</td><td>OC-0098-1</td><td>Factura 8.412</td><td><span class="pill r">20 ago</span></td><td class="num">$780.000</td><td class="num">$760.000</td></tr>
+            <tr><td>M. Rojas</td><td>OT-0098</td><td>OC-0098-2</td><td>Boleta 331</td><td><span class="pill o">22 ago</span></td><td class="num">$640.000</td><td class="num">$640.000</td></tr>
+            <tr><td>Hotel W</td><td>OT-0104</td><td>OC-0104-1</td><td>Abono reserva</td><td><span class="pill o">22 ago</span></td><td class="num">$250.000</td><td class="num">—</td></tr>
+            <tr><td>Viña Santa Elena</td><td>OT-0111</td><td>OC-0111-3</td><td>Factura 1.209</td><td><span class="pill n">29 ago</span></td><td class="num">$420.000</td><td class="num">$455.000</td></tr>
+            <tr class="tot"><td colspan="5">Total nómina de la semana</td><td class="num">$2.090.000</td><td class="num">$1.855.000</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin-top:10px">Las diferencias entre OC y factura quedan visibles para revisión. El reporte se exporta; la ejecución del pago se realiza en el banco.</p>
+      </div>
+    </div>
+
+    <div class="grid g2 reveal" style="margin-top:20px">
+      <div class="card">
+        <div class="ico">📆</div>
+        <h3>Documentos por vencer</h3>
+        <p>Vista de todo lo que está por pagarse en el horizonte próximo, ordenado por fecha de vencimiento, con su OT, su OC y su documento de respaldo. Incluye abonos comprometidos para sostener reservas.</p>
+      </div>
+      <div class="card">
+        <div class="ico">📄</div>
+        <h3>Nómina de pago semanal</h3>
+        <p>Generación del listado de pagos del viernes, con proveedor, monto, documento y referencia. Es un <strong>reporte para trabajar y exportar</strong> — el pago se ejecuta y se autoriza en el banco, como hasta ahora.</p>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-top:20px">
+      <strong>Multi-moneda con gestión en pesos.</strong> El receptivo se cotiza y cobra en dólares, los eventos en pesos. El sistema opera en la moneda de cada OT y registra el tipo de cambio de la cotización y el del cobro efectivo — pero <strong>todo el análisis de gestión se expresa siempre en pesos</strong>.
+    </div>
+    <p class="note reveal">Nota técnica: el proveedor de facturación electrónica se define contigo. La arquitectura deja ese conector aislado para poder cambiarlo sin afectar el resto del sistema.</p>
+  </div>
+</section>
+
+<!-- COMUNICACIONES -->
+<section id="comunicaciones">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 7 · Comunicaciones y documentos<span class="fase f2">Fase 2</span></div>
+    <h2 class="reveal">Enviar desde el sistema y dejar registro de cada envío</h2>
+    <p class="section-lead reveal">Cotizaciones, órdenes de compra, facturas y comprobantes se generan y <strong>se envían por correo desde el propio sistema</strong>, ya sea con el cliente de correo interno de la aplicación o integrándose con Outlook. Cada envío queda registrado en la OT: qué documento, a quién, cuándo y con qué versión. La conversación deja de vivir en bandejas personales.</p>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">OT-2026-0098 · Bitácora de comunicación</span></div>
+        <div class="mock-body" style="overflow-x:auto">
+          <table class="cost">
+            <thead><tr><th>Fecha</th><th>Documento</th><th>Destinatario</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td>12 mar</td><td>Cotización COT-0098 v1 · EN</td><td>c.fuentes@andestravel.com</td><td><span class="pill g">Enviada</span></td></tr>
+              <tr><td>18 mar</td><td>Solicitud de cambio de hotel</td><td>Andes Travel</td><td><span class="pill b">Recibida</span></td></tr>
+              <tr><td>20 mar</td><td>Cotización COT-0098 v2 · EN</td><td>c.fuentes@andestravel.com</td><td><span class="pill g">Enviada</span></td></tr>
+              <tr><td>24 mar</td><td>Confirmación del cliente</td><td>Andes Travel</td><td><span class="pill b">Recibida</span></td></tr>
+              <tr><td>02 ago</td><td>OC-0098-1 · Transporte</td><td>reservas@tcordillera.cl</td><td><span class="pill g">Enviada</span></td></tr>
+              <tr><td>04 ago</td><td>Reconfirmación de servicios</td><td>Andes Travel</td><td><span class="pill g">Enviada</span></td></tr>
+              <tr><td>15 sep</td><td>Factura 4.182 + OT</td><td>pagos@andestravel.com</td><td><span class="pill g">Enviada</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Documentos generados por el sistema</h3>
+          <p>Cotización en PDF con el formato de Extremo Norte y en el idioma del cliente, orden de compra para el proveedor, factura, comprobante de pago y listado de reconfirmación. Todos se emiten y se envían sin salir de la OT.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Cliente de correo interno o Outlook</h3>
+          <p>El envío puede hacerse con el cliente de correo incorporado en la aplicación o mediante integración con Outlook, para que los mensajes salgan desde la casilla habitual de cada persona.</p>
+        </div>
+        <div class="card">
+          <h3>Trazabilidad de la conversación</h3>
+          <p>Cada comunicación queda asociada a la OT y a la versión del documento enviado. Ya no hay que reconstruir desde el correo personal qué se le envió a la agencia ni cuándo se le mandó la OC al proveedor.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin:38px 0 8px">Cómo se asocia un correo a su OT sin replicar la casilla</h3>
+    <p class="section-lead" style="margin-bottom:8px">El equipo trabaja con casillas nombradas —<em>marcela@</em>, <em>jaime@</em>— y con casillas genéricas —<em>reservas@</em>, <em>operaciones@</em>. El objetivo es poder revisar desde la aplicación toda la gestión realizada sobre una OT determinada, <strong>sin que el contenido completo de esas casillas quede a la vista dentro del sistema</strong>.</p>
+    <div class="callout reveal" style="margin-bottom:22px">
+      <strong>El principio: la bandeja no se replica.</strong> El sistema no lee ni almacena la casilla completa. Solo ingresa a la bitácora aquello que queda explícitamente marcado como perteneciente a una OT. Todo lo demás permanece en Outlook y es invisible para la aplicación.
+    </div>
+    <div class="grid g3 reveal">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>Identificador en el asunto</h4>
+        <p>Todo lo que sale del sistema lleva un código de referencia en el asunto, por ejemplo <strong>[OT-2026-0098]</strong>. Como los clientes de correo lo conservan al responder, las respuestas se asocian solas a su OT. El sistema solo captura mensajes que contienen un identificador válido.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Dirección de captura por OT</h4>
+        <p>Cada OT tiene su propia dirección, del tipo <strong>ot-0098@extremonorte.com</strong>. Basta con ponerla en copia oculta o reenviarle un correo para que quede en la bitácora. Resuelve los mensajes que no nacieron en el sistema y deja la decisión en manos de la persona.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>Adjuntar a la OT</h4>
+        <p>Un correo puede arrastrarse o adjuntarse directamente a la OT desde la aplicación, junto al resto de los documentos. Es la vía manual para casos puntuales o correos antiguos que se quieran incorporar al expediente.</p>
+      </div>
+    </div>
+
+    <div class="grid g2 reveal" style="margin-top:20px">
+      <div class="card">
+        <div class="ico">👤</div>
+        <h3>Casillas genéricas sin perder el responsable</h3>
+        <p>Cuando un correo sale de <em>reservas@</em> u <em>operaciones@</em>, el sistema registra tanto la casilla de origen como <strong>el usuario que efectivamente lo envió</strong>. En una casilla compartida hoy se pierde quién hizo qué; en la bitácora de la OT esa trazabilidad se recupera.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔓</div>
+        <h3>La bitácora es de la OT, no de la persona</h3>
+        <p>Quien tiene acceso a una OT ve toda su gestión de correo, sin importar desde qué casilla salió cada mensaje. Se acaba el problema de que la conversación con una agencia quede encerrada en el buzón personal de quien la atendió.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PORTAL PROVEEDORES -->
+<section id="proveedores">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 8 · Portal de proveedores<span class="fase f2">Fase 2</span></div>
+    <h2 class="reveal">Cada proveedor consulta lo suyo, sin llamar ni escribir</h2>
+    <p class="section-lead reveal">Los proveedores acceden al sistema con un perfil propio y ven exclusivamente su propia información: los servicios que tienen comprometidos, los que ya prestaron y el estado de su cuenta corriente. Descomprime al equipo de las consultas recurrentes —«¿cuándo es el servicio?», «¿me pagaron la factura?»— y reduce los errores de coordinación.</p>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Portal · Transportes Cordillera</span></div>
+        <div class="mock-body" style="overflow-x:auto">
+          <h4 style="font-size:14px;margin-bottom:10px">Próximos servicios</h4>
+          <table class="cost">
+            <thead><tr><th>Fecha</th><th>Servicio</th><th>Pax</th><th>OC</th><th class="num">Monto</th></tr></thead>
+            <tbody>
+              <tr><td>12 sep</td><td>Traslado SCL → Valparaíso</td><td>6</td><td><span class="pill g">OC-0098-1</span></td><td class="num">$185.000</td></tr>
+              <tr><td>28 sep</td><td>Circuito Zona Central · 2 días</td><td>2</td><td><span class="pill g">OC-0104-2</span></td><td class="num">$340.000</td></tr>
+              <tr><td>03 oct</td><td>Traslados evento corporativo</td><td>40</td><td><span class="pill o">Por confirmar</span></td><td class="num">$820.000</td></tr>
+            </tbody>
+          </table>
+          <h4 style="font-size:14px;margin:20px 0 10px">Cuenta corriente</h4>
+          <table class="cost">
+            <thead><tr><th>Documento</th><th>Servicio</th><th>Estado</th><th class="num">Monto</th></tr></thead>
+            <tbody>
+              <tr><td>Factura 8.412</td><td>OC-0091-1 · agosto</td><td><span class="pill g">Pagada 22 ago</span></td><td class="num">$760.000</td></tr>
+              <tr><td>Factura 8.455</td><td>OC-0095-1 · agosto</td><td><span class="pill o">Programada 29 ago</span></td><td class="num">$430.000</td></tr>
+              <tr><td>Factura 8.470</td><td>OC-0097-2 · agosto</td><td><span class="pill n">Recibida</span></td><td class="num">$295.000</td></tr>
+              <tr class="tot"><td colspan="3">Saldo pendiente</td><td class="num">$725.000</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Próximos servicios</h3>
+          <p>Fecha, servicio, cantidad de pasajeros, condiciones especiales y la OC de respaldo, descargable en PDF. El proveedor llega a la operación con la misma información que maneja Extremo Norte.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Servicios ya realizados</h3>
+          <p>Historial de las prestaciones ejecutadas, con su fecha, su OC y su documento asociado. Sirve al proveedor para emitir y cuadrar su facturación mensual.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Cuenta corriente</h3>
+          <p>Facturas recibidas, montos, estado de cada una —recibida, programada, pagada— y saldo pendiente. Es la respuesta automática a la consulta más frecuente que recibe administración.</p>
+        </div>
+        <div class="callout">
+          <strong>Aislamiento de datos.</strong> El perfil de proveedor accede únicamente a los registros en que participa. No ve otras OT, otros proveedores, valores de venta al cliente ni márgenes de la operación.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GESTION Y ACCESOS -->
+<section id="gestion">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 9 · Panel de gestión y control de acceso<span class="fase f1p">Fase 1 · parcial</span></div>
+    <h2 class="reveal">Una vista de gerencia, y cada persona con lo que le corresponde</h2>
+    <p class="section-lead reveal">El sistema incorpora un panel de gestión con los hechos relevantes del negocio, pensado para la dirección: qué se cotizó, qué se aprobó, qué está en riesgo y cómo va el resultado. El acceso a este panel —y a cada parte del sistema— se controla mediante usuarios y perfiles.</p>
+    <div class="callout warn reveal" style="margin-bottom:22px">
+      <strong>Qué entra en la fase 1.</strong> Los <strong>usuarios, perfiles y permisos</strong> se construyen en la etapa 2, porque toda la aplicación se apoya en ellos. El <strong>panel de gestión</strong> para la dirección queda para la fase 2.
+    </div>
+
+    <div class="mock reveal" style="margin-bottom:22px">
+      <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Panel de gestión · agosto 2026</span></div>
+      <div class="mock-body">
+        <div class="kpis" style="margin-bottom:18px">
+          <div class="kpi"><div class="lbl">Cotizado en el mes</div><div class="val">$68,4M</div><div class="delta">21 cotizaciones enviadas</div></div>
+          <div class="kpi"><div class="lbl">Aprobado</div><div class="val">$42,6M</div><div class="delta up">▲ tasa de cierre 62%</div></div>
+          <div class="kpi"><div class="lbl">Cartera comprometida</div><div class="val">$412M</div><div class="delta">54 OT en espera</div></div>
+          <div class="kpi"><div class="lbl">Utilidad del mes</div><div class="val">$11,4M</div><div class="delta up">▲ 27% sobre la venta</div></div>
+        </div>
+        <table class="cost">
+          <thead><tr><th>Hechos relevantes</th><th>Referencia</th><th>Situación</th></tr></thead>
+          <tbody>
+            <tr><td>Release Hotel W vence en 4 días sin abono cursado</td><td>OT-0098</td><td><span class="pill r">Requiere atención</span></td></tr>
+            <tr><td>Factura de proveedor sobre el valor de la OC</td><td>OT-0111 · OC-0111-3</td><td><span class="pill r">Diferencia $35.000</span></td></tr>
+            <tr><td>Servicio modificado por la agencia tras reconfirmación</td><td>OT-0098</td><td><span class="pill o">Revisar</span></td></tr>
+            <tr><td>Cotización de $18,2M enviada a agencia nueva</td><td>COT-0163</td><td><span class="pill b">En negociación</span></td></tr>
+            <tr><td>Operación cerrada con utilidad sobre lo comprometido</td><td>OT-0142</td><td><span class="pill g">+$75.000</span></td></tr>
+            <tr><td>Evento corporativo confirmado para octubre</td><td>OT-0111</td><td><span class="pill g">Aprobado</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="mock reveal">
+        <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">Perfiles de acceso</span></div>
+        <div class="mock-body" style="overflow-x:auto">
+          <table class="cost">
+            <thead><tr><th>Perfil</th><th>Alcance</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Gerencia</strong></td><td>Panel de gestión, todos los reportes y consulta de cualquier OT</td></tr>
+              <tr><td><strong>Operaciones y reservas</strong></td><td>Cotización, costeo, OT, reservas, OC, operación y cierre</td></tr>
+              <tr><td><strong>Administración</strong></td><td>Facturación, cuenta corriente, pagos, reportes de vencimientos y nóminas</td></tr>
+              <tr><td><strong>Terreno</strong></td><td>Ficha operativa de sus OT y captura de gastos e incidencias</td></tr>
+              <tr><td><strong>Proveedor</strong> <span class="pill b">externo</span></td><td>Solo sus servicios próximos, realizados y su cuenta corriente</td></tr>
+              <tr><td><strong>Administrador</strong></td><td>Mantenedores, usuarios, perfiles y parámetros del sistema</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="card" style="margin-bottom:16px">
+          <h3>Usuarios y perfiles</h3>
+          <p>Cada persona accede con su usuario y ve solo lo que su perfil permite. Los perfiles son configurables: definen qué módulos se ven, qué se puede modificar y quién accede al panel de gestión.</p>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <h3>Hechos relevantes, no solo cifras</h3>
+          <p>El panel destaca lo que requiere atención —vencimientos, diferencias, cambios de la agencia, cierres— además de los indicadores. Es una vista para decidir, no un reporte para leer.</p>
+        </div>
+        <div class="card">
+          <h3>Registro de actividad</h3>
+          <p>Quién creó, modificó o aprobó cada documento, con fecha y versión. La trazabilidad no es solo del dato: también de quién lo tocó.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REPORTES -->
+<section id="reportes">
+  <div class="wrap">
+    <div class="kicker reveal">Módulo 10 · Reportería y documentos<span class="fase f1">Fase 1</span></div>
+    <h2 class="reveal">Los datos en Excel, los documentos en PDF</h2>
+    <p class="section-lead reveal">La reportería tiene dos piezas: el <strong>dashboard de operaciones</strong> dentro del sistema y la <strong>explotación de datos desde Excel conectado directamente a la base</strong>. Ambas se construyen juntas en la etapa 10. El análisis no se arma dentro de la aplicación: El equipo usa la herramienta que ya domina, arma sus propias tablas dinámicas y actualiza los datos con un clic. Los documentos formales —cotizaciones, órdenes de compra, facturas, comprobantes y nóminas— se generan como PDF desde el sistema.</p>
+
+    <div class="grid g3 reveal" style="margin-bottom:22px">
+      <div class="card">
+        <div class="ico">🔌</div>
+        <h3>Conexión directa</h3>
+        <p>Excel se conecta a la base de datos mediante una conexión de solo lectura. No hay exportaciones manuales ni archivos intermedios: el libro se actualiza contra el dato vivo.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🗄️</div>
+        <h3>Vistas preparadas</h3>
+        <p>El acceso no es a las tablas crudas, sino a un conjunto de vistas documentadas y estables: operaciones, líneas de costo, cobros, pagos y cartera. Con los valores ya convertidos a pesos.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔑</div>
+        <h3>Acceso controlado</h3>
+        <p>Cada usuario se conecta con credenciales de solo lectura acordes a su perfil. Consultar no compromete la integridad de los datos ni el rendimiento del sistema.</p>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-bottom:30px">
+      <strong>Por qué así.</strong> El equipo ya trabaja en Excel y sabe construir lo que necesita. Entregar los datos bien modelados en su propia herramienta rinde más que un generador de reportes dentro de la aplicación, que siempre termina quedando corto frente a la pregunta puntual de cada día.
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:8px">Documentos generados en PDF</h3>
+    <p class="section-lead" style="margin-bottom:16px">Todo lo que se emite hacia afuera —al cliente o al proveedor— sale del sistema con el formato de Extremo Norte.</p>
+    <div class="grid g4 reveal" style="margin-bottom:34px">
+      <div class="card"><h3 style="font-size:14px">Cotización</h3><p style="font-size:13px">Programa y valor · español o inglés</p></div>
+      <div class="card"><h3 style="font-size:14px">Orden de compra</h3><p style="font-size:13px">Para cada proveedor</p></div>
+      <div class="card"><h3 style="font-size:14px">Factura y comprobantes</h3><p style="font-size:13px">Con folio, PDF y XML</p></div>
+      <div class="card"><h3 style="font-size:14px">Nómina y ficha operativa</h3><p style="font-size:13px">Pagos semanales y programa final</p></div>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:8px">El análisis que habilita el modelo</h3>
+    <p class="section-lead" style="margin-bottom:16px">Los datos disponibles permiten explicar <strong>por qué</strong> la utilidad de una operación difiere de la comprometida al cotizar: separando lo que se movió por costo de lo que se movió por tipo de cambio.</p>
+
+    <div class="mock reveal" style="margin-bottom:20px">
+      <div class="mock-bar"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="title">OT-2026-0142 · Cierre económico · análisis de utilidad</span></div>
+      <div class="mock-body">
+        <table class="cost">
+          <thead><tr><th>Concepto</th><th class="num">Comprometido al cotizar</th><th class="num">Real al cierre</th></tr></thead>
+          <tbody>
+            <tr><td>Venta</td><td class="num">$4.500.000 <span style="color:var(--muted)">· TC 1.000</span></td><td class="num">$4.275.000 <span style="color:var(--muted)">· TC 950</span></td></tr>
+            <tr><td>Costo</td><td class="num">$3.000.000</td><td class="num">$2.700.000</td></tr>
+            <tr class="tot"><td>Utilidad</td><td class="num">$1.500.000</td><td class="num">$1.575.000</td></tr>
+          </tbody>
+        </table>
+        <div class="decomp">
+          <div class="dc pos"><span>Efecto costo</span><strong>+$300.000</strong><small>Costo real menor al teórico</small></div>
+          <div class="dc neg"><span>Efecto tipo de cambio</span><strong>−$225.000</strong><small>El peso se apreció de 1.000 a 950</small></div>
+          <div class="dc net"><span>Diferencia neta</span><strong>+$75.000</strong><small>Utilidad real sobre la comprometida</small></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="gap:20px">
+      <div class="chart-card reveal">
+        <h4>Venta por zona</h4>
+        <div class="sub">Construido en Excel sobre las vistas · datos de ejemplo</div>
+        <div class="bar-row"><span class="name">San Pedro de Atacama</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--c-blue)"></div></div><span class="amt">$14,2M</span></div>
+        <div class="bar-row"><span class="name">Zona Central (Viñas)</span><div class="bar-track"><div class="bar-fill" style="width:78%;background:var(--c-blue)"></div></div><span class="amt">$11,1M</span></div>
+        <div class="bar-row"><span class="name">Valparaíso</span><div class="bar-track"><div class="bar-fill" style="width:52%;background:var(--c-blue)"></div></div><span class="amt">$7,4M</span></div>
+        <div class="bar-row"><span class="name">Arica</span><div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--c-blue)"></div></div><span class="amt">$5,4M</span></div>
+        <div class="bar-row"><span class="name">Antofagasta</span><div class="bar-track"><div class="bar-fill" style="width:31%;background:var(--c-blue)"></div></div><span class="amt">$4,5M</span></div>
+      </div>
+      <div class="chart-card reveal">
+        <h4>Venta y costo real por tipo de operación</h4>
+        <div class="sub">Construido en Excel sobre las vistas · datos de ejemplo</div>
+        <div class="bar-row"><span class="name">Circuito Norte</span><div class="bar-track" style="background:transparent;display:flex;flex-direction:column;gap:3px;height:auto"><div class="bar-fill" style="width:100%;height:11px;background:var(--c-aqua)"></div><div class="bar-fill" style="width:70%;height:11px;background:var(--c-orange)"></div></div><span class="amt">u. 30%</span></div>
+        <div class="bar-row"><span class="name">Tour Viñas</span><div class="bar-track" style="background:transparent;display:flex;flex-direction:column;gap:3px;height:auto"><div class="bar-fill" style="width:82%;height:11px;background:var(--c-aqua)"></div><div class="bar-fill" style="width:52%;height:11px;background:var(--c-orange)"></div></div><span class="amt">u. 37%</span></div>
+        <div class="bar-row"><span class="name">Eventos empresa</span><div class="bar-track" style="background:transparent;display:flex;flex-direction:column;gap:3px;height:auto"><div class="bar-fill" style="width:64%;height:11px;background:var(--c-aqua)"></div><div class="bar-fill" style="width:44%;height:11px;background:var(--c-orange)"></div></div><span class="amt">u. 31%</span></div>
+        <div class="bar-row"><span class="name">City Tour</span><div class="bar-track" style="background:transparent;display:flex;flex-direction:column;gap:3px;height:auto"><div class="bar-fill" style="width:45%;height:11px;background:var(--c-aqua)"></div><div class="bar-fill" style="width:33%;height:11px;background:var(--c-orange)"></div></div><span class="amt">u. 27%</span></div>
+        <div class="legend"><span><i style="background:var(--c-aqua)"></i>Venta</span><span><i style="background:var(--c-orange)"></i>Costo real</span></div>
+      </div>
+    </div>
+
+    <div class="grid g4 reveal" style="margin-top:20px">
+      <div class="card"><h3 style="font-size:14px">Por zona</h3><p style="font-size:13px">Arica → Santiago</p></div>
+      <div class="card"><h3 style="font-size:14px">Por cliente</h3><p style="font-size:13px">Agencias y empresas</p></div>
+      <div class="card"><h3 style="font-size:14px">Por proveedor</h3><p style="font-size:13px">Quién desvía del teórico</p></div>
+      <div class="card"><h3 style="font-size:14px">Por origen del pasajero</h3><p style="font-size:13px">Segmentar el mercado</p></div>
+    </div>
+    <p class="note reveal">Los valores mostrados en los mockups son ilustrativos. Los gráficos representan análisis construidos en Excel a partir de las vistas del sistema, no pantallas de la aplicación.</p>
+  </div>
+</section>
+
+<!-- MODELO -->
+<section id="modelo">
+  <div class="wrap">
+    <div class="kicker reveal">Visión general</div>
+    <h2 class="reveal">Cómo se conecta la información por dentro</h2>
+    <p class="section-lead reveal">Los mantenedores alimentan la cotización; la cotización aprobada se convierte en la OT; y de la OT cuelgan las órdenes de compra, los documentos y los movimientos de dinero. La OT es el punto de encuentro de todo el sistema.</p>
+    <div class="er reveal">
+      <div class="entity">
+        <div class="eh">🗂️ Mantenedores</div>
+        <ul>
+          <li class="key">Cliente (agencia / empresa)</li>
+          <li>Ejecutivo de contacto</li>
+          <li class="key">Pasajero o grupo</li>
+          <li class="key">Proveedor (alias, RUT, cuentas)</li>
+          <li>Servicio y zona</li>
+          <li class="key">Tarifario (tramos, vigencia)</li>
+        </ul>
+      </div>
+      <div class="entity">
+        <div class="eh">📝 Cotización</div>
+        <ul>
+          <li>Itinerario día / AM-PM</li>
+          <li>Líneas estándar y «Otro»</li>
+          <li class="key">Costo teórico por línea</li>
+          <li class="key">Margen global o por línea</li>
+          <li>Valor de venta por línea</li>
+          <li class="key">Valor de venta de la OT</li>
+          <li>Versiones de negociación</li>
+        </ul>
+      </div>
+      <div class="entity core">
+        <div class="eh">⭐ Orden de Trabajo</div>
+        <ul>
+          <li class="key">Línea base congelada</li>
+          <li>Estado y versión</li>
+          <li class="key">Reservas por servicio</li>
+          <li class="key">Órdenes de compra</li>
+          <li>Costo real por línea</li>
+          <li>Incidencias y gastos</li>
+        </ul>
+      </div>
+      <div class="entity">
+        <div class="eh">💰 Cobros y pagos</div>
+        <ul>
+          <li class="key">Factura electrónica (API)</li>
+          <li class="key">Abonos a cuenta corriente</li>
+          <li>Pagos recibidos y saldo</li>
+          <li>Facturas de proveedor y pagos</li>
+          <li>Tipo de cambio del cobro</li>
+          <li class="key">Utilidad real</li>
+        </ul>
+      </div>
+      <div class="entity">
+        <div class="eh">📎 Documentos y envíos</div>
+        <ul>
+          <li class="key">Adjuntos de la OT</li>
+          <li>PDF de cotización (ES / EN)</li>
+          <li>OC y comprobantes</li>
+          <li class="key">Bitácora de comunicación</li>
+          <li>Usuario, fecha y versión</li>
+        </ul>
+      </div>
+      <div class="entity">
+        <div class="eh">🔐 Accesos</div>
+        <ul>
+          <li class="key">Usuarios</li>
+          <li class="key">Perfiles y permisos</li>
+          <li>Panel de gestión</li>
+          <li class="key">Portal de proveedores</li>
+          <li>Vistas de solo lectura para Excel</li>
+          <li>Registro de actividad</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFICIOS -->
+<section id="beneficios">
+  <div class="wrap">
+    <div class="kicker reveal">Por qué conviene</div>
+    <h2 class="reveal">Lo que cambia para Extremo Norte</h2>
+    <div class="grid g2" style="gap:22px">
+      <div class="ben reveal"><div class="b-ico">⚡</div><div><h3 style="font-size:16px">Costear sin errores</h3><p style="font-size:14px;color:var(--ink-soft)">Tarifas por tramo, fórmulas únicas y recálculo automático. Se acaban las omisiones de ítems y los errores de planilla, que hoy son el principal riesgo económico.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🔔</div><div><h3 style="font-size:16px">Ninguna OT olvidada</h3><p style="font-size:14px;color:var(--ink-soft)">El radar avisa cuando una operación entra en ventana de preparación, incluso si se aprobó hace un año. No depende de que alguien se acuerde.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🔗</div><div><h3 style="font-size:16px">Una sola digitación</h3><p style="font-size:14px;color:var(--ink-soft)">La OC nace de la OT y alimenta la cuenta por pagar. Se elimina el traspaso de la misma información entre varias planillas.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🔎</div><div><h3 style="font-size:16px">Trazabilidad total</h3><p style="font-size:14px;color:var(--ink-soft)">De la factura al itinerario, al proveedor y a cada gasto de terreno. Y en sentido inverso, desde cualquier punto.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">📈</div><div><h3 style="font-size:16px">Utilidad explicada</h3><p style="font-size:14px;color:var(--ink-soft)">No solo cuánto dejó cada operación, sino por qué: cuánto se movió por costo y cuánto por tipo de cambio.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🧾</div><div><h3 style="font-size:16px">Cobros bajo control</h3><p style="font-size:14px;color:var(--ink-soft)">Cuenta corriente por cliente con abonos, facturas aplicadas y saldos al día, sin reconstruirlos desde el correo.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">✉️</div><div><h3 style="font-size:16px">La conversación queda registrada</h3><p style="font-size:14px;color:var(--ink-soft)">Cotizaciones y OC se envían desde el sistema y quedan en la bitácora de la OT. Se acaba el «¿qué versión le mandamos?».</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🌐</div><div><h3 style="font-size:16px">Documentos en dos idiomas</h3><p style="font-size:14px;color:var(--ink-soft)">Cotizaciones y programas en español o inglés según la agencia, generados en PDF con el formato de Extremo Norte.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">🤝</div><div><h3 style="font-size:16px">Menos consultas de proveedores</h3><p style="font-size:14px;color:var(--ink-soft)">Cada proveedor consulta sus servicios y su cuenta corriente por sí mismo, sin llamar ni escribir a administración.</p></div></div>
+      <div class="ben reveal"><div class="b-ico">📊</div><div><h3 style="font-size:16px">Análisis en la herramienta de siempre</h3><p style="font-size:14px;color:var(--ink-soft)">Excel conectado directo a la base de datos: cada quien arma su análisis y lo actualiza con un clic, sin exportar nada.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ETAPAS -->
+<section id="etapas">
+  <div class="wrap">
+    <div class="kicker reveal">Plan de trabajo</div>
+    <h2 class="reveal">Fase 1: once etapas entre el 26 de agosto y el 12 de octubre</h2>
+    <p class="section-lead reveal">La primera fase construye la columna vertebral del sistema y la deja en producción: los datos maestros, el motor de costeo, la cotización, la Orden de Trabajo, las órdenes de compra, la facturación y la reportería. Las etapas se ejecutan de forma consecutiva, cada una apoyada en la anterior. Son <strong>32 días hábiles</strong> de trabajo.</p>
+
+    <div class="road reveal">
+      <div class="ph"><div class="ph-n" style="background:var(--ink)">1</div>
+        <div class="ph-t"><strong>Arranque, ambientes y modelo de datos</strong><span>Repositorio, ambientes, control de versiones y el esquema completo de la base. El modelo distingue turismo receptivo y eventos empresa como atributo de la operación, no como flujos separados.</span></div>
+        <div class="ph-d"><b>26 – 27 ago</b>2 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--ink)">2</div>
+        <div class="ph-t"><strong>Autenticación, usuarios y perfiles</strong><span>Ingreso al sistema, gestión de usuarios y definición de perfiles con sus permisos por módulo.</span></div>
+        <div class="ph-d"><b>28 ago</b>1 día</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--c-blue)">3</div>
+        <div class="ph-t"><strong>Maestros generales</strong><span>Clientes y ejecutivos, pasajeros y grupos, proveedores con alias y condiciones, servicios con descripción bilingüe y margen sugerido, y zonas.</span></div>
+        <div class="ph-d"><b>31 ago – 2 sep</b>3 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--c-blue)">4</div>
+        <div class="ph-t"><strong>Maestros de tarifas</strong><span>Tarifarios por proveedor y servicio, con tramos de pasajeros, acomodación y suplemento single, moneda y vigencia.</span></div>
+        <div class="ph-d"><b>3 sep</b>1 día</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--terra)">5</div>
+        <div class="ph-t"><strong>Motor de costeo</strong><span>Líneas estándar según tramo o acomodación, líneas a medida, margen global o diferenciado por servicio, valorización por línea y total, y conversión de moneda.</span></div>
+        <div class="ph-d"><b>4 – 9 sep</b>4 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--terra)">6</div>
+        <div class="ph-t"><strong>Cotización con sus estados</strong><span>Itinerario día / AM-PM, ciclo de estados, versionado de la negociación y PDF en español o inglés, con valor total o desglosado por ítem.</span></div>
+        <div class="ph-d"><b>10 – 14 sep</b>3 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--teal)">7</div>
+        <div class="ph-t"><strong>Orden de Trabajo</strong><span>Conversión de la cotización aprobada, línea base congelada, numeración y versiones, estados del ciclo de vida, estado de cada servicio contratado y adjuntos de la operación.</span></div>
+        <div class="ph-d"><b>15 – 22 sep</b>4 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--teal)">8</div>
+        <div class="ph-t"><strong>Generación de órdenes de compra</strong><span>Emisión por proveedor desde la OT, versionado, control de correspondencia entre OT, OC y costeo, costo real por línea y PDF de la orden.</span></div>
+        <div class="ph-d"><b>23 – 25 sep</b>3 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--ochre);color:var(--ink)">9</div>
+        <div class="ph-t"><strong>Facturación</strong><span>Factura vía API de facturación electrónica, cuenta corriente por cliente con abonos contra OT, aplicación de facturas y registro de pagos recibidos y a proveedores.</span></div>
+        <div class="ph-d"><b>28 sep – 2 oct</b>5 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--plum)">10</div>
+        <div class="ph-t"><strong>Reportería · Dashboard (Radar) y conexión Excel</strong><span>Tablero de OT próximas con ventanas de aviso fijas y semáforo por estado, más las vistas de solo lectura y la conexión directa desde Excel.</span></div>
+        <div class="ph-d"><b>5 – 6 oct</b>2 días</div></div>
+      <div class="ph"><div class="ph-n" style="background:var(--terra-dark)">11</div>
+        <div class="ph-t"><strong>Pruebas integrales finales y puesta en marcha</strong><span>Recorrido completo del ciclo con datos reales, corrección de observaciones, capacitación de los usuarios y arranque en producción.</span></div>
+        <div class="ph-d"><b>7 – 12 oct</b>4 días</div></div>
+    </div>
+
+    <div class="callout reveal" style="margin-top:22px">
+      <strong>Extremo Norte participa en paralelo.</strong> La carga de los datos maestros —proveedores, servicios y tarifarios— corre entre el 31 de agosto y el 7 de septiembre, y las pruebas del equipo acompañan el desarrollo desde el 4 de septiembre. Hay tres demostraciones con usuarios: el 3 y el 14 de septiembre y el 25 de septiembre.
+    </div>
+
+    <h3 style="font-size:19px;margin:38px 0 8px">Lo que construye la fase 2</h3>
+    <p class="section-lead" style="margin-bottom:8px">Todo lo demás descrito en esta propuesta se levanta sobre el mismo modelo de datos, sin rehacer trabajo.</p>
+    <div class="f2list reveal">
+      <div>Ventanas de aviso configurables por usuario y avisos programados</div>
+      <div>Control de releases, vencimientos y reconfirmación con agencias</div>
+      <div>Ficha operativa y preparación del servicio</div>
+      <div>Incidencias y captura de gastos en terreno</div>
+      <div>Cierre operativo y cierre económico</div>
+      <div>Comunicaciones por correo y bitácora de la OT</div>
+      <div>Portal de proveedores</div>
+      <div>Panel de gestión para la dirección</div>
+      <div>Utilidad con efecto costo y efecto tipo de cambio</div>
+      <div>Documentos por vencer y nómina de pago semanal</div>
+    </div>
+  </div>
+</section>
+
+<!-- ALCANCE -->
+<section id="alcance">
+  <div class="wrap">
+    <div class="kicker reveal">Alcance del proyecto</div>
+    <h2 class="reveal">Qué incluye y qué no incluye esta propuesta</h2>
+    <p class="section-lead reveal">Un proyecto se define tanto por lo que construye como por lo que deliberadamente deja fuera. Esta sección precisa los límites del alcance para que no queden supuestos abiertos: qué herramientas actuales desaparecen, qué procesos seguirán ocurriendo fuera del sistema y qué queda por definir antes de comenzar.</p>
+
+    <h3 style="font-size:19px;margin-bottom:8px">Cómo se entrega: dos fases</h3>
+    <p class="section-lead" style="margin-bottom:16px">La propuesta describe el sistema completo. Su construcción se divide en dos fases, y la primera ya tiene plan de trabajo con fechas.</p>
+    <div class="grid g2 reveal" style="margin-bottom:38px">
+      <div class="card" style="border-left:3px solid var(--teal)">
+        <div class="ico" style="background:rgba(31,138,112,.12)">1</div>
+        <h3>Fase 1 · en producción el 12 de octubre</h3>
+        <p style="margin-bottom:10px">Once etapas consecutivas, 32 días hábiles desde el 26 de agosto. Deja el ciclo completo funcionando de punta a punta.</p>
+        <ul class="lst">
+          <li>Modelo de datos, usuarios, perfiles y permisos</li>
+          <li>Maestros generales y tarifarios con tramos y acomodación</li>
+          <li>Motor de costeo con margen global o por servicio</li>
+          <li>Cotización con estados, versiones y PDF bilingüe</li>
+          <li>Orden de Trabajo con línea base, versiones y adjuntos</li>
+          <li>Órdenes de compra con control de correspondencia y costo real</li>
+          <li>Facturación, cuenta corriente y registro de pagos</li>
+          <li>Dashboard de OT y conexión Excel</li>
+          <li>Las dos áreas de negocio: receptivo y eventos empresa</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="ico">2</div>
+        <h3>Fase 2 · sobre la misma base</h3>
+        <p style="margin-bottom:10px">Todo lo demás descrito en esta propuesta. El modelo de datos de la fase 1 ya lo contempla, de modo que se construye encima sin rehacer trabajo.</p>
+        <ul class="lst">
+          <li>Ventanas configurables por usuario y avisos programados</li>
+          <li>Releases, vencimientos y reconfirmación con agencias</li>
+          <li>Ficha operativa, incidencias y gastos en terreno</li>
+          <li>Cierre operativo y económico con efecto costo y tipo de cambio</li>
+          <li>Comunicaciones por correo y bitácora de la OT</li>
+          <li>Portal de proveedores</li>
+          <li>Panel de gestión para la dirección</li>
+          <li>Documentos por vencer y nómina de pago semanal</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:8px">Lo que el sistema reemplaza</h3>
+    <p class="section-lead" style="margin-bottom:16px">Estas planillas y carpetas dejan de mantenerse. La función que cumplen se resuelve dentro del sistema.</p>
+    <div class="mock reveal" style="margin-bottom:38px">
+      <div class="mock-body" style="overflow-x:auto">
+        <table class="repl">
+          <thead><tr><th>Herramienta actual</th><th></th><th>Pasa a resolverse en</th></tr></thead>
+          <tbody>
+            <tr><td class="now">Matriz de costeo en Excel</td><td class="arrow">→</td><td class="next">Módulo de costeo con tarifario, tramos y recálculo automático</td></tr>
+            <tr><td class="now">Planilla Proveedores por Pagar</td><td class="arrow">→</td><td class="next">Cuentas por pagar generadas desde la OC</td></tr>
+            <tr><td class="now">Resumen Anual</td><td class="arrow">→</td><td class="next">OT con su venta, costo real y utilidad</td></tr>
+            <tr><td class="now">Bitácora general y bitácora de proveedores</td><td class="arrow">→</td><td class="next">Radar de OT y estado por servicio</td></tr>
+            <tr><td class="now">Carpetas Cliente › Ejecutivo › Pasajero en Drive</td><td class="arrow">→</td><td class="next">Jerarquía del sistema y adjuntos de la OT</td></tr>
+            <tr><td class="now">Plantilla Pagos Proveedores de eventos</td><td class="arrow">→</td><td class="next">Registro de gastos del evento con rendición</td></tr>
+            <tr><td class="now">Listados de reconfirmación armados a mano</td><td class="arrow">→</td><td class="next">Estado de reconfirmación por servicio contratado</td></tr>
+            <tr><td class="now">Control de facturación en planilla</td><td class="arrow">→</td><td class="next">Facturación y cuenta corriente por cliente</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:8px">Lo que queda fuera de alcance</h3>
+    <p class="section-lead" style="margin-bottom:16px">Estos procesos seguirán realizándose como hasta ahora, fuera del sistema.</p>
+    <div class="excl reveal">
+      <div class="ex">
+        <h4>Contabilidad y tributario</h4>
+        <ul>
+          <li>Libro de Compras y Ventas interno</li>
+          <li>Recepción y aceptación de documentos en el SII</li>
+          <li>Boletas de honorarios</li>
+          <li>Cálculo y pago de IVA</li>
+          <li>Coordinación con el contador</li>
+          <li>Contabilidad general y plan de cuentas</li>
+        </ul>
+      </div>
+      <div class="ex">
+        <h4>Remuneraciones y personal</h4>
+        <ul>
+          <li>Liquidaciones de sueldo</li>
+          <li>Planilla de Recursos Humanos</li>
+          <li>Archivo de pago masivo al banco</li>
+          <li>Previred e imposiciones</li>
+          <li>Vacaciones y certificados</li>
+          <li>Control de turnos</li>
+        </ul>
+      </div>
+      <div class="ex">
+        <h4>Operación bancaria</h4>
+        <ul>
+          <li>Conciliación bancaria</li>
+          <li>Revisión de movimientos y tarjetas</li>
+          <li>Identificación de ingresos y Comercio Exterior</li>
+          <li>Ejecución y autorización de transferencias</li>
+          <li>El sistema registra que un pago ocurrió; el banco lo ejecuta</li>
+        </ul>
+      </div>
+      <div class="ex">
+        <h4>Inteligencia artificial</h4>
+        <ul>
+          <li>Interpretación y clasificación automática del contenido de los correos</li>
+          <li>Extracción automática de datos desde facturas</li>
+          <li>Sugerencia y comparación automática de proveedores</li>
+          <li>Detección de anomalías en el costeo</li>
+          <li>Puede evaluarse como incorporación posterior</li>
+        </ul>
+      </div>
+      <div class="ex">
+        <h4>Diseño y desarrollo comercial</h4>
+        <ul>
+          <li>Validación de rutas, tiempos y distancias</li>
+          <li>Gestión de vuelos y conexiones</li>
+          <li>Comparación de brochures y proofs con lo contratado</li>
+          <li>Prospección, visitas y evaluación de proveedores</li>
+          <li>Seguimiento comercial tipo CRM</li>
+        </ul>
+      </div>
+      <div class="ex">
+        <h4>Integraciones y portales</h4>
+        <ul>
+          <li>NORA · en evaluación, no dimensionada</li>
+          <li>Banco, Previred y Google Drive</li>
+          <li>GDS y motores de reserva de aerolíneas u hoteles</li>
+          <li>Portal de autoservicio para agencias</li>
+          <li>Aplicación móvil instalable y firma electrónica</li>
+          <li>WhatsApp</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout warn reveal" style="margin-top:20px">
+      <strong>Sobre el correo: el sistema registra, no replica la bandeja.</strong> Lo que sale del sistema queda automáticamente en la bitácora de la OT, y lo que entra se asocia mediante identificador en el asunto, dirección de captura o adjunto manual. En cambio, <strong>la revisión diaria de la bandeja y la interpretación de las solicitudes que llegan</strong> siguen haciéndose en Outlook: los antecedentes de cada solicitud nueva se ingresan al sistema manualmente.
+    </div>
+
+    <h3 style="font-size:19px;margin:38px 0 8px">Por definir antes de iniciar</h3>
+    <p class="section-lead" style="margin-bottom:16px">Puntos que requieren una decisión conjunta y que pueden afectar el esfuerzo estimado.</p>
+    <div class="pend reveal">
+      <div class="pd-item"><strong>Migración de datos históricos</strong><span>Qué se traspasa desde las planillas actuales —proveedores, tarifarios, OT en curso— y qué se carga a mano.</span></div>
+      <div class="pd-item"><strong>Rooming list</strong><span>Si basta con registrar la distribución, o se requiere gestión de asignación de pasajeros a habitaciones validada contra lo reservado. Corresponde a la fase 2.</span></div>
+      <div class="pd-item"><strong>Duración de la fase 2</strong><span>Definir su alcance y plazo una vez que la fase 1 esté en producción y el equipo haya usado el sistema con datos reales.</span></div>
+      <div class="pd-item"><strong>Validación operativa de rutas</strong><span>Si se incorpora un estado de aprobación del guía a cargo en programas complejos, previo al envío de la propuesta.</span></div>
+      <div class="pd-item"><strong>Bitácoras como reporte</strong><span>Si se requieren exportables equivalentes a las bitácoras actuales, además de las vistas del sistema.</span></div>
+      <div class="pd-item"><strong>Proveedor de facturación electrónica</strong><span>Definir el emisor con el que se integrará la API. El conector queda aislado para poder cambiarlo.</span></div>
+      <div class="pd-item"><strong>Alcance de NORA</strong><span>Determinar qué funcionalidad se integra, si convive o se reemplaza, y por qué medio.</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="border-bottom:0">
+  <div class="wrap">
+    <div class="cta reveal">
+      <h2>Construyamos el sistema alrededor de cómo trabaja Extremo Norte</h2>
+      <p>Esta propuesta recoge el levantamiento realizado con el equipo de operaciones, reservas y administración. La fase 1 tiene plan de trabajo con fechas: once etapas entre el 26 de agosto y el 12 de octubre. El paso siguiente es confirmarlo y cerrar las definiciones pendientes.</p>
+    </div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    Propuesta funcional preparada por VIAIN para Extremo Norte Expediciones · Agosto 2026 · Versión 2<br>
+    Versión 3 · alineada con el plan de trabajo de la fase 1 — los datos mostrados son ilustrativos.
+  </div>
+</footer>
+
+<script>
+  const obs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}});
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{
+    el.style.transitionDelay=(Math.min(i%4,3)*60)+'ms';
+    obs.observe(el);
+  });
+</script>
+
+</body></html>
