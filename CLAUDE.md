@@ -436,6 +436,8 @@ Contrato único para Cotización, OT y OC (detalle en `Docs/reglas-negocio.md` �
 - Toda versión de OT posterior a la 1 declara `tipoCambio`: `ALCANCE` recotiza y cambia la venta; `CORRECCION` no la toca.
 - La **versión 1 de la OT es la línea base congelada**; toda desviación se mide contra ella.
 
+> **Cierre etapa 2 (agosto 2026).** `shared/versionado/` operativo para Cotización, OT y OC: núcleo genérico + tres adaptadores concretos en `adaptadores/`, con lectura histórica (RN-VER-09) y línea base (RN-VER-12). Namespaces de lock 491006/491007/491008. Validaciones bloqueantes en el adaptador de OT: `CORRECCION` no cambia venta (RN-VER-10) ni costo (RN-VER-11). **Decisión de alcance:** la aprobación del cliente para un `ALCANCE` queda como gate mínimo (booleano `aprobadoPorCliente`); el flujo de aprobación **verificable y persistente** se construye en la **etapa 8 (OT)** —hallazgo QA-VER-001 diferido a propósito, ver árbitro Codex ronda 2—.
+
 ### Correlativos
 
 Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios de ENE, sin colisión con los de FAS:
@@ -447,6 +449,8 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 491004  DocumentoTributario folio interno
 491005  Emisión idempotente de documentos
 491006  Versionado de OT (serializa dos POST /versiones concurrentes)
+491007  Versionado de Cotizacion (clave: cotizacionId)
+491008  Versionado de OrdenCompra (clave: ordenCompraId)
 ```
 
 ---

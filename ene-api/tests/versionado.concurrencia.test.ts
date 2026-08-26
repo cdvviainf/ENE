@@ -1,82 +1,25 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { PrismaClient, type Prisma } from '@prisma/client'
-import {
-  crearSiguienteVersion,
-  type Cabecera,
-  type Version,
-  type Versionable,
-} from '../src/shared/versionado/index.js'
-import { LOCK_COTIZACION_CORRELATIVO } from '../src/shared/advisory-locks.js'
+import { PrismaClient } from '@prisma/client'
+import { crearSiguienteVersion } from '../src/shared/versionado/index.js'
+import { cotizacionVersionable } from '../src/shared/versionado/adaptadores/cotizacion.js'
 
 // ============================================================================
-// Versionado — prueba de INTEGRACIÓN contra PostgreSQL (RN-VER-04/05/07).
-//
-// El fake de versionado.test.ts prueba la lógica pura pero no puede demostrar la
-// serialización del advisory lock: eso exige dos transacciones reales compitiendo
-// por la misma cabecera. Caso obligatorio #6 de Docs/reglas-negocio.md §15.
+// Versionado — INTEGRACIÓN contra PostgreSQL usando el adaptador REAL de
+// Cotización (RN-VER-04/05/07). El fake de versionado.test.ts prueba la lógica
+// pura; esto prueba serialización real de dos transacciones sobre la misma
+// cabecera. Caso obligatorio #6 de Docs/reglas-negocio.md §15.
 //
 // Requiere el Postgres del docker-compose arriba (DATABASE_URL en .env). No se
-// importa el singleton `prisma` de la app para no disparar el parser de env.ts;
-// se carga .env y se instancia un cliente propio.
+// importa el singleton `prisma` de la app para no disparar el parser de env.ts.
 // ============================================================================
 
 try {
   process.loadEnvFile()
 } catch {
-  // .env ya cargado en el entorno o inexistente; PrismaClient fallará con un
-  // mensaje claro si DATABASE_URL no está disponible.
+  // .env ya cargado o inexistente; PrismaClient fallará con mensaje claro.
 }
 
 const prisma = new PrismaClient()
-
-type Datos = Record<string, never>
-
-// Versionable concreto respaldado por Cotizacion/CotizacionVersion (tablas reales).
-const cotizacionVersionable: Versionable<Cabecera, Version, Datos> = {
-  // El lock se serializa por (namespace, cabeceraId); el namespace de cotización sirve.
-  lockNamespace: LOCK_COTIZACION_CORRELATIVO,
-  entidad: 'Cotización',
-
-  async cargarCabecera(tx: Prisma.TransactionClient, id: number): Promise<Cabecera | null> {
-    return tx.cotizacion.findUnique({
-      where: { id },
-      select: { id: true, versionVigenteId: true },
-    })
-  },
-
-  async ultimaVersion(tx: Prisma.TransactionClient, cabeceraId: number): Promise<number> {
-    const agg = await tx.cotizacionVersion.aggregate({
-      where: { cotizacionId: cabeceraId },
-      _max: { version: true },
-    })
-    return agg._max.version ?? 0
-  },
-
-  async crearVersion(tx, cabeceraId, numero, _datos: Datos, usuario): Promise<Version> {
-    return tx.cotizacionVersion.create({
-      data: {
-        cotizacionId: cabeceraId,
-        version: numero,
-        // RN-DIN-01: montos como string, nunca number, también en fixtures.
-        costoTotal: '0',
-        margenTotal: '0',
-        ventaTotal: '0',
-        creadoPor: usuario,
-      },
-      select: { id: true, version: true },
-    })
-  },
-
-  // v1 sin líneas en esta prueba: copiar es un no-op.
-  async copiarLineas(): Promise<void> {},
-
-  async fijarVigente(tx, cabeceraId, versionId): Promise<void> {
-    await tx.cotizacion.update({
-      where: { id: cabeceraId },
-      data: { versionVigenteId: versionId },
-    })
-  },
-}
 
 let clienteId: number
 let grupoId: number
@@ -111,12 +54,15 @@ beforeAll(async () => {
 
   // Línea base v1.
   await prisma.$transaction((tx) =>
-    crearSiguienteVersion(tx, cotizacionVersionable, { cabeceraId: cotizacionId, datos: {}, usuario: 'test' }),
+    crearSiguienteVersion(tx, cotizacionVersionable, {
+      cabeceraId: cotizacionId,
+      datos: { costoTotal: '0', margenTotal: '0', ventaTotal: '0' },
+      usuario: 'test',
+    }),
   )
 })
 
 afterAll(async () => {
-  // Limpieza respetando los FK Restrict: soltar la vigente, borrar versiones, luego cabeceras.
   if (cotizacionId) {
     await prisma.cotizacion.update({ where: { id: cotizacionId }, data: { versionVigenteId: null } }).catch(() => {})
     await prisma.cotizacionVersion.deleteMany({ where: { cotizacionId } })
@@ -133,7 +79,7 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
       prisma.$transaction((tx) =>
         crearSiguienteVersion(tx, cotizacionVersionable, {
           cabeceraId: cotizacionId,
-          datos: {},
+          datos: { costoTotal: '0', margenTotal: '0', ventaTotal: '0' },
           usuario: 'test',
           motivo: 'concurrencia',
         }),
@@ -141,10 +87,8 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
 
     const [a, b] = await Promise.all([nueva(), nueva()])
 
-    // Ninguna duplicada: los números salen 2 y 3.
     expect([a.version, b.version].sort((x, y) => x - y)).toEqual([2, 3])
 
-    // El correlativo de versión no tiene saltos: 1, 2, 3.
     const versiones = await prisma.cotizacionVersion.findMany({
       where: { cotizacionId },
       orderBy: { version: 'asc' },
@@ -152,7 +96,6 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
     })
     expect(versiones.map((v) => v.version)).toEqual([1, 2, 3])
 
-    // RN-VER-05: la vigente apunta a la última versión creada (la 3).
     const cab = await prisma.cotizacion.findUnique({
       where: { id: cotizacionId },
       select: { versionVigenteId: true },
@@ -162,7 +105,6 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
   })
 
   it('RN-VER-05: la base rechaza fijar como vigente una versión de otra cabecera', async () => {
-    // Cabecera y versión ajenas.
     const otra = await prisma.cotizacion.create({
       data: {
         numero: 'COT-QA-CONC-2',
@@ -181,7 +123,6 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
       data: { cotizacionId: otra.id, version: 1, costoTotal: '0', margenTotal: '0', ventaTotal: '0', creadoPor: 'test' },
     })
 
-    // Intentar apuntar la cotización original a una versión de `otra` debe fallar por la FK compuesta.
     await expect(
       prisma.cotizacion.update({
         where: { id: cotizacionId },
@@ -189,7 +130,6 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
       }),
     ).rejects.toThrow()
 
-    // Limpieza de las filas ajenas.
     await prisma.cotizacion.update({ where: { id: otra.id }, data: { versionVigenteId: null } }).catch(() => {})
     await prisma.cotizacionVersion.deleteMany({ where: { cotizacionId: otra.id } })
     await prisma.cotizacion.delete({ where: { id: otra.id } }).catch(() => {})

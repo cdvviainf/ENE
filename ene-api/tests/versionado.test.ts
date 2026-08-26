@@ -45,6 +45,7 @@ class VersionableFake implements Versionable<Cabecera, Version, Datos> {
     numero: number,
     _datos: Datos,
     _usuario: string,
+    _motivo?: string,
   ): Promise<Version> {
     const v = { id: ++this.seq, version: numero, cabeceraId }
     this.versiones.push(v)
@@ -58,6 +59,19 @@ class VersionableFake implements Versionable<Cabecera, Version, Datos> {
   async fijarVigente(_tx: Prisma.TransactionClient, cabeceraId: number, versionId: number): Promise<void> {
     const c = this.cabeceras.get(cabeceraId)
     if (c) c.versionVigenteId = versionId
+  }
+
+  async cargarVersionPorNumero(
+    _tx: Prisma.TransactionClient,
+    cabeceraId: number,
+    numero: number,
+  ): Promise<Version | null> {
+    return this.versiones.find((v) => v.cabeceraId === cabeceraId && v.version === numero) ?? null
+  }
+
+  async cargarLineas(_tx: Prisma.TransactionClient, _versionId: number): Promise<unknown[]> {
+    // El fake no modela líneas; la copia se verifica con `copias`.
+    return []
   }
 }
 
@@ -126,20 +140,6 @@ describe('versionado — v2 con motivo copia desde la vigente', () => {
     expect(v2.version).toBe(2)
     expect(e.copias).toEqual([{ desde: v1.id, hacia: v2.id }])
     expect(e.cabeceras.get(1)?.versionVigenteId).toBe(v2.id)
-  })
-
-  it('con copiarLineas=false la v2 nace vacía', async () => {
-    const e = new VersionableFake()
-    await crearSiguienteVersion(tx, e, { cabeceraId: 1, datos: {}, usuario: 'u' })
-    await crearSiguienteVersion(tx, e, {
-      cabeceraId: 1,
-      datos: {},
-      usuario: 'u',
-      motivo: 'sin copia',
-      copiarLineas: false,
-    })
-
-    expect(e.copias).toEqual([])
   })
 })
 

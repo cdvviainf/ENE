@@ -25,6 +25,16 @@ export const LOCK_DOCUMENTOS_EMISION = 491005
 /// misma OT. Clave: ordenTrabajoId.
 export const LOCK_ORDEN_TRABAJO_VERSION = 491006
 
+/// Versionado de Cotización — serializa la creación de versiones sobre la misma
+/// cotización. Clave: cotizacionId. Namespace propio para no colisionar con el
+/// correlativo de cotización (491001), que se serializa por año.
+export const LOCK_COTIZACION_VERSION = 491007
+
+/// Versionado de Orden de Compra — serializa la creación de versiones sobre la
+/// misma OC. Clave: ordenCompraId. Namespace propio, separado del correlativo
+/// de OC (491003).
+export const LOCK_ORDEN_COMPRA_VERSION = 491008
+
 import type { Prisma } from '@prisma/client'
 
 /// Toma el lock dentro de la transacción actual. Se libera al hacer commit
