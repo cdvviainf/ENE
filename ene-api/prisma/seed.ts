@@ -10,15 +10,17 @@ const PERFILES = [
   { codigo: 'ADMINISTRADOR', nombre: 'Administrador del sistema' },
 ]
 
+// `ruta` sigue la estructura de route group (app) de CLAUDE.md §4: los
+// segmentos no llevan prefijo /dashboard, cuelgan directo de la raíz.
 const ITEMS_MENU = [
-  { codigo: 'COTIZACIONES', nombre: 'Cotizaciones', modulo: 'comercial', orden: 10 },
-  { codigo: 'ORDENES_TRABAJO', nombre: 'Órdenes de Trabajo', modulo: 'operaciones', orden: 20 },
-  { codigo: 'ORDENES_COMPRA', nombre: 'Órdenes de Compra', modulo: 'operaciones', orden: 30 },
-  { codigo: 'FACTURACION', nombre: 'Facturación', modulo: 'administracion', orden: 40 },
-  { codigo: 'COBROS', nombre: 'Cobros y pagos', modulo: 'administracion', orden: 50 },
-  { codigo: 'DASHBOARD', nombre: 'Dashboard', modulo: 'gestion', orden: 60 },
-  { codigo: 'MAESTROS', nombre: 'Mantenedores', modulo: 'config', orden: 70 },
-  { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', orden: 80 },
+  { codigo: 'COTIZACIONES', nombre: 'Cotizaciones', modulo: 'comercial', ruta: '/cotizaciones', orden: 10 },
+  { codigo: 'ORDENES_TRABAJO', nombre: 'Órdenes de Trabajo', modulo: 'operaciones', ruta: '/ordenes-trabajo', orden: 20 },
+  { codigo: 'ORDENES_COMPRA', nombre: 'Órdenes de Compra', modulo: 'operaciones', ruta: '/ordenes-compra', orden: 30 },
+  { codigo: 'FACTURACION', nombre: 'Facturación', modulo: 'administracion', ruta: '/facturacion', orden: 40 },
+  { codigo: 'COBROS', nombre: 'Cobros y pagos', modulo: 'administracion', ruta: '/cobros', orden: 50 },
+  { codigo: 'DASHBOARD', nombre: 'Dashboard', modulo: 'gestion', ruta: '/dashboard', orden: 60 },
+  { codigo: 'MAESTROS', nombre: 'Mantenedores', modulo: 'config', ruta: '/config', orden: 70 },
+  { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 80 },
 ]
 
 // Zonas de operación (levantamiento: Arica a Santiago)
@@ -56,7 +58,13 @@ async function main() {
     await prisma.perfil.upsert({ where: { codigo: p.codigo }, update: {}, create: { ...p, creadoPor: SISTEMA } })
   }
   for (const i of ITEMS_MENU) {
-    await prisma.itemMenu.upsert({ where: { codigo: i.codigo }, update: {}, create: i })
+    // update sí toca `ruta`/`modulo`/`orden`: son catálogo de navegación, se
+    // recalculan libremente en cada seed a diferencia de los datos de negocio.
+    await prisma.itemMenu.upsert({
+      where: { codigo: i.codigo },
+      update: { ruta: i.ruta, modulo: i.modulo, orden: i.orden, nombre: i.nombre },
+      create: i,
+    })
   }
 
   // Gerencia y Administrador ven todo; el resto se ajusta al configurar.

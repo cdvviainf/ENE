@@ -69,6 +69,17 @@ export async function findAllItemsMenu() {
   })
 }
 
+/** Ítems con nivel != SIN_ACCESO del perfil, para armar el menú del usuario en sesión. */
+export async function findAccesosDelPerfil(perfilId: number) {
+  return prisma.perfilItemMenu.findMany({
+    where: { perfilId, nivel: { not: 'SIN_ACCESO' }, itemMenu: { activo: true } },
+    include: {
+      itemMenu: { select: { codigo: true, nombre: true, modulo: true, ruta: true, esAccion: true, orden: true } },
+    },
+    orderBy: { itemMenu: { orden: 'asc' } },
+  })
+}
+
 async function reemplazarAccesos(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   perfilId: number,

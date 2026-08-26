@@ -41,3 +41,8 @@ export async function deletePerfil(req: FastifyRequest, reply: FastifyReply) {
 export async function listItemsMenu(_req: FastifyRequest, reply: FastifyReply) {
   return reply.send(await service.listarItemsMenu())
 }
+
+export async function getMiMenu(req: FastifyRequest, reply: FastifyReply) {
+  // requireAuth ya garantizó la sesión y cargó enPerfilId.
+  return reply.send(await service.obtenerMiMenu(req.enePerfilId!))
+}

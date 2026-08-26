@@ -75,29 +75,28 @@ services:
         condition: service_healthy
 
   # ─── Web (ene-web) ──────────────────────────────────────────────────────────
-  # Se habilita cuando ene-web tenga su scaffold (ver ene-web/README.md).
-  # Hasta entonces `make up` levanta postgres, pgAdmin y la API.
-  # web:
-  #   build:
-  #     context: ./ene-web
-  #     dockerfile: Dockerfile.dev
-  #   container_name: ene_web
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3010:3010"
-  #   environment:
-  #     PORT: 3010
-  #     NEXT_PUBLIC_API_URL: http://localhost:3011/api
-  #     # Solo servidor: dentro de la red de Docker "localhost" apunta al propio
-  #     # contenedor web, no a ene-api. El route handler de auth usa esta
-  #     # variable para llegar al servicio "api" por su nombre de red.
-  #     INTERNAL_API_URL: http://api:3011
-  #   volumes:
-  #     - ./ene-web:/app
-  #     - ene_web_node_modules:/app/node_modules
-  #     - ene_web_next:/app/.next
-  #   depends_on:
-  #     - api
+  web:
+    build:
+      context: ./ene-web
+      dockerfile: Dockerfile.dev
+    container_name: ene_web
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    environment:
+      PORT: 3010
+      NEXT_PUBLIC_API_URL: http://localhost:3011/api
+      NEXT_PUBLIC_APP_URL: http://localhost:3010
+      # Solo servidor: dentro de la red de Docker "localhost" apunta al propio
+      # contenedor web, no a ene-api. El route handler de auth usa esta
+      # variable para llegar al servicio "api" por su nombre de red.
+      INTERNAL_API_URL: http://api:3011
+    volumes:
+      - ./ene-web:/app
+      - ene_web_node_modules:/app/node_modules
+      - ene_web_next:/app/.next
+    depends_on:
+      - api
 
   # ─── Redis ──────────────────────────────────────────────────────────────────
   # Fuera de alcance en la fase 1: no hay trabajo asíncrono (correo, avisos
@@ -126,10 +125,10 @@ volumes:
     driver: local
   ene_api_node_modules:
     driver: local
-  # ene_web_node_modules:
-  #   driver: local
-  # ene_web_next:
-  #   driver: local
+  ene_web_node_modules:
+    driver: local
+  ene_web_next:
+    driver: local
   ene_adjuntos:
     driver: local
   # ene_redis_data:

@@ -71,3 +71,9 @@ export async function eliminarPerfil(id: number, usuario = SISTEMA) {
 export async function listarItemsMenu() {
   return repo.findAllItemsMenu()
 }
+
+/** Menú del usuario en sesión: ítems con acceso, con el nivel ya resuelto. */
+export async function obtenerMiMenu(perfilId: number) {
+  const accesos = await repo.findAccesosDelPerfil(perfilId)
+  return accesos.map((a) => ({ ...a.itemMenu, nivel: a.nivel }))
+}
