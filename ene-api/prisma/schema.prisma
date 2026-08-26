@@ -145,11 +145,81 @@ enum NivelAcceso {
   TOTAL
 }
 
+// ─── Better Auth ────────────────────────────────────────────────────────────
+// Tablas propias de Better Auth (identidad y credenciales). El dominio vive en
+// `Usuario`, que se enlaza por `Usuario.authUserId → User.id` (CLAUDE.md §5:
+// id Int en el dominio; el id de auth es string). No se editan a mano.
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  usuario  Usuario?
+
+  @@map("auth_user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_session")
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  issuer                String?
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("auth_account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("auth_verification")
+}
+
 // ─── Usuarios y permisos ────────────────────────────────────────────────────
 
 model Usuario {
   id             Int       @id @default(autoincrement())
   codigo         String    @unique
+  authUserId     String?   @unique
   nombre         String
   email          String    @unique
   perfilId       Int
@@ -161,33 +231,41 @@ model Usuario {
   eliminadoEn    DateTime?
   eliminadoPor   String?
 
-  perfil Perfil @relation(fields: [perfilId], references: [id])
+  perfil   Perfil @relation(fields: [perfilId], references: [id])
+  // RN-PER: enlace 1:1 con la identidad de Better Auth. Nullable: un Usuario
+  // puede existir sin credencial todavía; sin authUserId no puede autenticarse.
+  authUser User?  @relation(fields: [authUserId], references: [id])
 
   @@map("usuario")
 }
 
 model Perfil {
-  id           Int       @id @default(autoincrement())
-  codigo       String    @unique
-  nombre       String
-  descripcion  String?
-  creadoEn     DateTime  @default(now())
-  creadoPor    String
-  eliminadoEn  DateTime?
-  eliminadoPor String?
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  descripcion    String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   usuarios Usuario[]
-  items    PerfilItemMenu[]
+  accesos  PerfilItemMenu[]
 
   @@map("perfil")
 }
 
 model ItemMenu {
-  id     Int    @id @default(autoincrement())
-  codigo String @unique
-  nombre String
-  modulo String
-  orden  Int    @default(0)
+  id       Int     @id @default(autoincrement())
+  codigo   String  @unique
+  nombre   String
+  modulo   String
+  ruta     String?
+  esAccion Boolean @default(false)
+  orden    Int     @default(0)
+  activo   Boolean @default(true)
 
   perfiles PerfilItemMenu[]
 

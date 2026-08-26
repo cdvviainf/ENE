@@ -420,6 +420,11 @@ como `OT-2026-0142 v3`.
 **RN-PER-03** Toda mutación registra `creadoPor` o `actualizadoPor` con el
 usuario de la sesión, no con un valor por defecto.
 
+**RN-PER-04** La contraseña exige al menos **8 caracteres** e incluye al menos
+una **mayúscula**, una **minúscula**, un **número** y un **símbolo**. La política
+se aplica en el borde (alta de usuario y cambio de contraseña). Un cambio
+administrativo de contraseña **revoca las sesiones activas** del usuario.
+
 ---
 
 ## 13. Adjuntos
