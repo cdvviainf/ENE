@@ -196,6 +196,13 @@ cabecera estable → N versiones → líneas colgando de la versión.
 **RN-VER-02 [BLOQUEA]** Una versión existente **nunca se edita**. Modificar
 significa crear la versión siguiente copiando las líneas y aplicando el cambio.
 
+> **Precedencia con RN-VER-08 (decisión de negocio, agosto 2026):** "versión
+> existente" significa una versión que **ya tiene una posterior** (histórica).
+> Mientras una versión es la **vigente y no existe ninguna posterior**, se
+> comporta como borrador y admite escritura directa (RN-VER-08). Al nacer la
+> versión N+1, la N queda congelada y solo se modifica creando la N+2. Ante
+> conflicto sobre la mutabilidad de la vigente, **gobierna RN-VER-08**.
+
 **RN-VER-03 [BLOQUEA]** Una versión anterior **nunca se borra ni se marca como
 eliminada**. El historial completo debe poder reconstruirse siempre.
 

@@ -13,9 +13,12 @@ import { Decimal } from 'decimal.js'
 
 Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP })
 
-export type Montoish = Decimal | string | number
+/// RN-DIN-01 [BLOQUEA]: un monto nunca entra ni se maneja como `number` de
+/// JavaScript. Solo `string` (lo que entrega la API) o `Decimal` (lo que entrega
+/// Prisma). Las cantidades sin naturaleza monetaria —p. ej. `partes`— sí son number.
+export type Montoish = Decimal | string
 
-const d = (v: Montoish): Decimal => new Decimal(v as never)
+const d = (v: Montoish): Decimal => new Decimal(v)
 
 /// 4 decimales — misma precisión que la columna Decimal(18,4).
 export const DECIMALES_MONTO = 4
