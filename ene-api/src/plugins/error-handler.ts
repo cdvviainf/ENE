@@ -1,9 +1,9 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyError, FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 import { ErrorApp } from '../shared/errors.js'
 
 export function registrarErrorHandler(app: FastifyInstance) {
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ErrorApp) {
       return reply.status(error.statusCode).send({
         error: { code: error.code, message: error.message, details: error.details },

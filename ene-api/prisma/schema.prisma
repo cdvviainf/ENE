@@ -159,6 +159,7 @@ model Usuario {
   actualizadoEn  DateTime? @updatedAt
   actualizadoPor String?
   eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   perfil Perfil @relation(fields: [perfilId], references: [id])
 
@@ -166,13 +167,14 @@ model Usuario {
 }
 
 model Perfil {
-  id            Int       @id @default(autoincrement())
-  codigo        String    @unique
-  nombre        String
-  descripcion   String?
-  creadoEn      DateTime  @default(now())
-  creadoPor     String
-  eliminadoEn   DateTime?
+  id           Int       @id @default(autoincrement())
+  codigo       String    @unique
+  nombre       String
+  descripcion  String?
+  creadoEn     DateTime  @default(now())
+  creadoPor    String
+  eliminadoEn  DateTime?
+  eliminadoPor String?
 
   usuarios Usuario[]
   items    PerfilItemMenu[]
@@ -181,11 +183,11 @@ model Perfil {
 }
 
 model ItemMenu {
-  id       Int     @id @default(autoincrement())
-  codigo   String  @unique
-  nombre   String
-  modulo   String
-  orden    Int     @default(0)
+  id     Int    @id @default(autoincrement())
+  codigo String @unique
+  nombre String
+  modulo String
+  orden  Int    @default(0)
 
   perfiles PerfilItemMenu[]
 
@@ -224,6 +226,7 @@ model Cliente {
   actualizadoEn   DateTime?   @updatedAt
   actualizadoPor  String?
   eliminadoEn     DateTime?
+  eliminadoPor    String?
 
   ejecutivos   ClienteEjecutivo[]
   grupos       Grupo[]
@@ -236,16 +239,17 @@ model Cliente {
 }
 
 model ClienteEjecutivo {
-  id          Int       @id @default(autoincrement())
-  clienteId   Int
-  nombre      String
-  email       String?
-  telefono    String?
-  cargo       String?
-  activo      Boolean   @default(true)
-  creadoEn    DateTime  @default(now())
-  creadoPor   String
-  eliminadoEn DateTime?
+  id           Int       @id @default(autoincrement())
+  clienteId    Int
+  nombre       String
+  email        String?
+  telefono     String?
+  cargo        String?
+  activo       Boolean   @default(true)
+  creadoEn     DateTime  @default(now())
+  creadoPor    String
+  eliminadoEn  DateTime?
+  eliminadoPor String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   cotizaciones Cotizacion[]
@@ -258,18 +262,19 @@ model ClienteEjecutivo {
 /// Grupo o pasajero individual. `apellido` es el identificador operativo de la
 /// reserva y es obligatorio en la OT (CLAUDE.md §7).
 model Grupo {
-  id           Int       @id @default(autoincrement())
-  codigo       String    @unique
-  apellido     String
-  clienteId    Int
-  nacionalidad String?
-  paisOrigen   String?
-  idioma       String?
-  cantidadPax  Int       @default(1)
+  id            Int       @id @default(autoincrement())
+  codigo        String    @unique
+  apellido      String
+  clienteId     Int
+  nacionalidad  String?
+  paisOrigen    String?
+  idioma        String?
+  cantidadPax   Int       @default(1)
   observaciones String?
-  creadoEn     DateTime  @default(now())
-  creadoPor    String
-  eliminadoEn  DateTime?
+  creadoEn      DateTime  @default(now())
+  creadoPor     String
+  eliminadoEn   DateTime?
+  eliminadoPor  String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   pasajeros    Pasajero[]
@@ -292,6 +297,7 @@ model Pasajero {
   creadoEn      DateTime  @default(now())
   creadoPor     String
   eliminadoEn   DateTime?
+  eliminadoPor  String?
 
   grupo Grupo @relation(fields: [grupoId], references: [id], onDelete: Cascade)
 
@@ -300,13 +306,14 @@ model Pasajero {
 }
 
 model Zona {
-  id          Int       @id @default(autoincrement())
-  codigo      String    @unique
-  nombre      String
-  nombreEn    String?
-  creadoEn    DateTime  @default(now())
-  creadoPor   String
-  eliminadoEn DateTime?
+  id           Int       @id @default(autoincrement())
+  codigo       String    @unique
+  nombre       String
+  nombreEn     String?
+  creadoEn     DateTime  @default(now())
+  creadoPor    String
+  eliminadoEn  DateTime?
+  eliminadoPor String?
 
   servicios    Servicio[]
   proveedores  Proveedor[]
@@ -325,6 +332,7 @@ model TipoServicio {
   creadoEn            DateTime     @default(now())
   creadoPor           String
   eliminadoEn         DateTime?
+  eliminadoPor        String?
 
   servicios   Servicio[]
   proveedores Proveedor[]
@@ -333,33 +341,34 @@ model TipoServicio {
 }
 
 model Proveedor {
-  id                 Int       @id @default(autoincrement())
-  codigo             String    @unique
-  razonSocial        String
-  rut                String?
-  nombreComercial    String?
-  tipoServicioId     Int?
-  zonaId             Int?
-  condicionesPago    String?
+  id                  Int       @id @default(autoincrement())
+  codigo              String    @unique
+  razonSocial         String
+  rut                 String?
+  nombreComercial     String?
+  tipoServicioId      Int?
+  zonaId              Int?
+  condicionesPago     String?
   politicaCancelacion String?
-  email              String?
-  telefono           String?
-  creadoEn           DateTime  @default(now())
-  creadoPor          String
-  actualizadoEn      DateTime? @updatedAt
-  actualizadoPor     String?
-  eliminadoEn        DateTime?
+  email               String?
+  telefono            String?
+  creadoEn            DateTime  @default(now())
+  creadoPor           String
+  actualizadoEn       DateTime? @updatedAt
+  actualizadoPor      String?
+  eliminadoEn         DateTime?
+  eliminadoPor        String?
 
   tipoServicio TipoServicio? @relation(fields: [tipoServicioId], references: [id])
   zona         Zona?         @relation(fields: [zonaId], references: [id])
 
-  alias       ProveedorAlias[]
-  cuentas     ProveedorCuenta[]
-  contactos   ProveedorContacto[]
-  tarifarios  Tarifario[]
-  ordenes     OrdenCompra[]
-  facturas    FacturaProveedor[]
-  pagos       PagoProveedor[]
+  alias            ProveedorAlias[]
+  cuentas          ProveedorCuenta[]
+  contactos        ProveedorContacto[]
+  tarifarios       Tarifario[]
+  ordenes          OrdenCompra[]
+  facturas         FacturaProveedor[]
+  pagos            PagoProveedor[]
   lineasCotizacion CotizacionLinea[]
   lineasOT         OrdenTrabajoLinea[]
 
@@ -424,6 +433,7 @@ model Servicio {
   actualizadoEn  DateTime?    @updatedAt
   actualizadoPor String?
   eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   zona         Zona?        @relation(fields: [zonaId], references: [id])
   tipoServicio TipoServicio @relation(fields: [tipoServicioId], references: [id])
@@ -449,9 +459,10 @@ model Tarifario {
   creadoEn      DateTime  @default(now())
   creadoPor     String
   eliminadoEn   DateTime?
+  eliminadoPor  String?
 
-  proveedor Proveedor @relation(fields: [proveedorId], references: [id])
-  servicio  Servicio  @relation(fields: [servicioId], references: [id])
+  proveedor Proveedor        @relation(fields: [proveedorId], references: [id])
+  servicio  Servicio         @relation(fields: [servicioId], references: [id])
   valores   TarifarioValor[]
 
   @@index([servicioId, vigenciaDesde])
@@ -473,7 +484,7 @@ model TarifarioValor {
   valor            Decimal      @db.Decimal(18, 4)
   suplementoSingle Decimal?     @db.Decimal(18, 4)
 
-  tarifario        Tarifario           @relation(fields: [tarifarioId], references: [id], onDelete: Cascade)
+  tarifario        Tarifario         @relation(fields: [tarifarioId], references: [id], onDelete: Cascade)
   lineasCotizacion CotizacionLinea[]
 
   @@index([tarifarioId])
@@ -483,8 +494,8 @@ model TarifarioValor {
 // ─── Cotización ─────────────────────────────────────────────────────────────
 
 model Cotizacion {
-  id               Int               @id @default(autoincrement())
-  numero           String            @unique
+  id               Int              @id @default(autoincrement())
+  numero           String           @unique
   clienteId        Int
   ejecutivoId      Int?
   grupoId          Int
@@ -492,17 +503,17 @@ model Cotizacion {
   zonaId           Int?
   fechaOperacion   DateTime
   cantidadPax      Int
-  idiomaDocumento  String            @default("es")
+  idiomaDocumento  String           @default("es")
   moneda           Moneda
-  tipoCambio       Decimal           @db.Decimal(12, 6)
-  estado           EstadoCotizacion  @default(BORRADOR)
-  versionVigenteId Int?              @unique
-  ordenTrabajoId   Int?              @unique
-  creadoEn         DateTime          @default(now())
+  tipoCambio       Decimal          @db.Decimal(12, 6)
+  estado           EstadoCotizacion @default(BORRADOR)
+  versionVigenteId Int?             @unique
+  creadoEn         DateTime         @default(now())
   creadoPor        String
-  actualizadoEn    DateTime?         @updatedAt
+  actualizadoEn    DateTime?        @updatedAt
   actualizadoPor   String?
   eliminadoEn      DateTime?
+  eliminadoPor     String?
 
   cliente   Cliente           @relation(fields: [clienteId], references: [id])
   ejecutivo ClienteEjecutivo? @relation(fields: [ejecutivoId], references: [id])
@@ -510,9 +521,14 @@ model Cotizacion {
   zona      Zona?             @relation(fields: [zonaId], references: [id])
 
   versiones      CotizacionVersion[] @relation("CotizacionVersiones")
-  versionVigente CotizacionVersion?  @relation("CotizacionVigente", fields: [versionVigenteId], references: [id])
-  ordenTrabajo   OrdenTrabajo?       @relation(fields: [ordenTrabajoId], references: [id])
+  // RN-VER-05: la vigente se referencia por [versionVigenteId, id] contra
+  // [id, cotizacionId] de la versión, para que nunca sea de otra cabecera.
+  versionVigente CotizacionVersion?  @relation("CotizacionVigente", fields: [versionVigenteId, id], references: [id, cotizacionId], onDelete: NoAction, onUpdate: NoAction)
+  // La OT es dueña de la FK (RN-OT-01): OrdenTrabajo.cotizacionId, obligatorio.
+  ordenTrabajo   OrdenTrabajo?
 
+  // RN-VER-05: lado definidor 1-1 de la FK compuesta de versión vigente.
+  @@unique([versionVigenteId, id])
   @@index([estado])
   @@index([fechaOperacion])
   @@map("cotizacion")
@@ -529,11 +545,12 @@ model CotizacionVersion {
   creadoEn     DateTime @default(now())
   creadoPor    String
 
-  cotizacion Cotizacion  @relation("CotizacionVersiones", fields: [cotizacionId], references: [id], onDelete: Cascade)
-  vigenteDe  Cotizacion? @relation("CotizacionVigente")
+  cotizacion Cotizacion        @relation("CotizacionVersiones", fields: [cotizacionId], references: [id], onDelete: Restrict)
+  vigenteDe  Cotizacion?       @relation("CotizacionVigente")
   lineas     CotizacionLinea[]
 
   @@unique([cotizacionId, version])
+  @@unique([id, cotizacionId])
   @@map("cotizacion_version")
 }
 
@@ -556,7 +573,7 @@ model CotizacionLinea {
   margenPct           Decimal      @db.Decimal(7, 4)
   ventaTotal          Decimal      @db.Decimal(18, 4)
 
-  version        CotizacionVersion @relation(fields: [cotizacionVersionId], references: [id], onDelete: Cascade)
+  version        CotizacionVersion @relation(fields: [cotizacionVersionId], references: [id], onDelete: Restrict)
   servicio       Servicio?         @relation(fields: [servicioId], references: [id])
   proveedor      Proveedor?        @relation(fields: [proveedorId], references: [id])
   tarifarioValor TarifarioValor?   @relation(fields: [tarifarioValorId], references: [id])
@@ -570,8 +587,9 @@ model CotizacionLinea {
 /// La cotización aprobada genera la OT copiando sus líneas. La versión 1 es la
 /// línea base congelada y es contra la que se compara el costo real.
 model OrdenTrabajo {
-  id                   Int      @id @default(autoincrement())
-  numero               String   @unique
+  id                   Int         @id @default(autoincrement())
+  numero               String      @unique
+  cotizacionId         Int         @unique
   clienteId            Int
   ejecutivoId          Int?
   grupoId              Int
@@ -581,27 +599,32 @@ model OrdenTrabajo {
   fechaOperacion       DateTime
   cantidadPax          Int
   moneda               Moneda
-  tipoCambioCotizacion Decimal  @db.Decimal(12, 6)
-  estado               EstadoOT @default(CONFIRMADA)
-  versionVigenteId     Int?     @unique
-  creadoEn             DateTime @default(now())
+  tipoCambioCotizacion Decimal     @db.Decimal(12, 6)
+  estado               EstadoOT    @default(CONFIRMADA)
+  versionVigenteId     Int?        @unique
+  creadoEn             DateTime    @default(now())
   creadoPor            String
-  actualizadoEn        DateTime? @updatedAt
+  actualizadoEn        DateTime?   @updatedAt
   actualizadoPor       String?
   eliminadoEn          DateTime?
+  eliminadoPor         String?
 
-  cliente   Cliente           @relation(fields: [clienteId], references: [id])
-  ejecutivo ClienteEjecutivo? @relation(fields: [ejecutivoId], references: [id])
-  grupo     Grupo             @relation(fields: [grupoId], references: [id])
-  zona      Zona?             @relation(fields: [zonaId], references: [id])
+  cliente    Cliente           @relation(fields: [clienteId], references: [id])
+  ejecutivo  ClienteEjecutivo? @relation(fields: [ejecutivoId], references: [id])
+  grupo      Grupo             @relation(fields: [grupoId], references: [id])
+  zona       Zona?             @relation(fields: [zonaId], references: [id])
+  // RN-OT-01: la OT nace de una cotización aprobada; cotizacionId es obligatorio.
+  cotizacion Cotizacion        @relation(fields: [cotizacionId], references: [id])
 
   versiones      OrdenTrabajoVersion[] @relation("OTVersiones")
-  versionVigente OrdenTrabajoVersion?  @relation("OTVigente", fields: [versionVigenteId], references: [id])
-  cotizacion     Cotizacion?
+  // RN-VER-05: la vigente pertenece a esta OT (par [versionVigenteId, id]).
+  versionVigente OrdenTrabajoVersion?  @relation("OTVigente", fields: [versionVigenteId, id], references: [id, ordenTrabajoId], onDelete: NoAction, onUpdate: NoAction)
   ordenesCompra  OrdenCompra[]
   documentos     DocumentoTributario[]
   movimientos    MovimientoCuenta[]
 
+  // RN-VER-05: lado definidor 1-1 de la FK compuesta de versión vigente.
+  @@unique([versionVigenteId, id])
   @@index([estado, fechaOperacion])
   @@index([apellido])
   @@map("orden_trabajo")
@@ -619,21 +642,24 @@ model OrdenTrabajoVersion {
   creadoEn          DateTime          @default(now())
   creadoPor         String
 
-  ordenTrabajo  OrdenTrabajo   @relation("OTVersiones", fields: [ordenTrabajoId], references: [id], onDelete: Cascade)
-  vigenteDe     OrdenTrabajo?  @relation("OTVigente")
+  // RN-VER-03: el historial nunca se borra; Restrict impide arrastrar versiones.
+  ordenTrabajo  OrdenTrabajo         @relation("OTVersiones", fields: [ordenTrabajoId], references: [id], onDelete: Restrict)
+  vigenteDe     OrdenTrabajo?        @relation("OTVigente")
   lineas        OrdenTrabajoLinea[]
   ordenesCompra OrdenCompraVersion[]
 
   @@unique([ordenTrabajoId, version])
+  // RN-VER-05: par [id, ordenTrabajoId] referenciado por OrdenTrabajo.versionVigente.
+  @@unique([id, ordenTrabajoId])
   @@map("orden_trabajo_version")
 }
 
 model OrdenTrabajoLinea {
-  id                    Int             @id @default(autoincrement())
+  id                    Int            @id @default(autoincrement())
   ordenTrabajoVersionId Int
   dia                   Int
   bloque                Bloque
-  orden                 Int             @default(0)
+  orden                 Int            @default(0)
   tipoLinea             TipoLinea
   servicioId            Int?
   proveedorId           Int?
@@ -641,13 +667,14 @@ model OrdenTrabajoLinea {
   descripcionEn         String?
   cantidadPax           Int
   acomodacion           Acomodacion?
-  costoTeorico          Decimal         @db.Decimal(18, 4)
-  margenPct             Decimal         @db.Decimal(7, 4)
-  ventaLinea            Decimal         @db.Decimal(18, 4)
-  estadoServicio        EstadoServicio  @default(PENDIENTE)
+  costoTeorico          Decimal        @db.Decimal(18, 4)
+  margenPct             Decimal        @db.Decimal(7, 4)
+  ventaLinea            Decimal        @db.Decimal(18, 4)
+  estadoServicio        EstadoServicio @default(PENDIENTE)
   fechaServicio         DateTime?
 
-  version   OrdenTrabajoVersion @relation(fields: [ordenTrabajoVersionId], references: [id], onDelete: Cascade)
+  // RN-VER-03: las líneas de una versión son historial; no se cascadean.
+  version   OrdenTrabajoVersion @relation(fields: [ordenTrabajoVersionId], references: [id], onDelete: Restrict)
   servicio  Servicio?           @relation(fields: [servicioId], references: [id])
   proveedor Proveedor?          @relation(fields: [proveedorId], references: [id])
   lineasOC  OrdenCompraLinea[]
@@ -672,15 +699,19 @@ model OrdenCompra {
   actualizadoEn    DateTime? @updatedAt
   actualizadoPor   String?
   eliminadoEn      DateTime?
+  eliminadoPor     String?
 
   ordenTrabajo OrdenTrabajo @relation(fields: [ordenTrabajoId], references: [id])
   proveedor    Proveedor    @relation(fields: [proveedorId], references: [id])
 
   versiones      OrdenCompraVersion[] @relation("OCVersiones")
-  versionVigente OrdenCompraVersion?  @relation("OCVigente", fields: [versionVigenteId], references: [id])
+  // RN-VER-05: la vigente pertenece a esta OC (par [versionVigenteId, id]).
+  versionVigente OrdenCompraVersion?  @relation("OCVigente", fields: [versionVigenteId, id], references: [id, ordenCompraId], onDelete: NoAction, onUpdate: NoAction)
   facturas       FacturaProveedor[]
   pagos          PagoProveedor[]
 
+  // RN-VER-05: lado definidor 1-1 de la FK compuesta de versión vigente.
+  @@unique([versionVigenteId, id])
   @@index([ordenTrabajoId])
   @@map("orden_compra")
 }
@@ -695,25 +726,31 @@ model OrdenCompraVersion {
   creadoEn              DateTime @default(now())
   creadoPor             String
 
-  ordenCompra         OrdenCompra         @relation("OCVersiones", fields: [ordenCompraId], references: [id], onDelete: Cascade)
+  // RN-VER-03: el historial nunca se borra; Restrict impide arrastrar versiones.
+  ordenCompra         OrdenCompra         @relation("OCVersiones", fields: [ordenCompraId], references: [id], onDelete: Restrict)
   vigenteDe           OrdenCompra?        @relation("OCVigente")
   ordenTrabajoVersion OrdenTrabajoVersion @relation(fields: [ordenTrabajoVersionId], references: [id])
   lineas              OrdenCompraLinea[]
 
   @@unique([ordenCompraId, version])
+  // RN-VER-05: par [id, ordenCompraId] referenciado por OrdenCompra.versionVigente.
+  @@unique([id, ordenCompraId])
   @@map("orden_compra_version")
 }
 
 model OrdenCompraLinea {
-  id                   Int      @id @default(autoincrement())
+  id                   Int       @id @default(autoincrement())
   ordenCompraVersionId Int
   ordenTrabajoLineaId  Int?
   descripcion          String
   fechaServicio        DateTime?
   cantidadPax          Int
-  costoReal            Decimal  @db.Decimal(18, 4)
+  costoReal            Decimal   @db.Decimal(18, 4)
+  // RN-DIN-05: todo monto viaja con su moneda; se hereda de la cabecera de OC.
+  moneda               Moneda
 
-  version           OrdenCompraVersion @relation(fields: [ordenCompraVersionId], references: [id], onDelete: Cascade)
+  // RN-VER-03: las líneas de una versión son historial; no se cascadean.
+  version           OrdenCompraVersion @relation(fields: [ordenCompraVersionId], references: [id], onDelete: Restrict)
   ordenTrabajoLinea OrdenTrabajoLinea? @relation(fields: [ordenTrabajoLineaId], references: [id])
 
   @@index([ordenCompraVersionId])
@@ -723,23 +760,23 @@ model OrdenCompraLinea {
 // ─── Facturación y cobros ───────────────────────────────────────────────────
 
 model DocumentoTributario {
-  id               Int       @id @default(autoincrement())
-  ordenTrabajoId   Int
-  tipo             TipoDTE
-  folio            String?
-  fechaEmision     DateTime?
-  moneda           Moneda
-  neto             Decimal   @db.Decimal(18, 4)
-  iva              Decimal   @db.Decimal(18, 4)
-  total            Decimal   @db.Decimal(18, 4)
-  tipoCambioEmision Decimal  @db.Decimal(12, 6)
-  estadoDte        EstadoDTE @default(PENDIENTE)
-  proveedorDte     String?
-  urlPdf           String?
-  urlXml           String?
-  respuestaJson    Json?
-  creadoEn         DateTime  @default(now())
-  creadoPor        String
+  id                Int       @id @default(autoincrement())
+  ordenTrabajoId    Int
+  tipo              TipoDTE
+  folio             String?
+  fechaEmision      DateTime?
+  moneda            Moneda
+  neto              Decimal   @db.Decimal(18, 4)
+  iva               Decimal   @db.Decimal(18, 4)
+  total             Decimal   @db.Decimal(18, 4)
+  tipoCambioEmision Decimal   @db.Decimal(12, 6)
+  estadoDte         EstadoDTE @default(PENDIENTE)
+  proveedorDte      String?
+  urlPdf            String?
+  urlXml            String?
+  respuestaJson     Json?
+  creadoEn          DateTime  @default(now())
+  creadoPor         String
 
   ordenTrabajo OrdenTrabajo       @relation(fields: [ordenTrabajoId], references: [id])
   movimientos  MovimientoCuenta[]
@@ -751,19 +788,19 @@ model DocumentoTributario {
 /// Cuenta corriente del cliente. Un abono puede recibirse contra la OT sin que
 /// exista factura. El saldo se calcula, no se almacena (vista rpt_).
 model MovimientoCuenta {
-  id                    Int             @id @default(autoincrement())
+  id                    Int            @id @default(autoincrement())
   clienteId             Int
   ordenTrabajoId        Int?
   documentoTributarioId Int?
   tipo                  TipoMovimiento
   fecha                 DateTime
   moneda                Moneda
-  monto                 Decimal         @db.Decimal(18, 4)
-  tipoCambio            Decimal         @db.Decimal(12, 6)
-  montoClp              Decimal         @db.Decimal(18, 4)
+  monto                 Decimal        @db.Decimal(18, 4)
+  tipoCambio            Decimal        @db.Decimal(12, 6)
+  montoClp              Decimal        @db.Decimal(18, 4)
   glosa                 String?
   referencia            String?
-  creadoEn              DateTime        @default(now())
+  creadoEn              DateTime       @default(now())
   creadoPor             String
 
   cliente             Cliente              @relation(fields: [clienteId], references: [id])
@@ -775,21 +812,21 @@ model MovimientoCuenta {
 }
 
 model FacturaProveedor {
-  id            Int                @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   proveedorId   Int
   ordenCompraId Int?
   numero        String
   fechaEmision  DateTime
   moneda        Moneda
-  monto         Decimal            @db.Decimal(18, 4)
+  monto         Decimal           @db.Decimal(18, 4)
   adjuntoId     Int?
-  estado        EstadoFacturaProv  @default(RECIBIDA)
+  estado        EstadoFacturaProv @default(RECIBIDA)
   observaciones String?
-  creadoEn      DateTime           @default(now())
+  creadoEn      DateTime          @default(now())
   creadoPor     String
 
-  proveedor   Proveedor    @relation(fields: [proveedorId], references: [id])
-  ordenCompra OrdenCompra? @relation(fields: [ordenCompraId], references: [id])
+  proveedor   Proveedor       @relation(fields: [proveedorId], references: [id])
+  ordenCompra OrdenCompra?    @relation(fields: [ordenCompraId], references: [id])
   pagos       PagoProveedor[]
 
   @@index([proveedorId])
@@ -797,19 +834,19 @@ model FacturaProveedor {
 }
 
 model PagoProveedor {
-  id                 Int               @id @default(autoincrement())
-  proveedorId        Int
-  ordenCompraId      Int?
-  facturaProveedorId Int?
-  tipo               TipoPagoProveedor
-  fecha              DateTime
-  moneda             Moneda
-  monto              Decimal           @db.Decimal(18, 4)
-  tipoCambio         Decimal           @db.Decimal(12, 6)
-  referencia         String?
+  id                   Int               @id @default(autoincrement())
+  proveedorId          Int
+  ordenCompraId        Int?
+  facturaProveedorId   Int?
+  tipo                 TipoPagoProveedor
+  fecha                DateTime
+  moneda               Moneda
+  monto                Decimal           @db.Decimal(18, 4)
+  tipoCambio           Decimal           @db.Decimal(12, 6)
+  referencia           String?
   comprobanteAdjuntoId Int?
-  creadoEn           DateTime          @default(now())
-  creadoPor          String
+  creadoEn             DateTime          @default(now())
+  creadoPor            String
 
   proveedor        Proveedor         @relation(fields: [proveedorId], references: [id])
   ordenCompra      OrdenCompra?      @relation(fields: [ordenCompraId], references: [id])
@@ -822,16 +859,17 @@ model PagoProveedor {
 // ─── Adjuntos ───────────────────────────────────────────────────────────────
 
 model Adjunto {
-  id           Int             @id @default(autoincrement())
-  entidad      EntidadAdjunto
-  entidadId    Int
+  id            Int            @id @default(autoincrement())
+  entidad       EntidadAdjunto
+  entidadId     Int
   nombreArchivo String
-  mimeType     String
-  tamanoBytes  Int
-  storageKey   String
-  creadoEn     DateTime        @default(now())
-  creadoPor    String
-  eliminadoEn  DateTime?
+  mimeType      String
+  tamanoBytes   Int
+  storageKey    String
+  creadoEn      DateTime       @default(now())
+  creadoPor     String
+  eliminadoEn   DateTime?
+  eliminadoPor  String?
 
   @@index([entidad, entidadId])
   @@map("adjunto")
@@ -842,12 +880,12 @@ model Adjunto {
 /// Prefijo y cantidad de dígitos por tipo de documento. El siguiente número se
 /// genera dentro de transacción con pg_advisory_xact_lock (CLAUDE.md §7).
 model PrefijoCodigo {
-  id          Int      @id @default(autoincrement())
-  entidad     String   @unique
+  id          Int     @id @default(autoincrement())
+  entidad     String  @unique
   prefijo     String
-  digitos     Int      @default(4)
-  incluyeAnio Boolean  @default(true)
-  ultimoValor Int      @default(0)
+  digitos     Int     @default(4)
+  incluyeAnio Boolean @default(true)
+  ultimoValor Int     @default(0)
   anio        Int?
 
   @@map("prefijo_codigo")
