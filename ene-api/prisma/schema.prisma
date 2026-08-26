@@ -777,6 +777,10 @@ model DocumentoTributario {
   respuestaJson     Json?
   creadoEn          DateTime  @default(now())
   creadoPor         String
+  actualizadoEn     DateTime? @updatedAt
+  actualizadoPor    String?
+  eliminadoEn       DateTime?
+  eliminadoPor      String?
 
   ordenTrabajo OrdenTrabajo       @relation(fields: [ordenTrabajoId], references: [id])
   movimientos  MovimientoCuenta[]
@@ -802,6 +806,10 @@ model MovimientoCuenta {
   referencia            String?
   creadoEn              DateTime       @default(now())
   creadoPor             String
+  actualizadoEn         DateTime?      @updatedAt
+  actualizadoPor        String?
+  eliminadoEn           DateTime?
+  eliminadoPor          String?
 
   cliente             Cliente              @relation(fields: [clienteId], references: [id])
   ordenTrabajo        OrdenTrabajo?        @relation(fields: [ordenTrabajoId], references: [id])
@@ -812,18 +820,22 @@ model MovimientoCuenta {
 }
 
 model FacturaProveedor {
-  id            Int               @id @default(autoincrement())
-  proveedorId   Int
-  ordenCompraId Int?
-  numero        String
-  fechaEmision  DateTime
-  moneda        Moneda
-  monto         Decimal           @db.Decimal(18, 4)
-  adjuntoId     Int?
-  estado        EstadoFacturaProv @default(RECIBIDA)
-  observaciones String?
-  creadoEn      DateTime          @default(now())
-  creadoPor     String
+  id             Int               @id @default(autoincrement())
+  proveedorId    Int
+  ordenCompraId  Int?
+  numero         String
+  fechaEmision   DateTime
+  moneda         Moneda
+  monto          Decimal           @db.Decimal(18, 4)
+  adjuntoId      Int?
+  estado         EstadoFacturaProv @default(RECIBIDA)
+  observaciones  String?
+  creadoEn       DateTime          @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime?         @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   proveedor   Proveedor       @relation(fields: [proveedorId], references: [id])
   ordenCompra OrdenCompra?    @relation(fields: [ordenCompraId], references: [id])
@@ -847,6 +859,10 @@ model PagoProveedor {
   comprobanteAdjuntoId Int?
   creadoEn             DateTime          @default(now())
   creadoPor            String
+  actualizadoEn        DateTime?         @updatedAt
+  actualizadoPor       String?
+  eliminadoEn          DateTime?
+  eliminadoPor         String?
 
   proveedor        Proveedor         @relation(fields: [proveedorId], references: [id])
   ordenCompra      OrdenCompra?      @relation(fields: [ordenCompraId], references: [id])
