@@ -59,6 +59,7 @@ services:
       TZ: America/Santiago
       BETTER_AUTH_SECRET: ene_super_secret_key_cambiar_en_produccion_32ch
       BETTER_AUTH_URL: http://localhost:3011
+      REDIS_URL: redis://:ene_redis_pass@redis:6379
       MAIL_FROM: "Extremo Norte <no-reply@extremonorte.com>"
       DTE_PROVIDER: mock
       DTE_AMBIENTE: certificacion
@@ -72,6 +73,8 @@ services:
       - ene_adjuntos:/data/adjuntos
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # ─── Web (ene-web) ──────────────────────────────────────────────────────────
@@ -99,24 +102,24 @@ services:
       - api
 
   # ─── Redis ──────────────────────────────────────────────────────────────────
-  # Fuera de alcance en la fase 1: no hay trabajo asíncrono (correo, avisos
-  # programados y reconfirmaciones son fase 2). Se deja declarado para no
-  # rehacer el compose cuando entre BullMQ.
-  #
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: ene_redis
-  #   restart: unless-stopped
-  #   command: redis-server --appendonly yes --requirepass ene_redis_pass
-  #   ports:
-  #     - "6380:6379"
-  #   volumes:
-  #     - ene_redis_data:/data
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "-a", "ene_redis_pass", "ping"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # Habilitado desde el 28-ago-2026 (decisión: QA/producción usan Redis para
+  # el envío de correo desde el arranque, para no rehacer el compose después).
+  # El código de la cola (BullMQ) todavía no existe — este servicio deja la
+  # variable REDIS_URL lista para cuando se construya.
+  redis:
+    image: redis:7-alpine
+    container_name: ene_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ene_redis_pass
+    ports:
+      - "6380:6379"
+    volumes:
+      - ene_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ene_redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   ene_postgres_data:
@@ -131,5 +134,5 @@ volumes:
     driver: local
   ene_adjuntos:
     driver: local
-  # ene_redis_data:
-  #   driver: local
+  ene_redis_data:
+    driver: local

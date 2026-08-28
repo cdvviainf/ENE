@@ -30,7 +30,7 @@ export async function createUsuario(req: FastifyRequest, reply: FastifyReply) {
 export async function updateUsuario(req: FastifyRequest, reply: FastifyReply) {
   const { id } = usuarioIdParamSchema.parse(req.params)
   const input = usuarioUpdateSchema.parse(req.body)
-  return reply.send(await service.actualizarUsuario(id, input, usuarioSesion(req)))
+  return reply.send(await service.actualizarUsuario(id, input, usuarioSesion(req), req.eneUsuarioId))
 }
 
 export async function changePassword(req: FastifyRequest, reply: FastifyReply) {
@@ -42,6 +42,6 @@ export async function changePassword(req: FastifyRequest, reply: FastifyReply) {
 
 export async function deleteUsuario(req: FastifyRequest, reply: FastifyReply) {
   const { id } = usuarioIdParamSchema.parse(req.params)
-  await service.eliminarUsuario(id, usuarioSesion(req))
+  await service.eliminarUsuario(id, usuarioSesion(req), req.eneUsuarioId)
   return reply.status(204).send()
 }

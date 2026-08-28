@@ -70,13 +70,60 @@ export const navGroups: NavGroup[] = [
         title: 'Mantenedores',
         url: '/config',
         icon: 'settings',
-        items: []
+        items: [
+          {
+            title: 'Clientes',
+            url: '/config/clientes',
+            items: []
+          },
+          {
+            title: 'Grupos',
+            url: '/config/grupos',
+            items: []
+          },
+          {
+            title: 'Proveedores',
+            url: '/config/proveedores',
+            items: []
+          },
+          {
+            title: 'Servicios',
+            url: '/config/servicios',
+            items: []
+          },
+          {
+            title: 'Zonas',
+            url: '/config/zonas',
+            items: []
+          },
+          {
+            title: 'Tipos de servicio',
+            url: '/config/tipos-servicio',
+            items: []
+          },
+          {
+            title: 'Prefijos de código',
+            url: '/config/prefijos-codigo',
+            items: []
+          }
+        ]
       },
       {
         title: 'Usuarios y perfiles',
         url: '/config/usuarios',
         icon: 'teams',
-        items: []
+        items: [
+          {
+            title: 'Usuarios',
+            url: '/config/usuarios',
+            items: []
+          },
+          {
+            title: 'Perfiles',
+            url: '/config/usuarios/perfiles',
+            items: []
+          }
+        ]
       }
     ]
   }

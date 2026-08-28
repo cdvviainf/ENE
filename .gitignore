@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.demo
+.env.qa
 
 # OS
 .DS_Store
@@ -18,6 +19,9 @@ Thumbs.db
 
 # Reportes del ciclo QA Claude -> Codex
 .qa-workflow/
+
+# Artefactos de sesiones de browser automation (Playwright MCP)
+.playwright-mcp/
 
 # Node
 node_modules/

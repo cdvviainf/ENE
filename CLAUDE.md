@@ -7,6 +7,15 @@
 
 ## 0. Fuente autoritativa y convenciones canónicas
 
+> **Documentos del proyecto y su autoridad:**
+>
+> | Documento | Manda sobre |
+> |---|---|
+> | `Docs/reglas-negocio.md` | Reglas de dominio. Identificadores `RN-XX-NN` |
+> | `Docs/plan-implementacion.md` | Orden de construcción, endpoints y criterios de término |
+> | `Docs/mantenedores.md` | Campos, validaciones y pantallas de los maestros (etapas 4 y 5) |
+> | `CLAUDE.md` (este) | Contrato técnico: stack, estructura, modelo de datos, convenciones |
+>
 > **`Docs/reglas-negocio.md` es la fuente autoritativa de las reglas de dominio.** Ante cualquier discrepancia, manda ese documento. Cada regla tiene identificador estable (`RN-XX-NN`) para referenciarla desde el código y los tests.
 >
 > Este `CLAUDE.md` mantiene el **contrato técnico**: contexto, stack, estructura, convenciones, modelo de datos y entorno. Los specs por módulo viven en `Docs/` cuando se escriban y son autoritativos sobre el detalle de contratos de API.
@@ -82,7 +91,7 @@ Idéntico a FAS salvo lo indicado. **No se introduce ninguna tecnología nueva**
 | Pino | 10 | Logging |
 | Vitest | 4 | Tests |
 
-**No se incluyen en fase 1:** BullMQ ni Redis. No hay trabajo asíncrono en el alcance —el correo, los avisos programados y las reconfirmaciones son fase 2—. Se deja el `docker-compose` preparado con el servicio `redis` comentado para no rehacerlo después.
+**BullMQ sigue sin código en fase 1:** no hay trabajo asíncrono construido —el correo, los avisos programados y las reconfirmaciones son fase 2—. **Redis sí está habilitado desde el 28-ago-2026** (decisión: QA y producción deben tener la misma topología desde el arranque, para no rehacer el `docker-compose` cuando entre BullMQ). El servicio `redis` está activo en `docker-compose.yml` (desarrollo) y en `docker-compose.qa.yml` (Coolify), con `REDIS_URL` disponible en `ene-api`; el código de la cola en sí todavía no existe.
 
 ### ene-web (Frontend)
 
@@ -108,7 +117,10 @@ Base: fork del mismo `next-shadcn-dashboard-starter` usado en FAS, con las misma
 
 ### Infraestructura
 
-Docker, GitHub Actions, VPS. Servicios: `postgres`, `pgadmin`, `api`, `web`. Sin Redis en fase 1.
+Docker, GitHub Actions, VPS con Coolify. Servicios de desarrollo: `postgres`,
+`pgadmin`, `api`, `web`, `redis` (§3: sin código de cola todavía, solo
+infraestructura). QA/producción (`docker-compose.qa.yml`): `postgres`,
+`redis`, `api`, `web` — sin `pgadmin`.
 
 ---
 
@@ -215,7 +227,8 @@ Grupo              codigo, apellido*, clienteId, nacionalidad, paisOrigen,
 Pasajero           grupoId, nombre, edad, nacionalidad, restricciones,
                    documento
 Proveedor          codigo, razonSocial, rut, nombreComercial, tipoServicioId,
-                   zonaId, condicionesPago, politicaCancelacion
+                   condicionesPago, politicaCancelacion
+ProveedorZona      proveedorId, zonaId       # N:N — un proveedor opera en varias zonas
 ProveedorAlias     proveedorId, alias        # nombre interno / glosa bancaria
 ProveedorCuenta    proveedorId, banco, tipoCuenta, numeroCuenta, titular, rut
 ProveedorContacto  proveedorId, nombre, email, telefono, cargo
@@ -451,7 +464,104 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 491006  Versionado de OT (serializa dos POST /versiones concurrentes)
 491007  Versionado de Cotizacion (clave: cotizacionId)
 491008  Versionado de OrdenCompra (clave: ordenCompraId)
+491009  Correlativo de código de maestro — Cliente/Proveedor/Grupo/Servicio
+        (namespace compartido entre las cuatro entidades, clave: hashtext(entidad))
 ```
+
+> **Cierre etapa 4 (agosto 2026).** Los seis mantenedores generales (Zona, TipoServicio,
+> Cliente + Ejecutivo, Servicio, Grupo + Pasajero, Proveedor + Alias/Cuenta/Contacto)
+> con CRUD completo, permisos por `MAESTROS` y patrón `QuickCreate` (RN-QC) para los
+> cinco pares confirmados: Grupo→Cliente, Proveedor→TipoServicio, Proveedor→Zona,
+> Servicio→TipoServicio, Servicio→Zona.
+>
+> **Decisiones de esta etapa:**
+> - Correlativo real (RN-COR-01/RN-MAN-02) para CLIENTE/PROVEEDOR/GRUPO/SERVICIO en
+>   `shared/correlativos.ts`, namespace 491009: solo incrementa `ultimoValor` si el
+>   código enviado coincide con el sugerido recalculado dentro del lock; si el
+>   usuario lo edita, no se toca el contador (evita huecos) y la unicidad la
+>   garantiza el `@unique` de la tabla. Formato sin guión (`CL0001`, no `CL-0001`),
+>   a diferencia de la sugerencia en vivo de PERFIL/USUARIO (RN-PER-07, con guión).
+> - `Proveedor.rut`: el `@unique` de Prisma se reemplazó por un índice único
+>   parcial en SQL crudo (`WHERE rut <> '55555555-5'`) para permitir que el RUT
+>   genérico de proveedores extranjeros sin RUT real (RN-PRV-01) se repita entre
+>   proveedores distintos. `Proveedor.tipoServicioId` y `Cliente.pais` pasaron a
+>   `NOT NULL` (coincidía con la spec pero no con el schema de etapa 1).
+> - Extensión `unaccent` de Postgres (migración, no dependencia npm) para
+>   búsqueda insensible a mayúsculas y acentos (RN-MAN-06, RN-PRV-02) vía
+>   `shared/busqueda.ts` (`idsPorTexto`), combinada con el resto de filtros
+>   tipados de Prisma vía `id: { in: ... }`.
+> - `ProveedorAlias/Cuenta/Contacto` ganaron auditoría completa
+>   (`creadoEn/creadoPor/eliminadoEn/eliminadoPor`), igual que `ClienteEjecutivo`
+>   y `Pasajero` — las 5 subtablas de maestros usan soft delete con `DELETE`
+>   propio, no borrado físico. `Zona`, `TipoServicio` y `Grupo` sumaron
+>   `actualizadoEn/actualizadoPor` para quedar parejos con el resto de maestros.
+> - Guard genérico `shared/operaciones-abiertas.ts` (RN-MAN-04): cotización no
+>   cerrada, OT en cualquier estado salvo `CERRADA`, OC vigente (no `ANULADA`).
+>   Reutilizado por el soft delete de Cliente/Proveedor/Grupo/Servicio/Zona y por
+>   RN-CLI-04 (último ejecutivo activo). TipoServicio usa un guard propio más
+>   simple (referencial: servicios/proveedores vigentes que lo usan).
+> - **Hallazgo de implementación:** los `<Select>` con `QuickCreate` anidado
+>   deben ignorar valores no numéricos en `onValueChange`
+>   (`Number.isFinite(id)`) — Radix puede disparar el evento con un valor no
+>   parseable al remontar `SelectContent` cuando la lista de opciones se
+>   refresca tras crear un registro al vuelo, lo que sin el guard resetea el
+>   campo a `NaN` y bloquea el submit en silencio. Al fijar el valor recién
+>   creado desde el callback `onCreated`, usar `form.setFieldValue` (API del
+>   form de nivel superior) en vez de `field.handleChange` del closure del
+>   render-prop, que corre después del ciclo de vida async del diálogo hijo.
+>
+> **QA Codex ronda 1 (correcciones aplicadas):** `findXById` de los seis
+> maestros dejó de filtrar `eliminadoEn` (RN-MAN-05 — accesible por id aunque
+> esté eliminado); las mutaciones (`actualizar*`/`eliminar*`/alta de
+> subrecursos) ahora exigen el registro vigente vía `obtener<Entidad>Vigente`.
+> RN-SRV-02 cuenta cualquier tarifario del servicio, activo o no. RN-CLI-02
+> expone `tieneOperaciones` en `GET /api/clientes/:id` y el frontend confirma
+> antes de cambiar el `tipo` de un cliente con operaciones. El país se
+> precarga con "Chile" al elegir `EMPRESA`. `ClienteEjecutivo`, `Pasajero`,
+> `ProveedorCuenta` y `ProveedorContacto` suman `actualizadoEn/actualizadoPor`.
+>
+> **QA Codex ronda 3 (corrección aplicada):** RN-CLI-02 pasó a un indicador
+> propio (`tieneAlgunaOperacion`, cualquier cotización u OT del cliente, sin
+> filtrar por estado) — ya no reutiliza el guard de operaciones *abiertas* de
+> RN-MAN-04. RN-PRV-03: la unicidad de `ProveedorAlias.alias` ahora la
+> garantiza un índice único parcial insensible a mayúsculas
+> (`lower(alias) WHERE eliminadoEn IS NULL`), no solo el prechequeo de
+> servicio — cierra la condición de carrera entre requests concurrentes y los
+> duplicados dentro del mismo payload de alta. El P2002 de esa violación se
+> traduce a `CONFLICT` en el service.
+>
+> **Tests obligatorios de la etapa cerrados (28-ago-2026).** 9 archivos nuevos en
+> `ene-api/tests/` (94 tests): `rut-validator`, `busqueda` (RN-MAN-06 vía
+> `unaccent`), `zonas`, `tipos-servicio`, `correlativos` (RN-COR-01/RN-MAN-02:
+> consumo del contador solo si el código coincide con la sugerencia, sin huecos
+> si se edita, y la carrera de dos altas con la misma sugerencia resuelve en un
+> ganador + un `CONFLICT`, nunca en un salto ni un duplicado), `clientes`,
+> `grupos`, `proveedores` (incluye la carrera de dos altas con el mismo alias) y
+> `servicios`. Los tests de correlativo viven en un archivo propio y separado de
+> los de cada maestro a propósito: el contador de `PrefijoCodigo` es una fila
+> compartida por entidad, y los tests de CRUD de cada módulo usan siempre
+> códigos explícitos que nunca calzan con la sugerencia viva, para no competir
+> por la misma fila con el test de concurrencia. 105 tests en total sin
+> regresiones (`npx vitest run`).
+>
+> **Permisos por mantenedor, no por bloque (28-ago-2026).** Hasta acá los seis
+> mantenedores generales compartían un único `ItemMenu` (`MAESTROS`, ruta
+> `/config`): un perfil solo podía dar un nivel para el bloque completo, no
+> uno distinto por mantenedor. Se separó en seis ítems propios —`CLIENTES`,
+> `GRUPOS`, `PROVEEDORES`, `SERVICIOS`, `ZONAS`, `TIPOS_SERVICIO`, rutas
+> `/config/<recurso>`— para permitir, por ejemplo, `TOTAL` en Proveedores y
+> `LECTURA` en Clientes en el mismo perfil. `MAESTROS` sigue existiendo pero
+> ahora gobierna solo lo que no tiene ítem propio: el índice `/config` y
+> Prefijos de código (no es uno de los "seis mantenedores generales" de la
+> Etapa 4, se mantiene bajo `MAESTROS`). `resolverNivelPorRuta`
+> (`menu-acceso-context.tsx`) ya resuelve por la ruta más específica, así que
+> no hubo que tocar `nav-config.ts` ni la matriz de permisos del frontend
+> (100% data-driven desde `GET` de ítems de menú): solo cambió el `ITEM` que
+> cada `*.routes.ts` exige (`requireLevel`) y el código que cada componente de
+> feature usa en `usePuedeEscribir`/`QuickCreateTrigger`. El seed hace un
+> backfill idempotente: cualquier perfil con un nivel ya configurado a mano en
+> `MAESTROS` lo hereda en los seis ítems nuevos, para no revocar acceso en
+> silencio a `OPERACIONES`/`ADMINISTRACION` si ya estaban ajustados.
 
 ---
 
@@ -526,7 +636,9 @@ Path de referencia: `~/sites/FAS`. Lo siguiente se copia y adapta, no se reescri
 
 | Origen en FAS | Uso en ENE | Adaptación |
 |---|---|---|
-| `docker-compose.yml`, `Makefile`, `setup-check.sh` | Infraestructura | Quitar Redis y servicios asociados |
+| `docker-compose.yml`, `Makefile`, `setup-check.sh` | Infraestructura | Directo, Redis incluido (§3) |
+| `docker-compose.demo.yml`, `.env.demo.example` | Deploy en Coolify | Adaptado como `docker-compose.qa.yml`/`.env.qa.example`, sin `pgadmin` |
+| `*/Dockerfile` (producción, no `Dockerfile.dev`) | Build de imágenes | Directo |
 | `src/plugins/*` | auth-guard, error-handler, swagger | Directo |
 | `src/lib/{prisma,auth,crypto,mailer}.ts` | Instancias compartidas | Directo |
 | `src/shared/{pagination,errors,types}.ts` | Utilidades | Directo |
@@ -540,7 +652,7 @@ Path de referencia: `~/sites/FAS`. Lo siguiente se copia y adapta, no se reescri
 | `prisma/seed-geografia-chile.ts` | Base para zonas | Adaptar a zonas turísticas |
 | `fas-web` (estructura, tablas, formularios) | Frontend | Rebrandear |
 
-**Qué NO se porta:** multi-tenancy (`lib/prisma-tenancy.ts`, `lib/empresa-context.ts`) — ENE es una sola empresa. El discriminador `areaNegocio` es un campo, no un tenant. Tampoco `@clerk/nextjs`, BullMQ ni Redis.
+**Qué NO se porta:** multi-tenancy (`lib/prisma-tenancy.ts`, `lib/empresa-context.ts`) — ENE es una sola empresa. El discriminador `areaNegocio` es un campo, no un tenant. Tampoco `@clerk/nextjs` ni el código de colas de BullMQ (Redis sí se porta, ver §3).
 
 **Qué no existe en FAS y hay que construir entero:** itinerario día con bloques AM y PM, tarifas por tramo de pasajeros y por acomodación, margen por línea, conversión de cotización en OT, multi-moneda con dos tipos de cambio, dashboard radar.
 
@@ -625,19 +737,19 @@ BETTER_AUTH_URL=http://localhost:3001
 ## 13. Reglas para Claude Code
 
 1. **No introducir dependencias nuevas** sin justificarlo contra el plazo. El stack de §3 es cerrado para la fase 1.
-2. **Las reglas de dominio se leen en `Docs/reglas-negocio.md` antes de implementar.** Cada regla tiene identificador: citarlo en el código y en los tests.
-3. **Antes de escribir un módulo, revisar si existe en FAS** (`~/sites/FAS`) y portarlo. La velocidad del plan depende de eso.
-4. **Todo monto pasa por `shared/dinero/`.** Si aparece un `parseFloat` o una multiplicación directa sobre un monto, está mal.
-5. **Todo correlativo se genera dentro de transacción con advisory lock.** No hay excepciones.
-6. **Naming en español** para dominio, inglés para infraestructura y librerías.
-7. Cada módulo respeta la estructura de §4: controller thin, lógica en service, Prisma solo en repository.
-8. Validación con Zod en el borde; los tipos del dominio se derivan de los schemas.
-9. Las migraciones son incrementales y con nombre descriptivo. No editar migraciones ya aplicadas.
-10. Tests con Vitest sobre el motor de costeo y los correlativos como mínimo. Es donde un error cuesta plata.
-11. Al cerrar cada etapa, actualizar este documento con lo que se decidió.
+2. **Cada etapa se ejecuta según `Docs/plan-implementacion.md`**: ahí están los endpoints, los tests obligatorios y el criterio de término. No avanzar a la siguiente sin cerrar el checklist.
+3. **Las reglas de dominio se leen en `Docs/reglas-negocio.md` antes de implementar.** Cada regla tiene identificador: citarlo en el código y en los tests.
+4. **Antes de escribir un módulo, revisar si existe en FAS** (`~/sites/FAS`) y portarlo. La velocidad del plan depende de eso.
+5. **Todo monto pasa por `shared/dinero/`.** Si aparece un `parseFloat` o una multiplicación directa sobre un monto, está mal.
+6. **Todo correlativo se genera dentro de transacción con advisory lock.** No hay excepciones.
+7. **Naming en español** para dominio, inglés para infraestructura y librerías.
+8. Cada módulo respeta la estructura de §4: controller thin, lógica en service, Prisma solo en repository.
+9. Validación con Zod en el borde; los tipos del dominio se derivan de los schemas.
+10. Las migraciones son incrementales y con nombre descriptivo. No editar migraciones ya aplicadas.
+11. Tests con Vitest sobre el motor de costeo y los correlativos como mínimo. Es donde un error cuesta plata.
+12. Al cerrar cada etapa, actualizar este documento con lo que se decidió.
 
----
-## 14. Decisiones pendientes
+---## 14. Decisiones pendientes
 
 | # | Tema | Bloquea | Fecha límite |
 |---|---|---|---|

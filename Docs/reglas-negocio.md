@@ -425,6 +425,26 @@ una **mayúscula**, una **minúscula**, un **número** y un **símbolo**. La pol
 se aplica en el borde (alta de usuario y cambio de contraseña). Un cambio
 administrativo de contraseña **revoca las sesiones activas** del usuario.
 
+**RN-PER-05 [BLOQUEA]** Un usuario no puede, sobre su propia cuenta:
+desactivarse (`activo=false`), cambiarse el perfil, ni eliminarse. Se
+validaría en el backend, no solo en la UI — de lo contrario un cambio
+administrativo directo contra la API podría dejar a un usuario sin forma de
+revertirlo por su propia sesión.
+
+**RN-PER-06 [BLOQUEA]** El perfil `ADMINISTRADOR` no puede eliminarse, tenga
+o no usuarios activos asociados. Sí puede editarse (nombre, descripción,
+accesos).
+
+**RN-PER-07** El código de Perfil y de Usuario es legible y curado a mano
+(ej. `ADMIN`, `ADMINISTRADOR`), no un correlativo estricto. El mantenedor de
+prefijos de código (`PrefijoCodigo`, sembrado en Etapa 1 para el correlativo
+transaccional de **RN-COR-01**) también sugiere un código para estos dos
+modelos, pero **la sugerencia es solo un punto de partida editable**: se
+calcula en vivo (máximo sufijo numérico existente + 1) y **no reserva ni
+incrementa `ultimoValor`**, a diferencia del correlativo con
+`pg_advisory_xact_lock` de Cotización/OT/OC. La unicidad real la sigue
+garantizando el `@unique` de la columna `codigo` al guardar.
+
 ---
 
 ## 13. Adjuntos

@@ -13,6 +13,13 @@ import { registrarSwagger } from './plugins/swagger.plugin.js'
 import { healthRoutes } from './modules/health/health.routes.js'
 import { usuariosRoutes } from './modules/config/usuarios/usuarios.routes.js'
 import { perfilesRoutes } from './modules/config/perfiles/perfiles.routes.js'
+import { prefijosCodigoRoutes } from './modules/config/prefijos-codigo/prefijos-codigo.routes.js'
+import { zonasRoutes } from './modules/config/zonas/zonas.routes.js'
+import { tiposServicioRoutes } from './modules/config/tipos-servicio/tipos-servicio.routes.js'
+import { clientesRoutes } from './modules/clientes/clientes.routes.js'
+import { serviciosRoutes } from './modules/servicios/servicios.routes.js'
+import { gruposRoutes } from './modules/grupos/grupos.routes.js'
+import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
 
 export async function construirApp() {
   const app = Fastify({
@@ -134,6 +141,13 @@ export async function construirApp() {
   await app.register(healthRoutes)
   await app.register(usuariosRoutes, { prefix: '/api/config' })
   await app.register(perfilesRoutes, { prefix: '/api/config' })
+  await app.register(prefijosCodigoRoutes, { prefix: '/api/config' })
+  await app.register(zonasRoutes, { prefix: '/api/config' })
+  await app.register(tiposServicioRoutes, { prefix: '/api/config' })
+  await app.register(clientesRoutes, { prefix: '/api' })
+  await app.register(serviciosRoutes, { prefix: '/api' })
+  await app.register(gruposRoutes, { prefix: '/api' })
+  await app.register(proveedoresRoutes, { prefix: '/api' })
 
   return app
 }

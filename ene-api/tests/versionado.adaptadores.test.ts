@@ -33,7 +33,14 @@ let otV1Id: number
 
 beforeAll(async () => {
   const cliente = await prisma.cliente.create({
-    data: { codigo: 'QA-ADAP', tipo: 'AGENCIA', razonSocial: 'QA Adaptadores', monedaHabitual: 'USD', creadoPor: 'test' },
+    data: {
+      codigo: 'QA-ADAP',
+      tipo: 'AGENCIA',
+      razonSocial: 'QA Adaptadores',
+      pais: 'Chile',
+      monedaHabitual: 'USD',
+      creadoPor: 'test',
+    },
   })
   clienteId = cliente.id
 
@@ -42,8 +49,15 @@ beforeAll(async () => {
   })
   grupoId = grupo.id
 
+  const tipoServicio = await prisma.tipoServicio.findFirstOrThrow()
   const proveedor = await prisma.proveedor.create({
-    data: { codigo: 'PQA-ADAP', razonSocial: 'Proveedor QA', creadoPor: 'test' },
+    data: {
+      codigo: 'PQA-ADAP',
+      razonSocial: 'Proveedor QA',
+      rut: '55555555-5',
+      tipoServicioId: tipoServicio.id,
+      creadoPor: 'test',
+    },
   })
   proveedorId = proveedor.id
 

@@ -27,7 +27,14 @@ let cotizacionId: number
 
 beforeAll(async () => {
   const cliente = await prisma.cliente.create({
-    data: { codigo: 'QA-CONC', tipo: 'AGENCIA', razonSocial: 'QA Concurrencia', monedaHabitual: 'USD', creadoPor: 'test' },
+    data: {
+      codigo: 'QA-CONC',
+      tipo: 'AGENCIA',
+      razonSocial: 'QA Concurrencia',
+      pais: 'Chile',
+      monedaHabitual: 'USD',
+      creadoPor: 'test',
+    },
   })
   clienteId = cliente.id
 

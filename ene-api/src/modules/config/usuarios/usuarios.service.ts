@@ -64,9 +64,25 @@ export async function crearUsuario(input: UsuarioCreateInput, usuarioActual = SI
   }
 }
 
-export async function actualizarUsuario(id: number, input: UsuarioUpdateInput, usuarioActual = SISTEMA) {
+export async function actualizarUsuario(
+  id: number,
+  input: UsuarioUpdateInput,
+  usuarioActual = SISTEMA,
+  usuarioSesionId?: number,
+) {
   const usuario = await repo.findUsuarioById(id)
   if (!usuario) throw noEncontrado('Usuario', id)
+
+  // RN-PER-05: nadie se desactiva ni se cambia el perfil a sí mismo — se
+  // quedaría sin forma de revertirlo por la propia UI. Comparar contra el
+  // valor actual, no solo la presencia del campo: el formulario de edición
+  // reenvía perfilId/activo sin cambios cuando solo se edita el nombre.
+  if (usuarioSesionId === id) {
+    if (input.activo === false) throw validacion('No puedes desactivar tu propia cuenta')
+    if (input.perfilId !== undefined && input.perfilId !== usuario.perfilId) {
+      throw validacion('No puedes cambiar tu propio perfil')
+    }
+  }
 
   if (input.perfilId !== undefined) {
     const perfil = await findPerfilById(input.perfilId)
@@ -100,9 +116,12 @@ export async function cambiarPassword(id: number, input: CambiarPasswordInput, u
   await repo.touchUsuario(id, usuarioActual)
 }
 
-export async function eliminarUsuario(id: number, usuarioActual = SISTEMA) {
+export async function eliminarUsuario(id: number, usuarioActual = SISTEMA, usuarioSesionId?: number) {
   const usuario = await repo.findUsuarioById(id)
   if (!usuario) throw noEncontrado('Usuario', id)
+  // RN-PER-05: nadie se elimina a sí mismo, por la misma razón que no puede
+  // desactivarse.
+  if (usuarioSesionId === id) throw validacion('No puedes eliminar tu propia cuenta')
   // Soft delete: RN-PER — un usuario eliminado no puede autenticarse (ver el
   // hook de sesión en lib/auth.ts y requireAuth).
   await repo.softDeleteUsuario(id, usuarioActual)

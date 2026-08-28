@@ -294,7 +294,7 @@ model Cliente {
   razonSocial     String
   rut             String?
   nombreComercial String?
-  pais            String?
+  pais            String
   monedaHabitual  Moneda      @default(USD)
   condicionesPago String?
   email           String?
@@ -317,17 +317,19 @@ model Cliente {
 }
 
 model ClienteEjecutivo {
-  id           Int       @id @default(autoincrement())
-  clienteId    Int
-  nombre       String
-  email        String?
-  telefono     String?
-  cargo        String?
-  activo       Boolean   @default(true)
-  creadoEn     DateTime  @default(now())
-  creadoPor    String
-  eliminadoEn  DateTime?
-  eliminadoPor String?
+  id             Int       @id @default(autoincrement())
+  clienteId      Int
+  nombre         String
+  email          String?
+  telefono       String?
+  cargo          String?
+  activo         Boolean   @default(true)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   cotizaciones Cotizacion[]
@@ -340,19 +342,21 @@ model ClienteEjecutivo {
 /// Grupo o pasajero individual. `apellido` es el identificador operativo de la
 /// reserva y es obligatorio en la OT (CLAUDE.md §7).
 model Grupo {
-  id            Int       @id @default(autoincrement())
-  codigo        String    @unique
-  apellido      String
-  clienteId     Int
-  nacionalidad  String?
-  paisOrigen    String?
-  idioma        String?
-  cantidadPax   Int       @default(1)
-  observaciones String?
-  creadoEn      DateTime  @default(now())
-  creadoPor     String
-  eliminadoEn   DateTime?
-  eliminadoPor  String?
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  apellido       String
+  clienteId      Int
+  nacionalidad   String?
+  paisOrigen     String?
+  idioma         String?
+  cantidadPax    Int       @default(1)
+  observaciones  String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   pasajeros    Pasajero[]
@@ -365,17 +369,19 @@ model Grupo {
 }
 
 model Pasajero {
-  id            Int       @id @default(autoincrement())
-  grupoId       Int
-  nombre        String
-  edad          Int?
-  nacionalidad  String?
-  documento     String?
-  restricciones String?
-  creadoEn      DateTime  @default(now())
-  creadoPor     String
-  eliminadoEn   DateTime?
-  eliminadoPor  String?
+  id             Int       @id @default(autoincrement())
+  grupoId        Int
+  nombre         String
+  edad           Int?
+  nacionalidad   String?
+  documento      String?
+  restricciones  String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   grupo Grupo @relation(fields: [grupoId], references: [id], onDelete: Cascade)
 
@@ -384,17 +390,19 @@ model Pasajero {
 }
 
 model Zona {
-  id           Int       @id @default(autoincrement())
-  codigo       String    @unique
-  nombre       String
-  nombreEn     String?
-  creadoEn     DateTime  @default(now())
-  creadoPor    String
-  eliminadoEn  DateTime?
-  eliminadoPor String?
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  nombreEn       String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   servicios    Servicio[]
-  proveedores  Proveedor[]
+  proveedores  ProveedorZona[]
   cotizaciones Cotizacion[]
   ordenes      OrdenTrabajo[]
 
@@ -409,6 +417,8 @@ model TipoServicio {
   ventanaAvisoDias    Int          @default(30)
   creadoEn            DateTime     @default(now())
   creadoPor           String
+  actualizadoEn       DateTime?    @updatedAt
+  actualizadoPor      String?
   eliminadoEn         DateTime?
   eliminadoPor        String?
 
@@ -418,14 +428,20 @@ model TipoServicio {
   @@map("tipo_servicio")
 }
 
+/// `rut` es obligatorio y único (RN-PRV-01): es la llave para cotejar
+/// facturas. Un proveedor extranjero sin RUT chileno real usa el RUT genérico
+/// 55.555.555-5 (definición del cliente, 27-ago-2026) — sigue siendo un RUT
+/// válido, no hay excepción que modelar. Como ese valor genérico se repite
+/// entre proveedores distintos, la unicidad real NO se declara acá con
+/// `@unique`: se aplica con un índice único parcial en la migración SQL
+/// (`WHERE rut <> '55.555.555-5'`), documentado en CLAUDE.md §7.
 model Proveedor {
   id                  Int       @id @default(autoincrement())
   codigo              String    @unique
   razonSocial         String
-  rut                 String?
+  rut                 String
   nombreComercial     String?
-  tipoServicioId      Int?
-  zonaId              Int?
+  tipoServicioId      Int
   condicionesPago     String?
   politicaCancelacion String?
   email               String?
@@ -437,9 +453,9 @@ model Proveedor {
   eliminadoEn         DateTime?
   eliminadoPor        String?
 
-  tipoServicio TipoServicio? @relation(fields: [tipoServicioId], references: [id])
-  zona         Zona?         @relation(fields: [zonaId], references: [id])
+  tipoServicio TipoServicio @relation(fields: [tipoServicioId], references: [id])
 
+  zonas            ProveedorZona[]
   alias            ProveedorAlias[]
   cuentas          ProveedorCuenta[]
   contactos        ProveedorContacto[]
@@ -454,12 +470,32 @@ model Proveedor {
   @@map("proveedor")
 }
 
+/// Un proveedor puede operar en varias zonas a la vez (definición del
+/// cliente, 27-ago-2026). Antes era `Proveedor.zonaId` único; se modela como
+/// N:N porque cambiar esto después de cargada la data sería más costoso.
+model ProveedorZona {
+  proveedorId Int
+  zonaId      Int
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  zona      Zona      @relation(fields: [zonaId], references: [id])
+
+  @@id([proveedorId, zonaId])
+  @@map("proveedor_zona")
+}
+
 /// Nombre interno o glosa bancaria distinta de la razón social. Sin esto la
 /// identificación de un cargo o una factura es manual (levantamiento Lorena).
+/// Subtabla de detalle operativo sin referencias externas: borrado físico
+/// (DELETE real), con auditoría de creación para trazabilidad básica.
 model ProveedorAlias {
-  id          Int    @id @default(autoincrement())
-  proveedorId Int
-  alias       String
+  id           Int       @id @default(autoincrement())
+  proveedorId  Int
+  alias        String
+  creadoEn     DateTime  @default(now())
+  creadoPor    String
+  eliminadoEn  DateTime?
+  eliminadoPor String?
 
   proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
 
@@ -468,13 +504,19 @@ model ProveedorAlias {
 }
 
 model ProveedorCuenta {
-  id           Int     @id @default(autoincrement())
-  proveedorId  Int
-  banco        String
-  tipoCuenta   String?
-  numeroCuenta String
-  titular      String?
-  rutTitular   String?
+  id             Int       @id @default(autoincrement())
+  proveedorId    Int
+  banco          String
+  tipoCuenta     String?
+  numeroCuenta   String
+  titular        String?
+  rutTitular     String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
 
@@ -482,12 +524,18 @@ model ProveedorCuenta {
 }
 
 model ProveedorContacto {
-  id          Int     @id @default(autoincrement())
-  proveedorId Int
-  nombre      String
-  email       String?
-  telefono    String?
-  cargo       String?
+  id             Int       @id @default(autoincrement())
+  proveedorId    Int
+  nombre         String
+  email          String?
+  telefono       String?
+  cargo          String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
 
@@ -974,13 +1022,17 @@ model Adjunto {
 /// Prefijo y cantidad de dígitos por tipo de documento. El siguiente número se
 /// genera dentro de transacción con pg_advisory_xact_lock (CLAUDE.md §7).
 model PrefijoCodigo {
-  id          Int     @id @default(autoincrement())
-  entidad     String  @unique
-  prefijo     String
-  digitos     Int     @default(4)
-  incluyeAnio Boolean @default(true)
-  ultimoValor Int     @default(0)
-  anio        Int?
+  id             Int       @id @default(autoincrement())
+  entidad        String    @unique
+  prefijo        String
+  digitos        Int       @default(4)
+  incluyeAnio    Boolean   @default(true)
+  ultimoValor    Int       @default(0)
+  anio           Int?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
 
   @@map("prefijo_codigo")
 }

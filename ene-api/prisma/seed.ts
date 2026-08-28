@@ -19,9 +19,24 @@ const ITEMS_MENU = [
   { codigo: 'FACTURACION', nombre: 'Facturación', modulo: 'administracion', ruta: '/facturacion', orden: 40 },
   { codigo: 'COBROS', nombre: 'Cobros y pagos', modulo: 'administracion', ruta: '/cobros', orden: 50 },
   { codigo: 'DASHBOARD', nombre: 'Dashboard', modulo: 'gestion', ruta: '/dashboard', orden: 60 },
+  // MAESTROS pasó a gobernar solo lo que no tiene ítem propio (el índice de
+  // /config y Prefijos de código): los seis mantenedores generales de Etapa 4
+  // tienen cada uno su propio ItemMenu para permitir niveles independientes
+  // por mantenedor (ej. TOTAL en Proveedores, LECTURA en Clientes). La ruta
+  // más específica gana en `resolverNivelPorRuta` (menu-acceso-context.tsx),
+  // así que no hay ambigüedad con MAESTROS (ruta '/config').
   { codigo: 'MAESTROS', nombre: 'Mantenedores', modulo: 'config', ruta: '/config', orden: 70 },
+  { codigo: 'CLIENTES', nombre: 'Clientes', modulo: 'config', ruta: '/config/clientes', orden: 71 },
+  { codigo: 'GRUPOS', nombre: 'Grupos', modulo: 'config', ruta: '/config/grupos', orden: 72 },
+  { codigo: 'PROVEEDORES', nombre: 'Proveedores', modulo: 'config', ruta: '/config/proveedores', orden: 73 },
+  { codigo: 'SERVICIOS', nombre: 'Servicios', modulo: 'config', ruta: '/config/servicios', orden: 74 },
+  { codigo: 'ZONAS', nombre: 'Zonas', modulo: 'config', ruta: '/config/zonas', orden: 75 },
+  { codigo: 'TIPOS_SERVICIO', nombre: 'Tipos de servicio', modulo: 'config', ruta: '/config/tipos-servicio', orden: 76 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 80 },
 ]
+
+// Mantenedores separados de MAESTROS en esta migración (ver comentario arriba).
+const MANTENEDORES_SEPARADOS = ['CLIENTES', 'GRUPOS', 'PROVEEDORES', 'SERVICIOS', 'ZONAS', 'TIPOS_SERVICIO']
 
 // Zonas de operación (levantamiento: Arica a Santiago)
 const ZONAS = [
@@ -51,6 +66,11 @@ const PREFIJOS = [
   { entidad: 'PROVEEDOR', prefijo: 'PR', digitos: 4, incluyeAnio: false },
   { entidad: 'GRUPO', prefijo: 'GR', digitos: 5, incluyeAnio: false },
   { entidad: 'SERVICIO', prefijo: 'SV', digitos: 4, incluyeAnio: false },
+  // PERFIL/USUARIO no usan el correlativo con lock (ultimoValor): son códigos
+  // legibles curados a mano (ver ejemplo ADMIN/ADMINISTRADOR ya sembrados),
+  // esto solo alimenta una sugerencia editable en el formulario (RN-PER-07).
+  { entidad: 'PERFIL', prefijo: 'PER', digitos: 3, incluyeAnio: false },
+  { entidad: 'USUARIO', prefijo: 'USR', digitos: 3, incluyeAnio: false },
 ]
 
 async function main() {
@@ -84,6 +104,27 @@ async function main() {
     }
   }
 
+  // Migración de granularidad de permisos: los perfiles que ya tenían un
+  // nivel configurado a mano en MAESTROS (típicamente OPERACIONES/
+  // ADMINISTRACION, ver comentario arriba de `total`) lo heredan en cada
+  // mantenedor recién separado, para no revocarles acceso en silencio al
+  // introducir los ítems nuevos. Idempotente: `update: {}` no pisa un nivel
+  // ya ajustado a mano después de la migración.
+  const itemMaestros = await prisma.itemMenu.findUnique({ where: { codigo: 'MAESTROS' } })
+  const itemsSeparados = await prisma.itemMenu.findMany({ where: { codigo: { in: MANTENEDORES_SEPARADOS } } })
+  if (itemMaestros) {
+    const nivelesMaestros = await prisma.perfilItemMenu.findMany({ where: { itemMenuId: itemMaestros.id } })
+    for (const nivelMaestros of nivelesMaestros) {
+      for (const itemSeparado of itemsSeparados) {
+        await prisma.perfilItemMenu.upsert({
+          where: { perfilId_itemMenuId: { perfilId: nivelMaestros.perfilId, itemMenuId: itemSeparado.id } },
+          update: {},
+          create: { perfilId: nivelMaestros.perfilId, itemMenuId: itemSeparado.id, nivel: nivelMaestros.nivel },
+        })
+      }
+    }
+  }
+
   for (const z of ZONAS) {
     await prisma.zona.upsert({ where: { codigo: z.codigo }, update: {}, create: { ...z, creadoPor: SISTEMA } })
   }
@@ -91,7 +132,11 @@ async function main() {
     await prisma.tipoServicio.upsert({ where: { codigo: t.codigo }, update: {}, create: { ...t, creadoPor: SISTEMA } })
   }
   for (const p of PREFIJOS) {
-    await prisma.prefijoCodigo.upsert({ where: { entidad: p.entidad }, update: {}, create: p })
+    await prisma.prefijoCodigo.upsert({
+      where: { entidad: p.entidad },
+      update: {},
+      create: { ...p, creadoPor: SISTEMA },
+    })
   }
 
   console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio y prefijos.')

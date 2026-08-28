@@ -1,0 +1,124 @@
+################################################################################
+# docker-compose.qa.yml — ENE QA / Producción
+#
+# Para Coolify:
+#   1. Crear recurso "Docker Compose" apuntando a este archivo.
+#   2. Configurar variables de entorno en la UI de Coolify (ver .env.qa.example).
+#   3. En "Domains" de cada servicio (api, web) asignar el subdominio.
+#   4. Coolify gestiona SSL automáticamente vía Let's Encrypt.
+#
+# Build args para Coolify (necesarios para el build de ene-web):
+#   NEXT_PUBLIC_API_URL → URL pública de la API, ej: https://api-ene-qa.tudominio.cl/api
+#   NEXT_PUBLIC_APP_URL → URL pública del propio frontend. Usada por el
+#     cliente de Better Auth (src/lib/auth-client.ts) para armar las requests
+#     de login/sesión. Si falta, el bundle cae al default
+#     'http://localhost:3010' y el login queda roto en cualquier navegador que
+#     no tenga algo corriendo en su propio localhost:3010 (mismo bug que en
+#     FAS, ver fas-web Docker/Coolify, 2026-07-24).
+#
+# QA con la misma topología que tendrá producción (decisión 2026-08-28): a
+# diferencia del docker-compose.yml de desarrollo, acá Redis va desde el
+# principio para no rehacer este archivo cuando se conecte BullMQ (envío de
+# correo, Fase 2 en CLAUDE.md §3). El código de la cola todavía no existe —
+# este compose deja el contenedor y la variable REDIS_URL listos para cuando
+# se construya.
+################################################################################
+
+services:
+
+  # ─── PostgreSQL 17 ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: ene_qa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ene_qa_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ene_qa_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ene_qa_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── API (ene-api) ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./ene-api
+      dockerfile: Dockerfile
+    container_name: ene_qa_api
+    restart: unless-stopped
+    ports:
+      - "3011:3011"
+    environment:
+      NODE_ENV: production
+      PORT: 3011
+      TZ: America/Santiago
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${API_PUBLIC_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
+      DTE_PROVIDER: ${DTE_PROVIDER:-mock}
+      DTE_API_URL: ${DTE_API_URL:-}
+      DTE_API_KEY: ${DTE_API_KEY:-}
+      DTE_RUT_EMISOR: ${DTE_RUT_EMISOR:-}
+      DTE_AMBIENTE: ${DTE_AMBIENTE:-certificacion}
+      ADJUNTOS_PATH: /data/adjuntos
+      ADJUNTOS_MAX_MB: 25
+      TC_REFERENCIA_USD: ${TC_REFERENCIA_USD:-950}
+      CORS_ORIGIN: ${WEB_PUBLIC_URL}
+    volumes:
+      - ene_qa_adjuntos:/data/adjuntos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Web (ene-web) ───────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./ene-web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_APP_URL: ${WEB_PUBLIC_URL}
+    container_name: ene_qa_web
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    environment:
+      NODE_ENV: production
+      # Server-side only (sin prefijo NEXT_PUBLIC_): usado por los route
+      # handlers de /api/* y /api/auth/* para llegar a la API por la red
+      # interna de Docker en vez de rebotar por la URL pública.
+      INTERNAL_API_URL: http://api:3011
+    depends_on:
+      - api
+
+volumes:
+  ene_qa_postgres_data:
+    driver: local
+  ene_qa_redis_data:
+    driver: local
+  ene_qa_adjuntos:
+    driver: local

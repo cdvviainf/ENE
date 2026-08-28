@@ -35,6 +35,12 @@ export const LOCK_COTIZACION_VERSION = 491007
 /// de OC (491003).
 export const LOCK_ORDEN_COMPRA_VERSION = 491008
 
+/// Correlativo de código de maestro (Cliente/Proveedor/Grupo/Servicio,
+/// RN-COR-01 + RN-MAN-02). Namespace COMPARTIDO entre las cuatro entidades,
+/// igual que 491005 — la clave distingue: `hashtext(entidad)`, así que dos
+/// entidades distintas nunca se serializan entre sí por error.
+export const LOCK_MAESTRO_CODIGO_CORRELATIVO = 491009
+
 import type { Prisma } from '@prisma/client'
 
 /// Toma el lock dentro de la transacción actual. Se libera al hacer commit
@@ -45,4 +51,15 @@ export async function tomarLock(
   clave: number,
 ): Promise<void> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(${namespace}::int, ${clave}::int)`
+}
+
+/// Variante para namespaces con clave de texto (ej. 491005, 491009), donde la
+/// clave real es `hashtext(texto)`. El hash lo calcula Postgres, no Node, para
+/// no arriesgar una reimplementación distinta del algoritmo interno.
+export async function tomarLockPorTexto(
+  tx: Prisma.TransactionClient,
+  namespace: number,
+  claveTexto: string,
+): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${namespace}::int, hashtext(${claveTexto}))`
 }
