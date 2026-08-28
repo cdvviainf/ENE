@@ -27,6 +27,7 @@ Thumbs.db
 node_modules/
 .next/
 dist/
+dist-scripts/
 
 # Adjuntos locales
 data/adjuntos/

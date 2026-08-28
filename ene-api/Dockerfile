@@ -9,9 +9,14 @@ COPY package*.json ./
 RUN NODE_ENV=development npm ci --ignore-scripts
 COPY prisma ./prisma
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.scripts.json ./
 COPY src ./src
 RUN npm run build
+# Compila también los scripts de operación (seed, bootstrap del admin) que
+# viven fuera de src/ — la imagen de producción no trae tsx ni el código
+# fuente sin compilar, así que estos scripts necesitan su propio dist para
+# poder correrse con `node` dentro del contenedor (ver CLAUDE.md §13).
+RUN npm run build:scripts
 
 # Stage 2: imagen de producción mínima
 FROM node:22-alpine AS runner
@@ -39,5 +44,6 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-scripts ./dist-scripts
 EXPOSE 3011
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

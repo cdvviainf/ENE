@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx/esm --watch src/server.ts",
     "build": "tsc",
+    "build:scripts": "tsc -p tsconfig.scripts.json",
     "start": "node dist/server.js",
     "test": "vitest",
     "test:run": "vitest run",
