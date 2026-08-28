@@ -36,6 +36,11 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
       PGDATA: /var/lib/postgresql/data/pgdata
+    # Expuesto temporalmente para administración remota (pgAdmin) — decisión
+    # 2026-08-28: expone la base de QA a Internet en el puerto 5433. Revertir
+    # (quitar este bloque) y rotar DB_PASSWORD cuando termine la necesidad.
+    ports:
+      - "5433:5432"
     volumes:
       - ene_qa_postgres_data:/var/lib/postgresql/data
     healthcheck:
