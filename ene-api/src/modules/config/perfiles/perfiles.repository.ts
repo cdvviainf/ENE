@@ -69,15 +69,26 @@ export async function findAllItemsMenu() {
   })
 }
 
-/** Ítems con nivel != SIN_ACCESO del perfil, para armar el menú del usuario en sesión. */
+/**
+ * Todos los ítems de menú activos del perfil, con su nivel real —
+ * SIN_ACCESO explícito cuando no hay fila en PerfilItemMenu—, para que el
+ * frontend distinga "sin acceso" de "ítem no catalogado" al armar el menú
+ * del usuario en sesión.
+ */
 export async function findAccesosDelPerfil(perfilId: number) {
-  return prisma.perfilItemMenu.findMany({
-    where: { perfilId, nivel: { not: 'SIN_ACCESO' }, itemMenu: { activo: true } },
-    include: {
-      itemMenu: { select: { codigo: true, nombre: true, modulo: true, ruta: true, esAccion: true, orden: true } },
-    },
-    orderBy: { itemMenu: { orden: 'asc' } },
-  })
+  const [items, accesos] = await Promise.all([
+    prisma.itemMenu.findMany({
+      where: { activo: true },
+      select: { codigo: true, nombre: true, modulo: true, ruta: true, esAccion: true, orden: true, id: true },
+      orderBy: { orden: 'asc' },
+    }),
+    prisma.perfilItemMenu.findMany({ where: { perfilId }, select: { itemMenuId: true, nivel: true } }),
+  ])
+  const nivelPorItem = new Map(accesos.map((a) => [a.itemMenuId, a.nivel]))
+  return items.map(({ id, ...itemMenu }) => ({
+    itemMenu,
+    nivel: nivelPorItem.get(id) ?? ('SIN_ACCESO' as const),
+  }))
 }
 
 async function reemplazarAccesos(
