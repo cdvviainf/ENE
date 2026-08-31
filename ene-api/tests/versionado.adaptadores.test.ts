@@ -57,7 +57,8 @@ beforeAll(async () => {
       codigo: 'PQA-ADAP',
       razonSocial: 'Proveedor QA',
       rut: '55555555-5',
-      tipoServicioId: tipoServicio.id,
+      // RN-PRV-08: tipoServicioId pasó de FK única a relación N:N.
+      tiposServicio: { create: [{ tipoServicioId: tipoServicio.id }] },
       creadoPor: 'test',
     },
   })

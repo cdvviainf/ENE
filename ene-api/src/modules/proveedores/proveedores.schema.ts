@@ -19,6 +19,11 @@ export const contactoInputSchema = z.object({
   email: z.string().email('Email inválido').max(120).trim().optional(),
   telefono: z.string().max(40).trim().optional(),
   cargo: z.string().max(80).trim().optional(),
+  descripcion: z.string().max(500).trim().optional(),
+  // RN-PRV-06: exclusividad validada en el service (requiere desmarcar otros).
+  esRepresentanteLegal: z.boolean().default(false),
+  // RN-PRV-07: sin exclusividad — marca contactos seleccionables luego en OT.
+  esEjecutivo: z.boolean().default(false),
 })
 
 export const contactoUpdateSchema = contactoInputSchema.partial()
@@ -27,6 +32,7 @@ export const contactoUpdateSchema = contactoInputSchema.partial()
 // service (requiere consultar Pais.esPaisNacional), no acá.
 export const direccionInputSchema = z.object({
   etiqueta: z.string().min(1, 'La etiqueta es requerida').max(80).trim(),
+  descripcion: z.string().max(500).trim().optional(),
   paisId: z.coerce.number().int().positive('El país es requerido'),
   comunaId: z.coerce.number().int().positive().optional(),
   direccion: z.string().min(1, 'La dirección es requerida').max(200).trim(),
@@ -40,7 +46,8 @@ export const proveedorCreateSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  tipoServicioId: z.coerce.number().int().positive('El tipo de servicio es requerido'),
+  // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
+  tiposServicio: z.array(z.coerce.number().int().positive()).min(1, 'Selecciona al menos un tipo de servicio'),
   // RN-PRV-05: un proveedor puede operar en varias zonas a la vez (N:N).
   zonas: z.array(z.coerce.number().int().positive()).optional(),
   formaPagoId: z.coerce.number().int().positive().optional(),

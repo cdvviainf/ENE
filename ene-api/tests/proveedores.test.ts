@@ -48,7 +48,8 @@ const base = (codigo: string, rut: string) => ({
   codigo,
   razonSocial: `Proveedor QA ${codigo}`,
   rut,
-  tipoServicioId,
+  // RN-PRV-08: tipoServicioId pasó de valor único a arreglo (N:N).
+  tiposServicio: [tipoServicioId],
 })
 
 describe('RN-PRV-01: el RUT es obligatorio y único, salvo el genérico', () => {

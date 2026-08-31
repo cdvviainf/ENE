@@ -8,6 +8,8 @@ export interface ClienteEjecutivo {
   email: string | null;
   telefono: string | null;
   cargo: string | null;
+  descripcion: string | null;
+  esRepresentanteLegal: boolean;
   activo: boolean;
   creadoEn: string;
 }
@@ -16,6 +18,7 @@ export interface ClienteDireccion {
   id: number;
   clienteId: number;
   etiqueta: string;
+  descripcion: string | null;
   paisId: number;
   comunaId: number | null;
   direccion: string;
@@ -27,6 +30,7 @@ export interface ClienteDireccion {
 
 export interface DireccionInput {
   etiqueta: string;
+  descripcion?: string;
   paisId: number;
   comunaId?: number;
   direccion: string;
@@ -66,6 +70,8 @@ export interface EjecutivoInput {
   email?: string;
   telefono?: string;
   cargo?: string;
+  descripcion?: string;
+  esRepresentanteLegal?: boolean;
   activo?: boolean;
 }
 

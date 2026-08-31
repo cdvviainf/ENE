@@ -18,6 +18,9 @@ export interface ProveedorContacto {
   email: string | null;
   telefono: string | null;
   cargo: string | null;
+  descripcion: string | null;
+  esRepresentanteLegal: boolean;
+  esEjecutivo: boolean;
 }
 
 export interface ProveedorZona {
@@ -25,10 +28,16 @@ export interface ProveedorZona {
   zona: { id: number; codigo: string; nombre: string };
 }
 
+export interface ProveedorTipoServicioRel {
+  tipoServicioId: number;
+  tipoServicio: { id: number; codigo: string; nombre: string };
+}
+
 export interface ProveedorDireccion {
   id: number;
   proveedorId: number;
   etiqueta: string;
+  descripcion: string | null;
   paisId: number;
   comunaId: number | null;
   direccion: string;
@@ -40,6 +49,7 @@ export interface ProveedorDireccion {
 
 export interface DireccionInput {
   etiqueta: string;
+  descripcion?: string;
   paisId: number;
   comunaId?: number;
   direccion: string;
@@ -52,7 +62,6 @@ export interface Proveedor {
   razonSocial: string;
   rut: string;
   nombreComercial: string | null;
-  tipoServicioId: number;
   formaPagoId: number | null;
   condicionPagoId: number | null;
   politicaCancelacion: string | null;
@@ -60,7 +69,7 @@ export interface Proveedor {
   telefono: string | null;
   creadoEn: string;
   actualizadoEn: string | null;
-  tipoServicio?: { id: number; codigo: string; nombre: string };
+  tiposServicio?: ProveedorTipoServicioRel[];
   zonas?: ProveedorZona[];
   alias?: ProveedorAlias[];
   cuentas?: ProveedorCuenta[];
@@ -90,6 +99,9 @@ export interface ContactoInput {
   email?: string;
   telefono?: string;
   cargo?: string;
+  descripcion?: string;
+  esRepresentanteLegal?: boolean;
+  esEjecutivo?: boolean;
 }
 
 export interface ProveedorCreateInput {
@@ -97,7 +109,7 @@ export interface ProveedorCreateInput {
   razonSocial: string;
   rut: string;
   nombreComercial?: string;
-  tipoServicioId: number;
+  tiposServicio: number[];
   zonas?: number[];
   formaPagoId?: number;
   condicionPagoId?: number;

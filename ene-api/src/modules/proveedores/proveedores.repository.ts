@@ -24,6 +24,12 @@ interface ProveedorFiltros {
   zonaId?: number
 }
 
+const includeListado = {
+  // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio.
+  tiposServicio: { include: { tipoServicio: { select: { id: true, codigo: true, nombre: true } } } },
+  zonas: { include: { zona: { select: { id: true, codigo: true, nombre: true } } } },
+} as const
+
 // RN-PRV-02: la búsqueda debe encontrar por razón social, nombre comercial Y
 // cualquiera de sus alias en una sola consulta — join explícito porque el
 // alias no es campo propio de `proveedor`.
@@ -49,7 +55,7 @@ export async function findAllProveedores(page: number, limit: number, filtros: P
   const where: PrismaNS.ProveedorWhereInput = {
     eliminadoEn: null,
     ...(idsTexto ? { id: { in: idsTexto } } : {}),
-    ...(filtros.tipoServicioId ? { tipoServicioId: filtros.tipoServicioId } : {}),
+    ...(filtros.tipoServicioId ? { tiposServicio: { some: { tipoServicioId: filtros.tipoServicioId } } } : {}),
     ...(filtros.zonaId ? { zonas: { some: { zonaId: filtros.zonaId } } } : {}),
   }
 
@@ -60,10 +66,7 @@ export async function findAllProveedores(page: number, limit: number, filtros: P
       orderBy: { razonSocial: 'asc' },
       skip: (page - 1) * limit,
       take: limit,
-      include: {
-        tipoServicio: { select: { id: true, codigo: true, nombre: true } },
-        zonas: { include: { zona: { select: { id: true, codigo: true, nombre: true } } } },
-      },
+      include: includeListado,
     }),
     prisma.proveedor.count({ where }),
   ])
@@ -75,8 +78,7 @@ export async function findProveedorById(id: number) {
   return prisma.proveedor.findFirst({
     where: { id },
     include: {
-      tipoServicio: { select: { id: true, codigo: true, nombre: true } },
-      zonas: { include: { zona: { select: { id: true, codigo: true, nombre: true } } } },
+      ...includeListado,
       alias: { where: { eliminadoEn: null }, orderBy: { alias: 'asc' } },
       cuentas: { where: { eliminadoEn: null }, orderBy: { banco: 'asc' } },
       contactos: { where: { eliminadoEn: null }, orderBy: { nombre: 'asc' } },
@@ -131,7 +133,10 @@ export async function findAliasDuplicado(alias: string, excluirProveedorId?: num
 
 export async function createProveedor(
   tx: PrismaNS.TransactionClient,
-  data: Omit<ProveedorCreateInput, 'codigo' | 'zonas' | 'alias' | 'cuentas' | 'contactos'> & { codigo: string },
+  data: Omit<ProveedorCreateInput, 'codigo' | 'zonas' | 'tiposServicio' | 'alias' | 'cuentas' | 'contactos'> & {
+    codigo: string
+  },
+  tiposServicio: number[],
   zonas: number[] | undefined,
   alias: AliasInput[] | undefined,
   cuentas: CuentaInput[] | undefined,
@@ -142,26 +147,30 @@ export async function createProveedor(
     data: {
       ...data,
       creadoPor,
+      tiposServicio: { create: tiposServicio.map((tipoServicioId) => ({ tipoServicioId })) },
       zonas: zonas?.length ? { create: zonas.map((zonaId) => ({ zonaId })) } : undefined,
       alias: alias?.length ? { create: alias.map((a) => ({ ...a, creadoPor })) } : undefined,
       cuentas: cuentas?.length ? { create: cuentas.map((c) => ({ ...c, creadoPor })) } : undefined,
       contactos: contactos?.length ? { create: contactos.map((c) => ({ ...c, creadoPor })) } : undefined,
     },
-    include: { zonas: true, alias: true, cuentas: true, contactos: true },
+    include: { tiposServicio: true, zonas: true, alias: true, cuentas: true, contactos: true },
   })
 }
 
 export async function updateProveedor(id: number, data: ProveedorUpdateInput, actualizadoPor: string) {
-  const { zonas, ...resto } = data
+  const { zonas, tiposServicio, ...resto } = data
   return prisma.proveedor.update({
     where: { id },
     data: {
       ...resto,
       actualizadoPor,
-      // RN-PRV-05: reemplaza el conjunto completo de zonas (deleteMany + create),
-      // más simple y suficiente para el volumen de fase 1.
+      // RN-PRV-05/RN-PRV-08: reemplaza el conjunto completo (deleteMany +
+      // create), más simple y suficiente para el volumen de fase 1.
       ...(zonas
         ? { zonas: { deleteMany: {}, create: zonas.map((zonaId) => ({ zonaId })) } }
+        : {}),
+      ...(tiposServicio
+        ? { tiposServicio: { deleteMany: {}, create: tiposServicio.map((tipoServicioId) => ({ tipoServicioId })) } }
         : {}),
     },
   })
@@ -206,6 +215,17 @@ export async function softDeleteCuenta(cuentaId: number, eliminadoPor: string) {
 // ─── Contactos ───────────────────────────────────────────────────────────────
 
 export async function createContacto(proveedorId: number, data: ContactoInput, creadoPor: string) {
+  // RN-PRV-06: al marcar este contacto como representante legal, desmarca
+  // los demás del mismo proveedor en la misma transacción.
+  if (data.esRepresentanteLegal) {
+    return prisma.$transaction(async (tx) => {
+      await tx.proveedorContacto.updateMany({
+        where: { proveedorId, eliminadoEn: null },
+        data: { esRepresentanteLegal: false },
+      })
+      return tx.proveedorContacto.create({ data: { ...data, proveedorId, creadoPor } })
+    })
+  }
   return prisma.proveedorContacto.create({ data: { ...data, proveedorId, creadoPor } })
 }
 
@@ -213,7 +233,22 @@ export async function findContactoById(proveedorId: number, contactoId: number) 
   return prisma.proveedorContacto.findFirst({ where: { id: contactoId, proveedorId, eliminadoEn: null } })
 }
 
-export async function updateContacto(contactoId: number, data: ContactoUpdateInput, actualizadoPor: string) {
+export async function updateContacto(
+  proveedorId: number,
+  contactoId: number,
+  data: ContactoUpdateInput,
+  actualizadoPor: string,
+) {
+  // RN-PRV-06: idem createContacto.
+  if (data.esRepresentanteLegal) {
+    return prisma.$transaction(async (tx) => {
+      await tx.proveedorContacto.updateMany({
+        where: { proveedorId, eliminadoEn: null, id: { not: contactoId } },
+        data: { esRepresentanteLegal: false },
+      })
+      return tx.proveedorContacto.update({ where: { id: contactoId }, data: { ...data, actualizadoPor } })
+    })
+  }
   return prisma.proveedorContacto.update({ where: { id: contactoId }, data: { ...data, actualizadoPor } })
 }
 

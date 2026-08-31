@@ -323,20 +323,25 @@ model Cliente {
   @@map("cliente")
 }
 
+/// RN-CLI-05 [BLOQUEA]: como máximo un ejecutivo por cliente con
+/// esRepresentanteLegal=true — índice único parcial, ver comentario en
+/// ClienteDireccion (RN-GEO-03) y migración `contactos_representante_legal`.
 model ClienteEjecutivo {
-  id             Int       @id @default(autoincrement())
-  clienteId      Int
-  nombre         String
-  email          String?
-  telefono       String?
-  cargo          String?
-  activo         Boolean   @default(true)
-  creadoEn       DateTime  @default(now())
-  creadoPor      String
-  actualizadoEn  DateTime? @updatedAt
-  actualizadoPor String?
-  eliminadoEn    DateTime?
-  eliminadoPor   String?
+  id                  Int       @id @default(autoincrement())
+  clienteId           Int
+  nombre              String
+  email               String?
+  telefono            String?
+  cargo               String?
+  descripcion         String?
+  esRepresentanteLegal Boolean  @default(false)
+  activo              Boolean   @default(true)
+  creadoEn            DateTime  @default(now())
+  creadoPor           String
+  actualizadoEn       DateTime? @updatedAt
+  actualizadoPor      String?
+  eliminadoEn         DateTime?
+  eliminadoPor        String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   cotizaciones Cotizacion[]
@@ -356,6 +361,7 @@ model ClienteDireccion {
   id             Int       @id @default(autoincrement())
   clienteId      Int
   etiqueta       String
+  descripcion    String?
   paisId         Int
   comunaId       Int?
   direccion      String
@@ -459,7 +465,7 @@ model TipoServicio {
   eliminadoPor        String?
 
   servicios   Servicio[]
-  proveedores Proveedor[]
+  proveedores ProveedorTipoServicio[]
 
   @@map("tipo_servicio")
 }
@@ -608,7 +614,6 @@ model Proveedor {
   razonSocial         String
   rut                 String
   nombreComercial     String?
-  tipoServicioId      Int
   formaPagoId         Int?
   condicionPagoId     Int?
   politicaCancelacion String?
@@ -621,10 +626,12 @@ model Proveedor {
   eliminadoEn         DateTime?
   eliminadoPor        String?
 
-  tipoServicio  TipoServicio   @relation(fields: [tipoServicioId], references: [id])
   formaPago     FormaPago?     @relation(fields: [formaPagoId], references: [id])
   condicionPago CondicionPago? @relation(fields: [condicionPagoId], references: [id])
 
+  // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio a la
+  // vez (mismo criterio que zonas, RN-PRV-05) — N:N en vez de FK único.
+  tiposServicio    ProveedorTipoServicio[]
   zonas            ProveedorZona[]
   alias            ProveedorAlias[]
   cuentas          ProveedorCuenta[]
@@ -639,6 +646,20 @@ model Proveedor {
 
   @@index([razonSocial])
   @@map("proveedor")
+}
+
+/// RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio a la
+/// vez. Antes era `Proveedor.tipoServicioId` único; mismo criterio y mismo
+/// riesgo de migrar después que ya justificó ProveedorZona.
+model ProveedorTipoServicio {
+  proveedorId    Int
+  tipoServicioId Int
+
+  proveedor    Proveedor    @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  tipoServicio TipoServicio @relation(fields: [tipoServicioId], references: [id])
+
+  @@id([proveedorId, tipoServicioId])
+  @@map("proveedor_tipo_servicio")
 }
 
 /// Un proveedor puede operar en varias zonas a la vez (definición del
@@ -694,19 +715,26 @@ model ProveedorCuenta {
   @@map("proveedor_cuenta")
 }
 
+/// RN-PRV-06 [BLOQUEA]: como máximo un contacto por proveedor con
+/// esRepresentanteLegal=true — mismo criterio que RN-CLI-05. RN-PRV-07:
+/// esEjecutivo no es exclusivo, marca contactos seleccionables luego en OT
+/// (Etapa 8, todavía no construida).
 model ProveedorContacto {
-  id             Int       @id @default(autoincrement())
-  proveedorId    Int
-  nombre         String
-  email          String?
-  telefono       String?
-  cargo          String?
-  creadoEn       DateTime  @default(now())
-  creadoPor      String
-  actualizadoEn  DateTime? @updatedAt
-  actualizadoPor String?
-  eliminadoEn    DateTime?
-  eliminadoPor   String?
+  id                   Int       @id @default(autoincrement())
+  proveedorId          Int
+  nombre               String
+  email                String?
+  telefono             String?
+  cargo                String?
+  descripcion          String?
+  esRepresentanteLegal Boolean   @default(false)
+  esEjecutivo          Boolean   @default(false)
+  creadoEn             DateTime  @default(now())
+  creadoPor            String
+  actualizadoEn        DateTime? @updatedAt
+  actualizadoPor       String?
+  eliminadoEn          DateTime?
+  eliminadoPor         String?
 
   proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
 
@@ -719,6 +747,7 @@ model ProveedorDireccion {
   id             Int       @id @default(autoincrement())
   proveedorId    Int
   etiqueta       String
+  descripcion    String?
   paisId         Int
   comunaId       Int?
   direccion      String

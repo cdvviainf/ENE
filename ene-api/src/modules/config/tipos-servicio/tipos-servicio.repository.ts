@@ -36,7 +36,7 @@ export async function findTipoServicioByCodigo(codigo: string, excluirId?: numbe
 export async function contarReferenciasActivas(id: number) {
   const [servicios, proveedores] = await Promise.all([
     prisma.servicio.count({ where: { tipoServicioId: id, eliminadoEn: null } }),
-    prisma.proveedor.count({ where: { tipoServicioId: id, eliminadoEn: null } }),
+    prisma.proveedor.count({ where: { tiposServicio: { some: { tipoServicioId: id } }, eliminadoEn: null } }),
   ])
   return { servicios, proveedores }
 }

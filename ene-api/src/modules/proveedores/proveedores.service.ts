@@ -5,6 +5,7 @@ import { resolverCodigo } from '../../shared/correlativos.js'
 import { validarRutChileno, formatearRut } from '../../shared/rut-validator.js'
 import { operacionesAbiertas, hayOperacionesAbiertas, errorSoftDeleteBloqueado } from '../../shared/operaciones-abiertas.js'
 import { validarComunaRequerida, esViolacionDireccionDefaultUnica } from '../../shared/direcciones.js'
+import { esViolacionRepresentanteLegalUnico } from '../../shared/contactos.js'
 import * as repo from './proveedores.repository.js'
 import type {
   AliasInput,
@@ -101,13 +102,13 @@ export async function crearProveedor(input: ProveedorCreateInput, creadoPor: str
           razonSocial: input.razonSocial,
           rut,
           nombreComercial: input.nombreComercial,
-          tipoServicioId: input.tipoServicioId,
           formaPagoId: input.formaPagoId,
           condicionPagoId: input.condicionPagoId,
           politicaCancelacion: input.politicaCancelacion,
           email: input.email,
           telefono: input.telefono,
         },
+        input.tiposServicio,
         input.zonas,
         input.alias,
         input.cuentas,
@@ -186,9 +187,19 @@ export async function eliminarCuenta(proveedorId: number, cuentaId: number, elim
 
 // ─── Contactos ───────────────────────────────────────────────────────────────
 
+// Backstop de RN-PRV-06 ante una carrera que el desmarcar-y-crear del
+// repository no alcanzó a serializar: el índice único parcial sí la bloquea.
+const MENSAJE_REP_LEGAL_CARRERA =
+  'Otro contacto ya fue marcado como representante legal al mismo tiempo. Intenta nuevamente (RN-PRV-06)'
+
 export async function crearContacto(proveedorId: number, input: ContactoInput, creadoPor: string) {
   await obtenerProveedorVigente(proveedorId)
-  return repo.createContacto(proveedorId, input, creadoPor)
+  try {
+    return await repo.createContacto(proveedorId, input, creadoPor)
+  } catch (err) {
+    if (esViolacionRepresentanteLegalUnico(err)) throw conflicto(MENSAJE_REP_LEGAL_CARRERA)
+    throw err
+  }
 }
 
 export async function actualizarContacto(
@@ -199,7 +210,12 @@ export async function actualizarContacto(
 ) {
   const contacto = await repo.findContactoById(proveedorId, contactoId)
   if (!contacto) throw noEncontrado('Contacto', contactoId)
-  return repo.updateContacto(contactoId, input, actualizadoPor)
+  try {
+    return await repo.updateContacto(proveedorId, contactoId, input, actualizadoPor)
+  } catch (err) {
+    if (esViolacionRepresentanteLegalUnico(err)) throw conflicto(MENSAJE_REP_LEGAL_CARRERA)
+    throw err
+  }
 }
 
 export async function eliminarContacto(proveedorId: number, contactoId: number, eliminadoPor: string) {

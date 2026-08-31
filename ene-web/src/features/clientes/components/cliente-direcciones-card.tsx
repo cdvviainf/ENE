@@ -54,6 +54,7 @@ function DireccionRow({ clienteId, direccion }: { clienteId: number; direccion: 
         onOpenChange={setEditOpen}
         initial={{
           etiqueta: direccion.etiqueta,
+          descripcion: direccion.descripcion ?? undefined,
           paisId: direccion.paisId,
           comunaId: direccion.comunaId ?? undefined,
           direccion: direccion.direccion,
@@ -76,6 +77,9 @@ function DireccionRow({ clienteId, direccion }: { clienteId: number; direccion: 
           {direccion.direccion}
           {ubicacion ? ` · ${ubicacion}` : ''}
         </p>
+        {direccion.descripcion && (
+          <p className='text-muted-foreground truncate text-xs italic'>{direccion.descripcion}</p>
+        )}
       </div>
       <div className='flex shrink-0 items-center gap-1'>
         <Button variant='ghost' size='icon' className='h-8 w-8' onClick={() => setEditOpen(true)}>

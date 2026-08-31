@@ -5,6 +5,9 @@ export const ejecutivoInputSchema = z.object({
   email: z.string().email('Email inválido').max(120).trim().optional(),
   telefono: z.string().max(40).trim().optional(),
   cargo: z.string().max(80).trim().optional(),
+  descripcion: z.string().max(500).trim().optional(),
+  // RN-CLI-05: exclusividad validada en el service (requiere desmarcar otros).
+  esRepresentanteLegal: z.boolean().default(false),
   activo: z.boolean().default(true),
 })
 
@@ -14,6 +17,7 @@ export const ejecutivoUpdateSchema = ejecutivoInputSchema.partial()
 // service (requiere consultar Pais.esPaisNacional), no acá.
 export const direccionInputSchema = z.object({
   etiqueta: z.string().min(1, 'La etiqueta es requerida').max(80).trim(),
+  descripcion: z.string().max(500).trim().optional(),
   paisId: z.coerce.number().int().positive('El país es requerido'),
   comunaId: z.coerce.number().int().positive().optional(),
   direccion: z.string().min(1, 'La dirección es requerida').max(200).trim(),

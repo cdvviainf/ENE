@@ -179,6 +179,19 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
             <CardContent>
               <div className='grid gap-4 sm:grid-cols-2'>
                 <FormTextField name='codigo' label='Código' required placeholder='Ej: CL0001' disabled={isEdit} />
+                <FormTextField name='razonSocial' label='Razón social' required placeholder='Ej: Andes Travel SpA' />
+                <form.Subscribe selector={(s) => s.values.tipo}>
+                  {(tipo) => (
+                    <FormTextField
+                      name='rut'
+                      label='RUT'
+                      required={tipo === 'EMPRESA'}
+                      placeholder='12.345.678-9'
+                    />
+                  )}
+                </form.Subscribe>
+                <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Opcional' />
+
                 <form.Field name='tipo'>
                   {(field) => (
                     <div className='space-y-1.5'>
@@ -210,18 +223,6 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
                     </div>
                   )}
                 </form.Field>
-                <FormTextField name='razonSocial' label='Razón social' required placeholder='Ej: Andes Travel SpA' />
-                <form.Subscribe selector={(s) => s.values.tipo}>
-                  {(tipo) => (
-                    <FormTextField
-                      name='rut'
-                      label='RUT'
-                      required={tipo === 'EMPRESA'}
-                      placeholder='12.345.678-9'
-                    />
-                  )}
-                </form.Subscribe>
-                <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Opcional' />
 
                 <form.Field name='paisId'>
                   {(field) => (

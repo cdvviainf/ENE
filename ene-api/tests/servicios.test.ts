@@ -30,7 +30,12 @@ beforeAll(async () => {
   tipoServicioId = tipoServicio.id
   const proveedor = await prisma.proveedor.create({
     data: {
-      codigo: 'QAS-PROV', razonSocial: 'QA Servicios', rut: '55555555-5', tipoServicioId, creadoPor: 'test',
+      codigo: 'QAS-PROV',
+      razonSocial: 'QA Servicios',
+      rut: '55555555-5',
+      // RN-PRV-08: tipoServicioId pasó de FK única a relación N:N.
+      tiposServicio: { create: [{ tipoServicioId }] },
+      creadoPor: 'test',
     },
   })
   proveedorId = proveedor.id

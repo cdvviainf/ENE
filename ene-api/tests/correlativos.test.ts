@@ -122,7 +122,8 @@ describe('RN-COR-01: el namespace se comparte pero la clave por entidad aísla a
         codigo: sugeridoProveedor!,
         razonSocial: 'QA correlativo proveedor',
         rut: '55555555-5',
-        tipoServicioId: tipoServicio.id,
+        // RN-PRV-08: tipoServicioId pasó de valor único a arreglo (N:N).
+        tiposServicio: [tipoServicio.id],
       },
       'test',
     )

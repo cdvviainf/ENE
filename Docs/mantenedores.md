@@ -170,6 +170,8 @@ cotizaciones nuevas, no de las existentes.
 | `email` | String(120) | No |
 | `telefono` | String(40) | No |
 | `cargo` | String(80) | No |
+| `descripcion` | Text | No |
+| `esRepresentanteLegal` | Boolean | Sí, default `false` |
 | `activo` | Boolean | Sí, default `true` |
 
 **RN-CLI-03** Los ejecutivos se editan **dentro de la ficha del cliente**, no en
@@ -178,6 +180,11 @@ cotización nueva, pero sigue visible en las operaciones que lo referencian.
 
 **RN-CLI-04 [BLOQUEA]** No se puede desactivar el último ejecutivo activo de un
 cliente que tiene operaciones abiertas.
+
+**RN-CLI-05 [BLOQUEA]** Como máximo un ejecutivo por cliente con
+`esRepresentanteLegal=true` (31-ago-2026). Al marcar uno, se desmarca
+automáticamente cualquier otro ejecutivo del mismo cliente — mismo criterio que
+`RN-GEO-03` en Direcciones.
 
 ---
 
@@ -237,9 +244,10 @@ pago.
 | `razonSocial` | String(150) | Sí | Como aparece en la factura |
 | `rut` | String(12) | Sí | Validado con `rut-validator` |
 | `nombreComercial` | String(150) | No | Como lo conoce el equipo |
-| `tipoServicioId` | Int | Sí | |
+| `tiposServicio` | Int[] (N:N vía `ProveedorTipoServicio`) | **Sí, ≥1** | Un proveedor puede pertenecer a varios tipos de servicio a la vez (`RN-PRV-08`) |
 | `zonas` | Int[] (N:N vía `ProveedorZona`) | No | Un proveedor puede operar en varias zonas a la vez |
-| `condicionesPago` | Text | No | Ej. "30 días fecha factura" |
+| `formaPagoId` | FK → `FormaPago` | No | Catálogo único compartido con Cliente (RN-PAG-01) |
+| `condicionPagoId` | FK → `CondicionPago` | No | Catálogo único compartido con Cliente (RN-PAG-01) |
 | `politicaCancelacion` | Text | No | |
 | `email` | String(120) | No | |
 | `telefono` | String(40) | No | |
@@ -261,6 +269,10 @@ otro RUT sigue siendo estrictamente único.
 **RN-PRV-05** Un proveedor puede operar en varias zonas a la vez (definición
 del cliente, 27-ago-2026). Se modela `ProveedorZona` (N:N) en vez de
 `zonaId` único.
+
+**RN-PRV-08** Un proveedor puede pertenecer a varios tipos de servicio a la vez
+(31-ago-2026, mismo criterio que RN-PRV-05). Se modela `ProveedorTipoServicio`
+(N:N) en vez de `tipoServicioId` único — mínimo uno seleccionado.
 
 **RN-PRV-02** La búsqueda `q` debe encontrar el proveedor por **razón social,
 nombre comercial y cualquiera de sus alias**, en una sola consulta. Es el dolor
@@ -298,9 +310,21 @@ fase 1: se elige al registrar el pago.
 | `email` | String(120) | No |
 | `telefono` | String(40) | No |
 | `cargo` | String(80) | No |
+| `descripcion` | Text | No |
+| `esRepresentanteLegal` | Boolean | Sí, default `false` |
+| `esEjecutivo` | Boolean | Sí, default `false` |
 
-**Listado:** código, razón social, nombre comercial, tipo de servicio, zona, RUT.
-**Filtros:** `tipoServicioId`, `zonaId`.
+**RN-PRV-06 [BLOQUEA]** Como máximo un contacto por proveedor con
+`esRepresentanteLegal=true` — mismo criterio que `RN-CLI-05` en Ejecutivos de
+Cliente. Al marcar uno, se desmarca automáticamente cualquier otro del mismo
+proveedor.
+
+**RN-PRV-07** `esEjecutivo` no es exclusivo — marca los contactos
+seleccionables luego al asignar un proveedor en la Orden de Trabajo (Etapa 8,
+todavía no construida).
+
+**Listado:** código, razón social, nombre comercial, tipos de servicio, zona, RUT.
+**Filtros:** `tipoServicioId` (cualquier proveedor que tenga ese tipo entre los suyos), `zonaId`.
 **Buscable por:** razón social, nombre comercial, alias, RUT, código.
 **Orden por defecto:** razón social ascendente.
 

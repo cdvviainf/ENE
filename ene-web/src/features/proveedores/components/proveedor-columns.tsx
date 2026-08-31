@@ -97,9 +97,13 @@ export const proveedorColumns: ColumnDef<Proveedor>[] = [
     )
   },
   {
-    id: 'tipoServicio',
-    header: 'Tipo de servicio',
-    cell: ({ row }) => <span className='text-sm'>{row.original.tipoServicio?.nombre ?? '—'}</span>
+    id: 'tiposServicio',
+    header: 'Tipos de servicio',
+    cell: ({ row }) => (
+      <span className='text-sm'>
+        {(row.original.tiposServicio ?? []).map((t) => t.tipoServicio.nombre).join(', ') || '—'}
+      </span>
+    )
   },
   {
     id: 'zonas',

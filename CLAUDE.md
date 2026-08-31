@@ -22,7 +22,7 @@
 
 **Convenciones canónicas — heredadas del proyecto FAS y vigentes acá sin cambios:**
 
-- **IDs:** toda tabla lleva `id Int @id @default(autoincrement())`. Cuando se requiere identificación humana se agrega `codigo String` (único según la regla del módulo).
+- **IDs:** toda tabla lleva `id Int @id @default(autoincrement())`. Cuando se requiere identificación humana se agrega `codigo String` (único según la regla del módulo). **Excepción:** las tablas puente N:N puras (sin más atributos que las dos FK) usan PK compuesta `@@id([aId, bId])` en vez de `id` propio — `ProveedorZona`, `ProveedorTipoServicio`. Un `id` sintético ahí no cumpliría ninguna función.
 - **Naming de dominio:** español (`codigo`, `descripcion`, `creadoEn`, `creadoPor`, `eliminadoEn`).
 - **Auditoría:** `creadoEn`/`creadoPor`, `actualizadoEn`/`actualizadoPor`, `eliminadoEn`/`eliminadoPor`.
 - **Soft delete:** `eliminadoEn DateTime?` en maestros y documentos; filtros `WHERE eliminado_en IS NULL`.
@@ -222,21 +222,24 @@ ene-web/src/
 Cliente            tipo(AGENCIA|EMPRESA), codigo, razonSocial, rut,
                    nombreComercial, paisId, monedaHabitual, formaPagoId,
                    condicionPagoId
-ClienteEjecutivo   clienteId, nombre, email, telefono, cargo
-ClienteDireccion   clienteId, etiqueta, paisId, comunaId?, direccion,
-                   esPorDefecto
+ClienteEjecutivo   clienteId, nombre, email, telefono, cargo, descripcion,
+                   esRepresentanteLegal
+ClienteDireccion   clienteId, etiqueta, descripcion, paisId, comunaId?,
+                   direccion, esPorDefecto
 Grupo              codigo, apellido*, clienteId, nacionalidad, paisOrigen,
                    idioma, cantidadPax        (* identificador operativo)
 Pasajero           grupoId, nombre, edad, nacionalidad, restricciones,
                    documento
-Proveedor          codigo, razonSocial, rut, nombreComercial, tipoServicioId,
+Proveedor          codigo, razonSocial, rut, nombreComercial,
                    formaPagoId, condicionPagoId, politicaCancelacion
+ProveedorTipoServicio proveedorId, tipoServicioId  # N:N — un proveedor pertenece a varios tipos de servicio
 ProveedorZona      proveedorId, zonaId       # N:N — un proveedor opera en varias zonas
 ProveedorAlias     proveedorId, alias        # nombre interno / glosa bancaria
 ProveedorCuenta    proveedorId, banco, tipoCuenta, numeroCuenta, titular, rut
-ProveedorContacto  proveedorId, nombre, email, telefono, cargo
-ProveedorDireccion proveedorId, etiqueta, paisId, comunaId?, direccion,
-                   esPorDefecto
+ProveedorContacto  proveedorId, nombre, email, telefono, cargo, descripcion,
+                   esRepresentanteLegal, esEjecutivo
+ProveedorDireccion proveedorId, etiqueta, descripcion, paisId, comunaId?,
+                   direccion, esPorDefecto
 Zona               codigo, nombre, nombreEn
 TipoServicio       codigo, nombre, modeloTarifaDefault
 Servicio           codigo, nombre, nombreEn, descripcion, descripcionEn,
@@ -625,12 +628,38 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 >
 > **Cierre del anexo (30-ago-2026):** ciclo QA-Codex cerrado en ronda 3,
 > `APROBADO_CON_OBSERVACIONES` → `TESTS_OK` (105/105 tests, build API y web
-> limpios). Deuda pendiente registrada, no bloqueante: **QA-TEST-001** — faltan
-> los 3 casos obligatorios de la sección 16 de `Docs/reglas-negocio.md`
-> (RN-GEO-02 comuna requerida en Chile, RN-GEO-03 exclusividad de dirección
-> default, RN-PAG-02 cuotas que no suman 100%) — a agregar en una futura
-> pasada de tests. Los 11 errores/5 advertencias de ESLint en `ene-web` son
-> deuda preexistente fuera de este alcance, sin archivos modificados aquí.
+> limpios). Los 11 errores/5 advertencias de ESLint en `ene-web` son deuda
+> preexistente fuera de este alcance, sin archivos modificados aquí.
+>
+> **QA-TEST-001 cerrado (31-ago-2026).** Los 3 casos obligatorios de la
+> sección 16 de `Docs/reglas-negocio.md` se agregaron fuera del ciclo QA-Codex
+> normal, a pedido explícito del usuario (por regla el ciclo no permite que
+> Claude escriba tests, para no comprometer la independencia de la
+> verificación) — `tests/direcciones.test.ts` (RN-GEO-02, RN-GEO-03, vía
+> `crearCliente`/`crearDireccion`/`actualizarDireccion`, alcanza para probar
+> la regla compartida sin duplicar el caso en Proveedor) y
+> `tests/condiciones-pago.test.ts` (RN-PAG-02, contra
+> `condicionPagoCreateSchema` directo — la regla vive solo en el schema Zod,
+> no en el service). 112 tests en total.
+>
+> **Ajustes de UX y modelo tras feedback de usuario (31-ago-2026).**
+> `ClienteEjecutivo`/`ProveedorContacto` ganan `descripcion` (texto libre) y
+> `esRepresentanteLegal` — máximo uno por dueño, mismo patrón de índice único
+> parcial que `esPorDefecto` en Direcciones (`RN-CLI-05`, `RN-PRV-06`).
+> `ProveedorContacto` además suma `esEjecutivo` (sin exclusividad, para
+> seleccionar el contacto al asignar el proveedor en la OT — Etapa 8,
+> `RN-PRV-07`). `ClienteDireccion`/`ProveedorDireccion` suman `descripcion`
+> como campo libre adicional a `etiqueta`. `Proveedor.tipoServicioId` (FK
+> única) pasa a `ProveedorTipoServicio` (N:N, mismo criterio que
+> `ProveedorZona`/RN-PRV-05) — un proveedor puede pertenecer a varios tipos de
+> servicio, mínimo uno (`RN-PRV-08`). `ProveedorContactosCard` ganó su primer
+> diálogo de edición (antes solo alta/baja). La migración sí hace backfill
+> (`INSERT ... SELECT` desde `proveedor.tipoServicioId` antes de eliminar la
+> columna) aunque hoy no había filas reales que perder — la migración queda
+> segura para cualquier ambiente, no solo el actual. Orden de campos unificado entre
+> `cliente-form.tsx`/`proveedor-form.tsx` (identidad → clasificador propio →
+> contacto → términos comerciales) y `nombre` pasó a ser el segundo campo de
+> `servicio-form.tsx`, junto a `codigo`.
 
 ---
 

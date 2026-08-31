@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -24,26 +25,53 @@ const contactoSchema = z.object({
   nombre: z.string().min(1, 'Requerido').max(120).trim(),
   email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
   telefono: z.string().max(40).trim().optional(),
-  cargo: z.string().max(80).trim().optional()
+  cargo: z.string().max(80).trim().optional(),
+  descripcion: z.string().max(500).trim().optional(),
+  esRepresentanteLegal: z.boolean().default(false),
+  esEjecutivo: z.boolean().default(false)
 });
 type ContactoFormValues = z.infer<typeof contactoSchema>;
 
-function ContactoDialog({ proveedorId, open, onOpenChange }: { proveedorId: number; open: boolean; onOpenChange: (v: boolean) => void }) {
+const VALORES_VACIOS: ContactoFormValues = {
+  nombre: '',
+  email: '',
+  telefono: '',
+  cargo: '',
+  descripcion: '',
+  esRepresentanteLegal: false,
+  esEjecutivo: false
+};
+
+function ContactoDialog({
+  proveedorId,
+  contacto,
+  open,
+  onOpenChange
+}: {
+  proveedorId: number;
+  contacto?: ProveedorContacto;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const queryClient = useQueryClient();
+  const isEdit = !!contacto;
 
   const mutation = useMutation({
-    mutationFn: (values: ContactoInput) => proveedoresService.crearContacto(proveedorId, values),
+    mutationFn: (values: ContactoInput) =>
+      isEdit
+        ? proveedoresService.actualizarContacto(proveedorId, contacto.id, values)
+        : proveedoresService.crearContacto(proveedorId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: proveedoresKeys.detail(proveedorId) });
-      toast.success('Contacto agregado');
+      toast.success(isEdit ? 'Contacto actualizado' : 'Contacto agregado');
       onOpenChange(false);
-      form.reset();
+      if (!isEdit) form.reset();
     },
-    onError: (e: Error) => toast.error(e.message || 'Error al agregar el contacto')
+    onError: (e: Error) => toast.error(e.message || 'Error al guardar el contacto')
   });
 
   const form = useAppForm({
-    defaultValues: { nombre: '', email: '', telefono: '', cargo: '' } as ContactoFormValues,
+    defaultValues: VALORES_VACIOS,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onSubmit: contactoSchema as any },
     onSubmit: async ({ value }) => {
@@ -51,13 +79,37 @@ function ContactoDialog({ proveedorId, open, onOpenChange }: { proveedorId: numb
     }
   });
 
-  const { FormTextField } = useFormFields<ContactoFormValues>();
+  useEffect(() => {
+    if (open) {
+      const valores: ContactoFormValues = contacto
+        ? {
+            nombre: contacto.nombre,
+            email: contacto.email ?? '',
+            telefono: contacto.telefono ?? '',
+            cargo: contacto.cargo ?? '',
+            descripcion: contacto.descripcion ?? '',
+            esRepresentanteLegal: contacto.esRepresentanteLegal,
+            esEjecutivo: contacto.esEjecutivo
+          }
+        : VALORES_VACIOS;
+      form.setFieldValue('nombre', valores.nombre);
+      form.setFieldValue('email', valores.email);
+      form.setFieldValue('telefono', valores.telefono);
+      form.setFieldValue('cargo', valores.cargo);
+      form.setFieldValue('descripcion', valores.descripcion);
+      form.setFieldValue('esRepresentanteLegal', valores.esRepresentanteLegal);
+      form.setFieldValue('esEjecutivo', valores.esEjecutivo);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contacto]);
+
+  const { FormTextField, FormTextareaField, FormCheckboxField } = useFormFields<ContactoFormValues>();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-sm'>
         <DialogHeader>
-          <DialogTitle>Nuevo contacto</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar contacto' : 'Nuevo contacto'}</DialogTitle>
           <DialogDescription>Persona de contacto en el proveedor.</DialogDescription>
         </DialogHeader>
         <form.AppForm>
@@ -66,13 +118,24 @@ function ContactoDialog({ proveedorId, open, onOpenChange }: { proveedorId: numb
             <FormTextField name='email' label='Email' type='email' placeholder='pedro@proveedor.cl' />
             <FormTextField name='telefono' label='Teléfono' placeholder='+56 9 1234 5678' />
             <FormTextField name='cargo' label='Cargo' placeholder='Opcional' />
+            <FormTextareaField name='descripcion' label='Descripción' placeholder='Opcional' />
+            <FormCheckboxField
+              name='esRepresentanteLegal'
+              label='Representante legal'
+              description='Al marcarlo, desmarca automáticamente cualquier otro contacto de este proveedor (RN-PRV-06).'
+            />
+            <FormCheckboxField
+              name='esEjecutivo'
+              label='Ejecutivo'
+              description='Seleccionable luego en la Orden de Trabajo (RN-PRV-07).'
+            />
             <div className='flex justify-end gap-2 pt-2'>
               <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type='submit' isLoading={mutation.isPending}>
                 <Icons.check className='mr-1 h-4 w-4' />
-                Agregar
+                {isEdit ? 'Guardar' : 'Agregar'}
               </Button>
             </div>
           </form.Form>
@@ -84,6 +147,7 @@ function ContactoDialog({ proveedorId, open, onOpenChange }: { proveedorId: numb
 
 function ContactoRow({ proveedorId, contacto }: { proveedorId: number; contacto: ProveedorContacto }) {
   const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const deleteMutation = useMutation({
@@ -105,15 +169,33 @@ function ContactoRow({ proveedorId, contacto }: { proveedorId: number; contacto:
         loading={deleteMutation.isPending}
         title='¿Eliminar contacto?'
       />
+      <ContactoDialog proveedorId={proveedorId} contacto={contacto} open={editOpen} onOpenChange={setEditOpen} />
       <div className='min-w-0'>
-        <p className='truncate font-medium'>{contacto.nombre}</p>
+        <p className='truncate font-medium'>
+          {contacto.nombre}
+          {contacto.esRepresentanteLegal && (
+            <Badge variant='outline' className='ml-2'>
+              Representante legal
+            </Badge>
+          )}
+          {contacto.esEjecutivo && (
+            <Badge variant='outline' className='ml-2'>
+              Ejecutivo
+            </Badge>
+          )}
+        </p>
         <p className='text-muted-foreground truncate text-xs'>
           {[contacto.cargo, contacto.email, contacto.telefono].filter(Boolean).join(' · ') || '—'}
         </p>
       </div>
-      <Button variant='ghost' size='icon' className='h-8 w-8 shrink-0' onClick={() => setDeleteOpen(true)}>
-        <Icons.trash className='text-destructive h-4 w-4' />
-      </Button>
+      <div className='flex shrink-0 items-center gap-1'>
+        <Button variant='ghost' size='icon' className='h-8 w-8' onClick={() => setEditOpen(true)}>
+          <Icons.edit className='h-4 w-4' />
+        </Button>
+        <Button variant='ghost' size='icon' className='h-8 w-8' onClick={() => setDeleteOpen(true)}>
+          <Icons.trash className='text-destructive h-4 w-4' />
+        </Button>
+      </div>
     </div>
   );
 }

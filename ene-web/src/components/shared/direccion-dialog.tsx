@@ -23,6 +23,7 @@ import { ComunaQuickCreate } from '@/features/comunas/components/comuna-quick-cr
 
 export type DireccionFormValues = {
   etiqueta: string;
+  descripcion?: string;
   paisId: number;
   comunaId?: number;
   direccion: string;
@@ -33,6 +34,7 @@ function buildDireccionSchema(idsNacionales: Set<number>) {
   return z
     .object({
       etiqueta: z.string().min(1, 'La etiqueta es requerida').max(80).trim(),
+      descripcion: z.string().max(500).trim().optional(),
       paisId: z.coerce.number().int().positive('El país es requerido'),
       comunaId: z.coerce.number().int().positive().optional(),
       direccion: z.string().min(1, 'La dirección es requerida').max(200).trim(),
@@ -57,6 +59,7 @@ interface DireccionDialogProps {
 
 const VALORES_VACIOS: DireccionFormValues = {
   etiqueta: '',
+  descripcion: '',
   paisId: 0,
   comunaId: undefined,
   direccion: '',
@@ -92,6 +95,7 @@ export function DireccionDialog({ open, onOpenChange, initial, onSubmit, isPendi
     if (open) {
       const valores = initial ?? VALORES_VACIOS;
       form.setFieldValue('etiqueta', valores.etiqueta);
+      form.setFieldValue('descripcion', valores.descripcion);
       form.setFieldValue('paisId', valores.paisId);
       form.setFieldValue('comunaId', valores.comunaId);
       form.setFieldValue('direccion', valores.direccion);
@@ -100,7 +104,7 @@ export function DireccionDialog({ open, onOpenChange, initial, onSubmit, isPendi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial]);
 
-  const { FormTextField, FormCheckboxField } = useFormFields<DireccionFormValues>();
+  const { FormTextField, FormTextareaField, FormCheckboxField } = useFormFields<DireccionFormValues>();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,6 +116,7 @@ export function DireccionDialog({ open, onOpenChange, initial, onSubmit, isPendi
         <form.AppForm>
           <form.Form id='direccion-form' className='space-y-3'>
             <FormTextField name='etiqueta' label='Etiqueta' required placeholder='Ej: Oficina principal' />
+            <FormTextareaField name='descripcion' label='Descripción' placeholder='Opcional' />
 
             <form.Field name='paisId'>
               {(field) => (

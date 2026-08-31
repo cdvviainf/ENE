@@ -147,6 +147,7 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
           <CardContent className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2'>
               <FormTextField name='codigo' label='Código' required placeholder='Ej: SV0001' disabled={isEdit} />
+              <FormTextField name='nombre' label='Nombre' required placeholder='Ej: Traslado aeropuerto - hotel' />
 
               <form.Field name='tipoServicioId'>
                 {(field) => (
@@ -242,7 +243,6 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
                 placeholder='Seleccionar...'
               />
 
-              <FormTextField name='nombre' label='Nombre' required placeholder='Ej: Traslado aeropuerto - hotel' />
               <FormTextField name='nombreEn' label='Nombre (inglés)' placeholder='Ej: Airport - hotel transfer' />
               <FormTextField
                 name='margenSugeridoPct'

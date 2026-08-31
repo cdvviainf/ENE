@@ -34,13 +34,14 @@ const proveedorSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  tipoServicioId: z.coerce.number().int().positive('El tipo de servicio es requerido'),
+  // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
+  tiposServicio: z.array(z.number()).min(1, 'Selecciona al menos un tipo de servicio'),
   zonas: z.array(z.number()).optional(),
+  email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
+  telefono: z.string().max(40).trim().optional(),
   formaPagoId: z.coerce.number().int().positive().optional(),
   condicionPagoId: z.coerce.number().int().positive().optional(),
-  politicaCancelacion: z.string().optional(),
-  email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
-  telefono: z.string().max(40).trim().optional()
+  politicaCancelacion: z.string().optional()
 });
 
 type ProveedorFormValues = z.infer<typeof proveedorSchema>;
@@ -88,13 +89,13 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       razonSocial: '',
       rut: '',
       nombreComercial: '',
-      tipoServicioId: 0,
+      tiposServicio: [],
       zonas: [],
+      email: '',
+      telefono: '',
       formaPagoId: undefined,
       condicionPagoId: undefined,
-      politicaCancelacion: '',
-      email: '',
-      telefono: ''
+      politicaCancelacion: ''
     } as ProveedorFormValues,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onSubmit: proveedorSchema as any },
@@ -109,13 +110,13 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       form.setFieldValue('razonSocial', proveedor.razonSocial);
       form.setFieldValue('rut', proveedor.rut);
       form.setFieldValue('nombreComercial', proveedor.nombreComercial ?? '');
-      form.setFieldValue('tipoServicioId', proveedor.tipoServicioId);
+      form.setFieldValue('tiposServicio', (proveedor.tiposServicio ?? []).map((t) => t.tipoServicioId));
       form.setFieldValue('zonas', (proveedor.zonas ?? []).map((z) => z.zonaId));
+      form.setFieldValue('email', proveedor.email ?? '');
+      form.setFieldValue('telefono', proveedor.telefono ?? '');
       form.setFieldValue('formaPagoId', proveedor.formaPagoId ?? undefined);
       form.setFieldValue('condicionPagoId', proveedor.condicionPagoId ?? undefined);
       form.setFieldValue('politicaCancelacion', proveedor.politicaCancelacion ?? '');
-      form.setFieldValue('email', proveedor.email ?? '');
-      form.setFieldValue('telefono', proveedor.telefono ?? '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proveedor]);
@@ -168,42 +169,38 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                 />
                 <FormTextField name='rut' label='RUT' required placeholder='12.345.678-9' />
                 <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Como lo conoce el equipo' />
+              </div>
 
-                <form.Field name='tipoServicioId'>
-                  {(field) => (
+              <form.Field name='tiposServicio'>
+                {(field) => {
+                  const seleccionados = field.state.value ?? [];
+                  return (
                     <div className='space-y-1.5'>
                       <Label>
-                        Tipo de servicio <span className='text-destructive'>*</span>
+                        Tipos de servicio <span className='text-destructive'>*</span>
                       </Label>
-                      <div className='flex items-center gap-2'>
-                        <Select
-                          value={field.state.value ? String(field.state.value) : ''}
-                          onValueChange={(v) => {
-                            // Radix puede disparar onValueChange con un valor no
-                            // parseable al remontar SelectContent (p. ej. al
-                            // refrescar la lista tras un QuickCreate) — ignorarlo
-                            // evita resetear el campo a NaN.
-                            const id = Number.parseInt(v, 10);
-                            if (Number.isFinite(id)) field.handleChange(id);
-                          }}
-                        >
-                          <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Seleccionar tipo de servicio...' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {tipos.map((t) => (
-                              <SelectItem key={t.id} value={String(t.id)}>
-                                {t.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className='flex flex-wrap items-center gap-2'>
+                        {tipos.map((t) => {
+                          const activo = seleccionados.includes(t.id);
+                          return (
+                            <Badge
+                              key={t.id}
+                              variant={activo ? 'default' : 'outline'}
+                              className='cursor-pointer select-none'
+                              onClick={() =>
+                                field.handleChange(
+                                  activo ? seleccionados.filter((id) => id !== t.id) : [...seleccionados, t.id]
+                                )
+                              }
+                            >
+                              {t.nombre}
+                            </Badge>
+                          );
+                        })}
                         <TipoServicioQuickCreate
                           onCreated={(nuevo) => {
                             queryClient.invalidateQueries({ queryKey: ['tipos-servicio'] });
-                            // form.setFieldValue (no field.handleChange): el callback
-                            // corre después del ciclo de vida async del diálogo hijo.
-                            form.setFieldValue('tipoServicioId', nuevo.id);
+                            field.handleChange([...seleccionados, nuevo.id]);
                           }}
                         />
                       </div>
@@ -211,12 +208,9 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                         <p className='text-destructive text-sm'>{String(field.state.meta.errors[0])}</p>
                       )}
                     </div>
-                  )}
-                </form.Field>
-
-                <FormTextField name='email' label='Email' type='email' placeholder='contacto@proveedor.cl' />
-                <FormTextField name='telefono' label='Teléfono' placeholder='+56 9 1234 5678' />
-              </div>
+                  );
+                }}
+              </form.Field>
 
               <form.Field name='zonas'>
                 {(field) => {
@@ -255,6 +249,9 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
               </form.Field>
 
               <div className='grid gap-4 sm:grid-cols-2'>
+                <FormTextField name='email' label='Email' type='email' placeholder='contacto@proveedor.cl' />
+                <FormTextField name='telefono' label='Teléfono' placeholder='+56 9 1234 5678' />
+
                 <form.Field name='formaPagoId'>
                   {(field) => (
                     <div className='space-y-1.5'>
@@ -322,9 +319,9 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                     </div>
                   )}
                 </form.Field>
-
-                <FormTextareaField name='politicaCancelacion' label='Política de cancelación' placeholder='Opcional' />
               </div>
+
+              <FormTextareaField name='politicaCancelacion' label='Política de cancelación' placeholder='Opcional' />
             </CardContent>
           </Card>
 

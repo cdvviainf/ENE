@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -26,35 +26,52 @@ const ejecutivoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido').max(120).trim(),
   email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
   telefono: z.string().max(40).trim().optional(),
-  cargo: z.string().max(80).trim().optional()
+  cargo: z.string().max(80).trim().optional(),
+  descripcion: z.string().max(500).trim().optional(),
+  esRepresentanteLegal: z.boolean().default(false)
 });
 
 type EjecutivoFormValues = z.infer<typeof ejecutivoSchema>;
 
+const VALORES_VACIOS: EjecutivoFormValues = {
+  nombre: '',
+  email: '',
+  telefono: '',
+  cargo: '',
+  descripcion: '',
+  esRepresentanteLegal: false
+};
+
 function EjecutivoDialog({
   clienteId,
+  ejecutivo,
   open,
   onOpenChange
 }: {
   clienteId: number;
+  ejecutivo?: ClienteEjecutivo;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const isEdit = !!ejecutivo;
 
   const mutation = useMutation({
-    mutationFn: (values: EjecutivoInput) => clientesService.crearEjecutivo(clienteId, values),
+    mutationFn: (values: EjecutivoInput) =>
+      isEdit
+        ? clientesService.actualizarEjecutivo(clienteId, ejecutivo.id, values)
+        : clientesService.crearEjecutivo(clienteId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clientesKeys.detail(clienteId) });
-      toast.success('Ejecutivo agregado');
+      toast.success(isEdit ? 'Ejecutivo actualizado' : 'Ejecutivo agregado');
       onOpenChange(false);
-      form.reset();
+      if (!isEdit) form.reset();
     },
-    onError: (e: Error) => toast.error(e.message || 'Error al agregar el ejecutivo')
+    onError: (e: Error) => toast.error(e.message || 'Error al guardar el ejecutivo')
   });
 
   const form = useAppForm({
-    defaultValues: { nombre: '', email: '', telefono: '', cargo: '' } as EjecutivoFormValues,
+    defaultValues: VALORES_VACIOS,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onSubmit: ejecutivoSchema as any },
     onSubmit: async ({ value }) => {
@@ -62,13 +79,35 @@ function EjecutivoDialog({
     }
   });
 
-  const { FormTextField } = useFormFields<EjecutivoFormValues>();
+  useEffect(() => {
+    if (open) {
+      const valores: EjecutivoFormValues = ejecutivo
+        ? {
+            nombre: ejecutivo.nombre,
+            email: ejecutivo.email ?? '',
+            telefono: ejecutivo.telefono ?? '',
+            cargo: ejecutivo.cargo ?? '',
+            descripcion: ejecutivo.descripcion ?? '',
+            esRepresentanteLegal: ejecutivo.esRepresentanteLegal
+          }
+        : VALORES_VACIOS;
+      form.setFieldValue('nombre', valores.nombre);
+      form.setFieldValue('email', valores.email);
+      form.setFieldValue('telefono', valores.telefono);
+      form.setFieldValue('cargo', valores.cargo);
+      form.setFieldValue('descripcion', valores.descripcion);
+      form.setFieldValue('esRepresentanteLegal', valores.esRepresentanteLegal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ejecutivo]);
+
+  const { FormTextField, FormTextareaField, FormCheckboxField } = useFormFields<EjecutivoFormValues>();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-sm'>
         <DialogHeader>
-          <DialogTitle>Nuevo ejecutivo</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar ejecutivo' : 'Nuevo ejecutivo'}</DialogTitle>
           <DialogDescription>Contacto del cliente para cotizaciones y coordinación.</DialogDescription>
         </DialogHeader>
         <form.AppForm>
@@ -77,13 +116,19 @@ function EjecutivoDialog({
             <FormTextField name='email' label='Email' type='email' placeholder='ana@agencia.com' />
             <FormTextField name='telefono' label='Teléfono' placeholder='+56 9 1234 5678' />
             <FormTextField name='cargo' label='Cargo' placeholder='Ej: Ejecutiva de cuenta' />
+            <FormTextareaField name='descripcion' label='Descripción' placeholder='Opcional' />
+            <FormCheckboxField
+              name='esRepresentanteLegal'
+              label='Representante legal'
+              description='Al marcarlo, desmarca automáticamente cualquier otro ejecutivo de este cliente (RN-CLI-05).'
+            />
             <div className='flex justify-end gap-2 pt-2'>
               <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type='submit' isLoading={mutation.isPending}>
                 <Icons.check className='mr-1 h-4 w-4' />
-                Agregar
+                {isEdit ? 'Guardar' : 'Agregar'}
               </Button>
             </div>
           </form.Form>
@@ -95,6 +140,7 @@ function EjecutivoDialog({
 
 function EjecutivoRow({ clienteId, ejecutivo }: { clienteId: number; ejecutivo: ClienteEjecutivo }) {
   const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const toggleMutation = useMutation({
@@ -127,8 +173,16 @@ function EjecutivoRow({ clienteId, ejecutivo }: { clienteId: number; ejecutivo: 
         title='¿Eliminar ejecutivo?'
         description='No se puede eliminar si es el último ejecutivo activo de un cliente con operaciones abiertas (RN-CLI-04).'
       />
+      <EjecutivoDialog clienteId={clienteId} ejecutivo={ejecutivo} open={editOpen} onOpenChange={setEditOpen} />
       <div className='min-w-0'>
-        <p className='truncate font-medium'>{ejecutivo.nombre}</p>
+        <p className='truncate font-medium'>
+          {ejecutivo.nombre}
+          {ejecutivo.esRepresentanteLegal && (
+            <Badge variant='outline' className='ml-2'>
+              Representante legal
+            </Badge>
+          )}
+        </p>
         <p className='text-muted-foreground truncate text-xs'>
           {[ejecutivo.cargo, ejecutivo.email, ejecutivo.telefono].filter(Boolean).join(' · ') || '—'}
         </p>
@@ -140,6 +194,9 @@ function EjecutivoRow({ clienteId, ejecutivo }: { clienteId: number; ejecutivo: 
           onCheckedChange={(v) => toggleMutation.mutate(v)}
           disabled={toggleMutation.isPending}
         />
+        <Button variant='ghost' size='icon' className='h-8 w-8' onClick={() => setEditOpen(true)}>
+          <Icons.edit className='h-4 w-4' />
+        </Button>
         <Button variant='ghost' size='icon' className='h-8 w-8' onClick={() => setDeleteOpen(true)}>
           <Icons.trash className='text-destructive h-4 w-4' />
         </Button>

@@ -133,10 +133,36 @@ export async function countEjecutivosActivos(clienteId: number, excluirId?: numb
 }
 
 export async function createEjecutivo(clienteId: number, data: EjecutivoInput, creadoPor: string) {
+  // RN-CLI-05: al marcar este ejecutivo como representante legal, desmarca
+  // los demás del mismo cliente en la misma transacción.
+  if (data.esRepresentanteLegal) {
+    return prisma.$transaction(async (tx) => {
+      await tx.clienteEjecutivo.updateMany({
+        where: { clienteId, eliminadoEn: null },
+        data: { esRepresentanteLegal: false },
+      })
+      return tx.clienteEjecutivo.create({ data: { ...data, clienteId, creadoPor } })
+    })
+  }
   return prisma.clienteEjecutivo.create({ data: { ...data, clienteId, creadoPor } })
 }
 
-export async function updateEjecutivo(ejecutivoId: number, data: EjecutivoUpdateInput, actualizadoPor: string) {
+export async function updateEjecutivo(
+  clienteId: number,
+  ejecutivoId: number,
+  data: EjecutivoUpdateInput,
+  actualizadoPor: string,
+) {
+  // RN-CLI-05: idem createEjecutivo.
+  if (data.esRepresentanteLegal) {
+    return prisma.$transaction(async (tx) => {
+      await tx.clienteEjecutivo.updateMany({
+        where: { clienteId, eliminadoEn: null, id: { not: ejecutivoId } },
+        data: { esRepresentanteLegal: false },
+      })
+      return tx.clienteEjecutivo.update({ where: { id: ejecutivoId }, data: { ...data, actualizadoPor } })
+    })
+  }
   return prisma.clienteEjecutivo.update({ where: { id: ejecutivoId }, data: { ...data, actualizadoPor } })
 }
 

@@ -5,6 +5,7 @@ import { validarRutChileno, formatearRut } from '../../shared/rut-validator.js'
 import { operacionesAbiertas, hayOperacionesAbiertas, errorSoftDeleteBloqueado } from '../../shared/operaciones-abiertas.js'
 import * as repo from './clientes.repository.js'
 import { validarComunaRequerida, esViolacionDireccionDefaultUnica } from '../../shared/direcciones.js'
+import { esViolacionRepresentanteLegalUnico } from '../../shared/contactos.js'
 import type {
   ClienteCreateInput,
   ClienteUpdateInput,
@@ -121,9 +122,17 @@ export async function eliminarCliente(id: number, eliminadoPor: string) {
 
 // ─── Ejecutivos ──────────────────────────────────────────────────────────────
 
+const MENSAJE_REP_LEGAL_CARRERA =
+  'Otro contacto ya fue marcado como representante legal al mismo tiempo. Intenta nuevamente (RN-CLI-05)'
+
 export async function crearEjecutivo(clienteId: number, input: EjecutivoInput, creadoPor: string) {
   await obtenerClienteVigente(clienteId)
-  return repo.createEjecutivo(clienteId, input, creadoPor)
+  try {
+    return await repo.createEjecutivo(clienteId, input, creadoPor)
+  } catch (err) {
+    if (esViolacionRepresentanteLegalUnico(err)) throw conflicto(MENSAJE_REP_LEGAL_CARRERA)
+    throw err
+  }
 }
 
 // RN-CLI-04 [BLOQUEA]: no se puede desactivar (ni eliminar) el último
@@ -153,7 +162,12 @@ export async function actualizarEjecutivo(
     await verificarNoUltimoEjecutivoActivo(clienteId, ejecutivoId)
   }
 
-  return repo.updateEjecutivo(ejecutivoId, input, actualizadoPor)
+  try {
+    return await repo.updateEjecutivo(clienteId, ejecutivoId, input, actualizadoPor)
+  } catch (err) {
+    if (esViolacionRepresentanteLegalUnico(err)) throw conflicto(MENSAJE_REP_LEGAL_CARRERA)
+    throw err
+  }
 }
 
 export async function eliminarEjecutivo(clienteId: number, ejecutivoId: number, eliminadoPor: string) {
