@@ -15,6 +15,9 @@ import {
   createContacto,
   updateContacto,
   deleteContacto,
+  createDireccion,
+  updateDireccion,
+  deleteDireccion,
 } from './proveedores.controller.js'
 
 const ITEM = 'PROVEEDORES'
@@ -65,5 +68,21 @@ export async function proveedoresRoutes(app: FastifyInstance) {
     '/proveedores/:id/contactos/:sid',
     { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
     deleteContacto,
+  )
+
+  app.post(
+    '/proveedores/:id/direcciones',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    createDireccion,
+  )
+  app.patch(
+    '/proveedores/:id/direcciones/:sid',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    updateDireccion,
+  )
+  app.delete(
+    '/proveedores/:id/direcciones/:sid',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    deleteDireccion,
   )
 }

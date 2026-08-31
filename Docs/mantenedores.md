@@ -141,9 +141,10 @@ natural** (`RN-COT-01` del glosario).
 | `razonSocial` | String(150) | Sí | |
 | `rut` | String(12) | **Condicional** | Ver RN-CLI-01 |
 | `nombreComercial` | String(150) | No | |
-| `pais` | String(60) | Sí | Default `Chile` si `tipo = EMPRESA` |
+| `paisId` | FK → `Pais` | Sí | Default el país marcado `esPaisNacional` si `tipo = EMPRESA` |
 | `monedaHabitual` | enum | Sí | Default `USD` si `AGENCIA`, `CLP` si `EMPRESA` |
-| `condicionesPago` | Text | No | Texto libre |
+| `formaPagoId` | FK → `FormaPago` | No | Catálogo único compartido con Proveedor (RN-PAG-01) |
+| `condicionPagoId` | FK → `CondicionPago` | No | Catálogo único compartido con Proveedor (RN-PAG-01) |
 | `email` | String(120) | No | Formato válido si viene |
 | `telefono` | String(40) | No | |
 
@@ -157,7 +158,7 @@ operaciones se permite pero advierte: cambia la moneda por defecto de las
 cotizaciones nuevas, no de las existentes.
 
 **Listado:** código, tipo, razón social, país, moneda, cantidad de OT, ejecutivos.
-**Filtros:** `tipo`, `pais`, `monedaHabitual`.
+**Filtros:** `tipo`, `paisId`, `monedaHabitual`.
 **Buscable por:** código, razón social, nombre comercial, RUT.
 **Orden por defecto:** razón social ascendente.
 
@@ -479,6 +480,11 @@ debería estar en el mantenedor completo.
 | Formulario | Campo | Crea | Nivel exigido |
 |---|---|---|---|
 | Grupo | `clienteId` | Cliente | `TOTAL` en `CLIENTES` |
+| Cliente | `paisId` | País | `TOTAL` en `PAISES` |
+| Cliente/Proveedor | `formaPagoId` | Forma de pago | `TOTAL` en `FORMAS_PAGO` |
+| Cliente/Proveedor | `condicionPagoId` | Condición de pago | `TOTAL` en `CONDICIONES_PAGO` |
+| Cliente/Proveedor · Dirección | `paisId` | País | `TOTAL` en `PAISES` |
+| Cliente/Proveedor · Dirección | `comunaId` | Comuna | `TOTAL` en `COMUNAS` |
 | Proveedor | `tipoServicioId` | Tipo de servicio | `TOTAL` en `TIPOS_SERVICIO` |
 | Proveedor | `zonas` (multi-select) | Zona | `TOTAL` en `ZONAS` |
 | Servicio | `tipoServicioId` | Tipo de servicio | `TOTAL` en `TIPOS_SERVICIO` |
@@ -501,7 +507,7 @@ después en el mantenedor propio.
 |---|---|
 | **Zona** | `codigo`, `nombre` |
 | **Tipo de servicio** | `codigo`, `nombre`, `modeloTarifaDefault`, `ventanaAvisoDias` |
-| **Cliente** | `codigo`, `tipo`, `razonSocial`, `rut` (si `EMPRESA`), `pais`, `monedaHabitual` |
+| **Cliente** | `codigo`, `tipo`, `razonSocial`, `rut` (si `EMPRESA`), `paisId` `+`, `monedaHabitual` |
 | **Ejecutivo** | `nombre`, `email` |
 | **Grupo** | `codigo`, `apellido`, `clienteId` `+`, `cantidadPax` |
 | **Proveedor** | `codigo`, `razonSocial`, `rut`, `tipoServicioId` `+`, `zonas` `+` (multi-select) |

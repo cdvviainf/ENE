@@ -7,6 +7,8 @@ import type {
   ContactoUpdateInput,
   CuentaInput,
   CuentaUpdateInput,
+  DireccionInput,
+  DireccionUpdateInput,
   ProveedorCreateInput,
   ProveedorUpdateInput,
 } from './proveedores.schema.js'
@@ -78,6 +80,14 @@ export async function findProveedorById(id: number) {
       alias: { where: { eliminadoEn: null }, orderBy: { alias: 'asc' } },
       cuentas: { where: { eliminadoEn: null }, orderBy: { banco: 'asc' } },
       contactos: { where: { eliminadoEn: null }, orderBy: { nombre: 'asc' } },
+      direcciones: {
+        where: { eliminadoEn: null },
+        orderBy: { etiqueta: 'asc' },
+        include: {
+          pais: { select: { id: true, codigo: true, nombre: true, esPaisNacional: true } },
+          comuna: { select: { id: true, codigo: true, nombre: true } },
+        },
+      },
     },
   })
 }
@@ -209,4 +219,48 @@ export async function updateContacto(contactoId: number, data: ContactoUpdateInp
 
 export async function softDeleteContacto(contactoId: number, eliminadoPor: string) {
   await prisma.proveedorContacto.update({ where: { id: contactoId }, data: { eliminadoEn: new Date(), eliminadoPor } })
+}
+
+// ─── Direcciones (RN-GEO-02) ─────────────────────────────────────────────────
+
+export async function createDireccion(proveedorId: number, data: DireccionInput, creadoPor: string) {
+  // RN-GEO-03: al marcar esta dirección como default, desmarca las demás del
+  // mismo proveedor en la misma transacción.
+  if (data.esPorDefecto) {
+    return prisma.$transaction(async (tx) => {
+      await tx.proveedorDireccion.updateMany({
+        where: { proveedorId, eliminadoEn: null },
+        data: { esPorDefecto: false },
+      })
+      return tx.proveedorDireccion.create({ data: { ...data, proveedorId, creadoPor } })
+    })
+  }
+  return prisma.proveedorDireccion.create({ data: { ...data, proveedorId, creadoPor } })
+}
+
+export async function findDireccionById(proveedorId: number, direccionId: number) {
+  return prisma.proveedorDireccion.findFirst({ where: { id: direccionId, proveedorId, eliminadoEn: null } })
+}
+
+export async function updateDireccion(
+  proveedorId: number,
+  direccionId: number,
+  data: DireccionUpdateInput,
+  actualizadoPor: string,
+) {
+  // RN-GEO-03: idem createDireccion.
+  if (data.esPorDefecto) {
+    return prisma.$transaction(async (tx) => {
+      await tx.proveedorDireccion.updateMany({
+        where: { proveedorId, eliminadoEn: null, id: { not: direccionId } },
+        data: { esPorDefecto: false },
+      })
+      return tx.proveedorDireccion.update({ where: { id: direccionId }, data: { ...data, actualizadoPor } })
+    })
+  }
+  return prisma.proveedorDireccion.update({ where: { id: direccionId }, data: { ...data, actualizadoPor } })
+}
+
+export async function softDeleteDireccion(direccionId: number, eliminadoPor: string) {
+  await prisma.proveedorDireccion.update({ where: { id: direccionId }, data: { eliminadoEn: new Date(), eliminadoPor } })
 }

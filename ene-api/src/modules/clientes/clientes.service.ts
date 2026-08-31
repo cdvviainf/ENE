@@ -4,7 +4,15 @@ import { resolverCodigo } from '../../shared/correlativos.js'
 import { validarRutChileno, formatearRut } from '../../shared/rut-validator.js'
 import { operacionesAbiertas, hayOperacionesAbiertas, errorSoftDeleteBloqueado } from '../../shared/operaciones-abiertas.js'
 import * as repo from './clientes.repository.js'
-import type { ClienteCreateInput, ClienteUpdateInput, EjecutivoInput, EjecutivoUpdateInput } from './clientes.schema.js'
+import { validarComunaRequerida, esViolacionDireccionDefaultUnica } from '../../shared/direcciones.js'
+import type {
+  ClienteCreateInput,
+  ClienteUpdateInput,
+  DireccionInput,
+  DireccionUpdateInput,
+  EjecutivoInput,
+  EjecutivoUpdateInput,
+} from './clientes.schema.js'
 
 function monedaPorDefecto(tipo: 'AGENCIA' | 'EMPRESA'): 'CLP' | 'USD' {
   // Docs/mantenedores.md §3: default USD si AGENCIA, CLP si EMPRESA.
@@ -19,7 +27,7 @@ function normalizarRut(rut: string): string {
 export async function listarClientes(
   page: number,
   limit: number,
-  filtros: { q?: string; tipo?: 'AGENCIA' | 'EMPRESA'; pais?: string; monedaHabitual?: 'CLP' | 'USD' },
+  filtros: { q?: string; tipo?: 'AGENCIA' | 'EMPRESA'; paisId?: number; monedaHabitual?: 'CLP' | 'USD' },
 ) {
   const { data, total } = await repo.findAllClientes(page, limit, filtros)
   return { data, meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) } }
@@ -71,9 +79,10 @@ export async function crearCliente(input: ClienteCreateInput, creadoPor: string)
         razonSocial: input.razonSocial,
         rut,
         nombreComercial: input.nombreComercial,
-        pais: input.pais,
+        paisId: input.paisId,
         monedaHabitual: input.monedaHabitual ?? monedaPorDefecto(input.tipo),
-        condicionesPago: input.condicionesPago,
+        formaPagoId: input.formaPagoId,
+        condicionPagoId: input.condicionPagoId,
         email: input.email,
         telefono: input.telefono,
       },
@@ -156,4 +165,47 @@ export async function eliminarEjecutivo(clienteId: number, ejecutivoId: number, 
   }
 
   await repo.softDeleteEjecutivo(ejecutivoId, eliminadoPor)
+}
+
+// ─── Direcciones (RN-GEO-02) ─────────────────────────────────────────────────
+
+// Backstop de RN-GEO-03 ante una carrera que el desmarcar-y-crear del
+// repository no alcanzó a serializar: el índice único parcial sí la bloquea.
+const MENSAJE_DEFAULT_CARRERA =
+  'Otra solicitud ya marcó una dirección predeterminada al mismo tiempo. Intenta nuevamente (RN-GEO-03)'
+
+export async function crearDireccion(clienteId: number, input: DireccionInput, creadoPor: string) {
+  await obtenerClienteVigente(clienteId)
+  await validarComunaRequerida(input.paisId, input.comunaId)
+  try {
+    return await repo.createDireccion(clienteId, input, creadoPor)
+  } catch (err) {
+    if (esViolacionDireccionDefaultUnica(err)) throw conflicto(MENSAJE_DEFAULT_CARRERA)
+    throw err
+  }
+}
+
+export async function actualizarDireccion(
+  clienteId: number,
+  direccionId: number,
+  input: DireccionUpdateInput,
+  actualizadoPor: string,
+) {
+  const direccion = await repo.findDireccionById(clienteId, direccionId)
+  if (!direccion) throw noEncontrado('Dirección', direccionId)
+  const paisId = input.paisId ?? direccion.paisId
+  const comunaId = input.comunaId !== undefined ? input.comunaId : (direccion.comunaId ?? undefined)
+  await validarComunaRequerida(paisId, comunaId)
+  try {
+    return await repo.updateDireccion(clienteId, direccionId, input, actualizadoPor)
+  } catch (err) {
+    if (esViolacionDireccionDefaultUnica(err)) throw conflicto(MENSAJE_DEFAULT_CARRERA)
+    throw err
+  }
+}
+
+export async function eliminarDireccion(clienteId: number, direccionId: number, eliminadoPor: string) {
+  const direccion = await repo.findDireccionById(clienteId, direccionId)
+  if (!direccion) throw noEncontrado('Dirección', direccionId)
+  await repo.softDeleteDireccion(direccionId, eliminadoPor)
 }

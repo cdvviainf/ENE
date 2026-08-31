@@ -23,6 +23,18 @@ export const contactoInputSchema = z.object({
 
 export const contactoUpdateSchema = contactoInputSchema.partial()
 
+// RN-GEO-02: comunaId es obligatorio si el país es Chile — se valida en el
+// service (requiere consultar Pais.esPaisNacional), no acá.
+export const direccionInputSchema = z.object({
+  etiqueta: z.string().min(1, 'La etiqueta es requerida').max(80).trim(),
+  paisId: z.coerce.number().int().positive('El país es requerido'),
+  comunaId: z.coerce.number().int().positive().optional(),
+  direccion: z.string().min(1, 'La dirección es requerida').max(200).trim(),
+  esPorDefecto: z.boolean().default(false),
+})
+
+export const direccionUpdateSchema = direccionInputSchema.partial()
+
 export const proveedorCreateSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
@@ -31,7 +43,8 @@ export const proveedorCreateSchema = z.object({
   tipoServicioId: z.coerce.number().int().positive('El tipo de servicio es requerido'),
   // RN-PRV-05: un proveedor puede operar en varias zonas a la vez (N:N).
   zonas: z.array(z.coerce.number().int().positive()).optional(),
-  condicionesPago: z.string().optional(),
+  formaPagoId: z.coerce.number().int().positive().optional(),
+  condicionPagoId: z.coerce.number().int().positive().optional(),
   politicaCancelacion: z.string().optional(),
   email: z.string().email('Email inválido').max(120).trim().optional(),
   telefono: z.string().max(40).trim().optional(),
@@ -67,5 +80,7 @@ export type CuentaInput = z.infer<typeof cuentaInputSchema>
 export type CuentaUpdateInput = z.infer<typeof cuentaUpdateSchema>
 export type ContactoInput = z.infer<typeof contactoInputSchema>
 export type ContactoUpdateInput = z.infer<typeof contactoUpdateSchema>
+export type DireccionInput = z.infer<typeof direccionInputSchema>
+export type DireccionUpdateInput = z.infer<typeof direccionUpdateSchema>
 export type ProveedorCreateInput = z.infer<typeof proveedorCreateSchema>
 export type ProveedorUpdateInput = z.infer<typeof proveedorUpdateSchema>

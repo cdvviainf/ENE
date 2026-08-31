@@ -12,6 +12,27 @@ export interface ClienteEjecutivo {
   creadoEn: string;
 }
 
+export interface ClienteDireccion {
+  id: number;
+  clienteId: number;
+  etiqueta: string;
+  paisId: number;
+  comunaId: number | null;
+  direccion: string;
+  esPorDefecto: boolean;
+  creadoEn: string;
+  pais?: { id: number; codigo: string; nombre: string; esPaisNacional: boolean };
+  comuna?: { id: number; codigo: string; nombre: string } | null;
+}
+
+export interface DireccionInput {
+  etiqueta: string;
+  paisId: number;
+  comunaId?: number;
+  direccion: string;
+  esPorDefecto?: boolean;
+}
+
 export interface Cliente {
   id: number;
   codigo: string;
@@ -19,14 +40,17 @@ export interface Cliente {
   razonSocial: string;
   rut: string | null;
   nombreComercial: string | null;
-  pais: string;
+  paisId: number;
+  pais?: { id: number; codigo: string; nombre: string };
   monedaHabitual: Moneda;
-  condicionesPago: string | null;
+  formaPagoId: number | null;
+  condicionPagoId: number | null;
   email: string | null;
   telefono: string | null;
   creadoEn: string;
   actualizadoEn: string | null;
   ejecutivos?: ClienteEjecutivo[];
+  direcciones?: ClienteDireccion[];
   _count?: { ordenes: number; ejecutivos: number };
   // RN-CLI-02: solo viene en GET /:id, no en el listado.
   tieneOperaciones?: boolean;
@@ -51,9 +75,10 @@ export interface ClienteCreateInput {
   razonSocial: string;
   rut?: string;
   nombreComercial?: string;
-  pais: string;
+  paisId: number;
   monedaHabitual?: Moneda;
-  condicionesPago?: string;
+  formaPagoId?: number;
+  condicionPagoId?: number;
   email?: string;
   telefono?: string;
   ejecutivos?: EjecutivoInput[];

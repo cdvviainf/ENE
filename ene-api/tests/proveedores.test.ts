@@ -174,8 +174,10 @@ describe('RN-MAN-04/05: soft delete de proveedor', () => {
     const proveedor = await crearProveedor(base('QAP-13', '15.981.258-8'), 'test')
     idsCreados.push(proveedor.id)
 
+    // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
+    const { id: paisId } = await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })
     const cliente = await prisma.cliente.create({
-      data: { codigo: 'QAP-13-CLI', tipo: 'AGENCIA', razonSocial: 'QA', pais: 'Chile', creadoPor: 'test' },
+      data: { codigo: 'QAP-13-CLI', tipo: 'AGENCIA', razonSocial: 'QA', paisId, creadoPor: 'test' },
     })
     const grupo = await prisma.grupo.create({
       data: { codigo: 'QAP-13-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },

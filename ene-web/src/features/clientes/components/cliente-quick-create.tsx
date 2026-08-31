@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { QuickCreateTrigger } from '@/components/shared/quick-create-trigger';
+import { paisesListOptions } from '@/features/paises/queries';
+import { PaisQuickCreate } from '@/features/paises/components/pais-quick-create';
 import { clientesKeys } from '../queries';
 import { clientesService } from '../service';
 import type { Cliente } from '../types';
@@ -21,7 +23,7 @@ const clienteQuickSchema = z
     tipo: z.enum(['AGENCIA', 'EMPRESA']),
     razonSocial: z.string().min(1, 'Requerido').max(150).trim(),
     rut: z.string().max(12).trim().optional(),
-    pais: z.string().min(1, 'Requerido').max(60).trim(),
+    paisId: z.coerce.number().int().positive('El país es requerido'),
     monedaHabitual: z.enum(['CLP', 'USD'])
   })
   .refine((data) => data.tipo !== 'EMPRESA' || !!data.rut, {
@@ -43,6 +45,9 @@ const MONEDA_OPTIONS = [
 
 function ClienteQuickForm({ close, onCreated }: { close: () => void; onCreated: (cliente: Cliente) => void }) {
   const queryClient = useQueryClient();
+  const { data: paisesData } = useQuery(paisesListOptions({ limit: 200 }));
+  const paises = paisesData?.data ?? [];
+  const paisNacional = paises.find((p) => p.esPaisNacional);
 
   const mutation = useMutation({
     mutationFn: (values: ClienteQuickValues) => clientesService.create(values),
@@ -67,7 +72,7 @@ function ClienteQuickForm({ close, onCreated }: { close: () => void; onCreated: 
       tipo: 'AGENCIA',
       razonSocial: '',
       rut: '',
-      pais: '',
+      paisId: 0,
       monedaHabitual: 'USD'
     } as ClienteQuickValues,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,8 +104,8 @@ function ClienteQuickForm({ close, onCreated }: { close: () => void; onCreated: 
                 onValueChange={(v) => {
                   field.handleChange(v as 'AGENCIA' | 'EMPRESA');
                   // Docs/mantenedores.md §3: default Chile si EMPRESA.
-                  if (v === 'EMPRESA' && !form.getFieldValue('pais')) {
-                    form.setFieldValue('pais', 'Chile');
+                  if (v === 'EMPRESA' && !form.getFieldValue('paisId') && paisNacional) {
+                    form.setFieldValue('paisId', paisNacional.id);
                   }
                 }}
               >
@@ -124,7 +129,41 @@ function ClienteQuickForm({ close, onCreated }: { close: () => void; onCreated: 
             <FormTextField name='rut' label='RUT' required={tipo === 'EMPRESA'} placeholder='12.345.678-9' />
           )}
         </form.Subscribe>
-        <FormTextField name='pais' label='País' required placeholder='Ej: Chile' />
+        <form.Field name='paisId'>
+          {(field) => (
+            <div className='space-y-1.5'>
+              <Label>
+                País <span className='text-destructive'>*</span>
+              </Label>
+              <div className='flex items-center gap-2'>
+                <Select
+                  value={field.state.value ? String(field.state.value) : ''}
+                  onValueChange={(v) => {
+                    const id = Number.parseInt(v, 10);
+                    if (Number.isFinite(id)) field.handleChange(id);
+                  }}
+                >
+                  <SelectTrigger className='flex-1'>
+                    <SelectValue placeholder='Seleccionar país...' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paises.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <PaisQuickCreate
+                  onCreated={(nuevo) => {
+                    queryClient.invalidateQueries({ queryKey: ['paises'] });
+                    form.setFieldValue('paisId', nuevo.id);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </form.Field>
         <FormSelectField name='monedaHabitual' label='Moneda habitual' required options={MONEDA_OPTIONS} />
         <div className='flex justify-end gap-2 pt-2'>
           <Button type='button' variant='outline' onClick={close}>

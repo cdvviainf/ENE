@@ -28,8 +28,10 @@ let clienteId: number
 let grupoId: number
 
 beforeAll(async () => {
+  // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
+  const { id: paisId } = await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })
   const cliente = await prisma.cliente.create({
-    data: { codigo: 'QA-ZON-CLI', tipo: 'AGENCIA', razonSocial: 'QA Zonas', pais: 'Chile', creadoPor: 'test' },
+    data: { codigo: 'QA-ZON-CLI', tipo: 'AGENCIA', razonSocial: 'QA Zonas', paisId, creadoPor: 'test' },
   })
   clienteId = cliente.id
   const grupo = await prisma.grupo.create({

@@ -23,6 +23,11 @@ import { proveedoresService } from '../service';
 import { ProveedorAliasCard } from './proveedor-alias-card';
 import { ProveedorCuentasCard } from './proveedor-cuentas-card';
 import { ProveedorContactosCard } from './proveedor-contactos-card';
+import { ProveedorDireccionesCard } from './proveedor-direcciones-card';
+import { formasPagoListOptions } from '@/features/formas-pago/queries';
+import { FormaPagoQuickCreate } from '@/features/formas-pago/components/forma-pago-quick-create';
+import { condicionesPagoListOptions } from '@/features/condiciones-pago/queries';
+import { CondicionPagoQuickCreate } from '@/features/condiciones-pago/components/condicion-pago-quick-create';
 
 const proveedorSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
@@ -31,7 +36,8 @@ const proveedorSchema = z.object({
   nombreComercial: z.string().max(150).trim().optional(),
   tipoServicioId: z.coerce.number().int().positive('El tipo de servicio es requerido'),
   zonas: z.array(z.number()).optional(),
-  condicionesPago: z.string().optional(),
+  formaPagoId: z.coerce.number().int().positive().optional(),
+  condicionPagoId: z.coerce.number().int().positive().optional(),
   politicaCancelacion: z.string().optional(),
   email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
   telefono: z.string().max(40).trim().optional()
@@ -52,8 +58,12 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
   const { data: proveedor, isLoading } = useQuery(proveedorDetailOptions(proveedorId ?? 0));
   const { data: zonasData } = useQuery(zonasListOptions({ limit: 200 }));
   const { data: tiposData } = useQuery(tiposServicioListOptions({ limit: 200 }));
+  const { data: formasPagoData } = useQuery(formasPagoListOptions({ limit: 200 }));
+  const { data: condicionesPagoData } = useQuery(condicionesPagoListOptions({ limit: 200 }));
   const zonas = zonasData?.data ?? [];
   const tipos = tiposData?.data ?? [];
+  const formasPago = formasPagoData?.data ?? [];
+  const condicionesPago = condicionesPagoData?.data ?? [];
 
   const mutation = useMutation({
     mutationFn: (values: ProveedorFormValues) => {
@@ -80,7 +90,8 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       nombreComercial: '',
       tipoServicioId: 0,
       zonas: [],
-      condicionesPago: '',
+      formaPagoId: undefined,
+      condicionPagoId: undefined,
       politicaCancelacion: '',
       email: '',
       telefono: ''
@@ -100,7 +111,8 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       form.setFieldValue('nombreComercial', proveedor.nombreComercial ?? '');
       form.setFieldValue('tipoServicioId', proveedor.tipoServicioId);
       form.setFieldValue('zonas', (proveedor.zonas ?? []).map((z) => z.zonaId));
-      form.setFieldValue('condicionesPago', proveedor.condicionesPago ?? '');
+      form.setFieldValue('formaPagoId', proveedor.formaPagoId ?? undefined);
+      form.setFieldValue('condicionPagoId', proveedor.condicionPagoId ?? undefined);
       form.setFieldValue('politicaCancelacion', proveedor.politicaCancelacion ?? '');
       form.setFieldValue('email', proveedor.email ?? '');
       form.setFieldValue('telefono', proveedor.telefono ?? '');
@@ -243,7 +255,74 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
               </form.Field>
 
               <div className='grid gap-4 sm:grid-cols-2'>
-                <FormTextareaField name='condicionesPago' label='Condiciones de pago' placeholder='Ej: 30 días fecha factura' />
+                <form.Field name='formaPagoId'>
+                  {(field) => (
+                    <div className='space-y-1.5'>
+                      <Label>Forma de pago</Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Sin definir...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {formasPago.map((f) => (
+                              <SelectItem key={f.id} value={String(f.id)}>
+                                {f.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormaPagoQuickCreate
+                          onCreated={(nueva) => {
+                            queryClient.invalidateQueries({ queryKey: ['formas-pago'] });
+                            form.setFieldValue('formaPagoId', nueva.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name='condicionPagoId'>
+                  {(field) => (
+                    <div className='space-y-1.5'>
+                      <Label>Condición de pago</Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Sin definir...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {condicionesPago.map((c) => (
+                              <SelectItem key={c.id} value={String(c.id)}>
+                                {c.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <CondicionPagoQuickCreate
+                          onCreated={(nueva) => {
+                            queryClient.invalidateQueries({ queryKey: ['condiciones-pago'] });
+                            form.setFieldValue('condicionPagoId', nueva.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
+
                 <FormTextareaField name='politicaCancelacion' label='Política de cancelación' placeholder='Opcional' />
               </div>
             </CardContent>
@@ -266,6 +345,7 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
           <ProveedorAliasCard proveedorId={proveedor.id} alias={proveedor.alias ?? []} />
           <ProveedorCuentasCard proveedorId={proveedor.id} cuentas={proveedor.cuentas ?? []} />
           <ProveedorContactosCard proveedorId={proveedor.id} contactos={proveedor.contactos ?? []} />
+          <ProveedorDireccionesCard proveedorId={proveedor.id} direcciones={proveedor.direcciones ?? []} />
         </>
       )}
     </div>

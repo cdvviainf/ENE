@@ -102,6 +102,36 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
+            title: 'Formas de pago',
+            url: '/config/formas-pago',
+            items: []
+          },
+          {
+            title: 'Condiciones de pago',
+            url: '/config/condiciones-pago',
+            items: []
+          },
+          {
+            title: 'Países',
+            url: '/config/paises',
+            items: []
+          },
+          {
+            title: 'Regiones',
+            url: '/config/regiones',
+            items: []
+          },
+          {
+            title: 'Provincias',
+            url: '/config/provincias',
+            items: []
+          },
+          {
+            title: 'Comunas',
+            url: '/config/comunas',
+            items: []
+          },
+          {
             title: 'Prefijos de código',
             url: '/config/prefijos-codigo',
             items: []

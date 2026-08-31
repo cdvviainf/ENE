@@ -17,6 +17,13 @@ import { SoloLectura } from '@/components/shared/solo-lectura';
 import { clienteDetailOptions, clientesKeys } from '../queries';
 import { clientesService } from '../service';
 import { ClienteEjecutivosCard } from './cliente-ejecutivos-card';
+import { ClienteDireccionesCard } from './cliente-direcciones-card';
+import { formasPagoListOptions } from '@/features/formas-pago/queries';
+import { FormaPagoQuickCreate } from '@/features/formas-pago/components/forma-pago-quick-create';
+import { condicionesPagoListOptions } from '@/features/condiciones-pago/queries';
+import { CondicionPagoQuickCreate } from '@/features/condiciones-pago/components/condicion-pago-quick-create';
+import { paisesListOptions } from '@/features/paises/queries';
+import { PaisQuickCreate } from '@/features/paises/components/pais-quick-create';
 
 const clienteSchema = z
   .object({
@@ -25,9 +32,10 @@ const clienteSchema = z
     razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
     rut: z.string().max(12).trim().optional(),
     nombreComercial: z.string().max(150).trim().optional(),
-    pais: z.string().min(1, 'El país es requerido').max(60).trim(),
+    paisId: z.coerce.number().int().positive('El país es requerido'),
     monedaHabitual: z.enum(['CLP', 'USD']),
-    condicionesPago: z.string().optional(),
+    formaPagoId: z.coerce.number().int().positive().optional(),
+    condicionPagoId: z.coerce.number().int().positive().optional(),
     email: z.string().email('Email inválido').max(120).trim().optional().or(z.literal('')),
     telefono: z.string().max(40).trim().optional()
   })
@@ -60,6 +68,13 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
   const puedeEscribir = usePuedeEscribir('CLIENTES');
 
   const { data: cliente, isLoading } = useQuery(clienteDetailOptions(clienteId ?? 0));
+  const { data: formasPagoData } = useQuery(formasPagoListOptions({ limit: 200 }));
+  const { data: condicionesPagoData } = useQuery(condicionesPagoListOptions({ limit: 200 }));
+  const { data: paisesData } = useQuery(paisesListOptions({ limit: 200 }));
+  const formasPago = formasPagoData?.data ?? [];
+  const condicionesPago = condicionesPagoData?.data ?? [];
+  const paises = paisesData?.data ?? [];
+  const paisNacional = paises.find((p) => p.esPaisNacional);
   // RN-CLI-02 [ADVIERTE]: confirmar antes de cambiar el tipo de un cliente
   // que ya tiene operaciones (afecta la moneda por defecto de cotizaciones nuevas).
   const [cambioTipoPendiente, setCambioTipoPendiente] = useState<ClienteFormValues | null>(null);
@@ -89,9 +104,10 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
       razonSocial: '',
       rut: '',
       nombreComercial: '',
-      pais: '',
+      paisId: 0,
       monedaHabitual: 'USD',
-      condicionesPago: '',
+      formaPagoId: undefined,
+      condicionPagoId: undefined,
       email: '',
       telefono: ''
     } as ClienteFormValues,
@@ -113,9 +129,10 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
       form.setFieldValue('razonSocial', cliente.razonSocial);
       form.setFieldValue('rut', cliente.rut ?? '');
       form.setFieldValue('nombreComercial', cliente.nombreComercial ?? '');
-      form.setFieldValue('pais', cliente.pais);
+      form.setFieldValue('paisId', cliente.paisId);
       form.setFieldValue('monedaHabitual', cliente.monedaHabitual);
-      form.setFieldValue('condicionesPago', cliente.condicionesPago ?? '');
+      form.setFieldValue('formaPagoId', cliente.formaPagoId ?? undefined);
+      form.setFieldValue('condicionPagoId', cliente.condicionPagoId ?? undefined);
       form.setFieldValue('email', cliente.email ?? '');
       form.setFieldValue('telefono', cliente.telefono ?? '');
     }
@@ -135,7 +152,7 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigoSugerido, isEdit]);
 
-  const { FormTextField, FormSelectField, FormTextareaField } = useFormFields<ClienteFormValues>();
+  const { FormTextField, FormSelectField } = useFormFields<ClienteFormValues>();
 
   if (isEdit && isLoading) {
     return (
@@ -173,9 +190,9 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
                         onValueChange={(v) => {
                           field.handleChange(v as 'AGENCIA' | 'EMPRESA');
                           // Docs/mantenedores.md §3: default Chile si EMPRESA,
-                          // solo si el usuario no escribió nada todavía.
-                          if (v === 'EMPRESA' && !form.getFieldValue('pais')) {
-                            form.setFieldValue('pais', 'Chile');
+                          // solo si el usuario no eligió nada todavía.
+                          if (v === 'EMPRESA' && !form.getFieldValue('paisId') && paisNacional) {
+                            form.setFieldValue('paisId', paisNacional.id);
                           }
                         }}
                       >
@@ -205,13 +222,114 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
                   )}
                 </form.Subscribe>
                 <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Opcional' />
-                <FormTextField name='pais' label='País' required placeholder='Ej: Chile' />
+
+                <form.Field name='paisId'>
+                  {(field) => (
+                    <div className='space-y-1.5'>
+                      <Label>
+                        País <span className='text-destructive'>*</span>
+                      </Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Seleccionar país...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {paises.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <PaisQuickCreate
+                          onCreated={(nuevo) => {
+                            queryClient.invalidateQueries({ queryKey: ['paises'] });
+                            form.setFieldValue('paisId', nuevo.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
+
                 <FormSelectField name='monedaHabitual' label='Moneda habitual' required options={MONEDA_OPTIONS} />
                 <FormTextField name='email' label='Email' type='email' placeholder='contacto@agencia.com' />
                 <FormTextField name='telefono' label='Teléfono' placeholder='+56 9 1234 5678' />
-              </div>
-              <div className='mt-4'>
-                <FormTextareaField name='condicionesPago' label='Condiciones de pago' placeholder='Texto libre' />
+
+                <form.Field name='formaPagoId'>
+                  {(field) => (
+                    <div className='space-y-1.5'>
+                      <Label>Forma de pago</Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Sin definir...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {formasPago.map((f) => (
+                              <SelectItem key={f.id} value={String(f.id)}>
+                                {f.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormaPagoQuickCreate
+                          onCreated={(nueva) => {
+                            queryClient.invalidateQueries({ queryKey: ['formas-pago'] });
+                            form.setFieldValue('formaPagoId', nueva.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name='condicionPagoId'>
+                  {(field) => (
+                    <div className='space-y-1.5'>
+                      <Label>Condición de pago</Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Sin definir...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {condicionesPago.map((c) => (
+                              <SelectItem key={c.id} value={String(c.id)}>
+                                {c.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <CondicionPagoQuickCreate
+                          onCreated={(nueva) => {
+                            queryClient.invalidateQueries({ queryKey: ['condiciones-pago'] });
+                            form.setFieldValue('condicionPagoId', nueva.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form.Field>
               </div>
             </CardContent>
           </Card>
@@ -242,6 +360,7 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
       />
 
       {isEdit && cliente && <ClienteEjecutivosCard clienteId={cliente.id} ejecutivos={cliente.ejecutivos ?? []} />}
+      {isEdit && cliente && <ClienteDireccionesCard clienteId={cliente.id} direcciones={cliente.direcciones ?? []} />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { PrismaClient, NivelAcceso, ModeloTarifa } from '@prisma/client'
+import { sembrarGeografiaChile } from './seed-geografia-chile.js'
 
 const prisma = new PrismaClient()
 const SISTEMA = 'seed'
@@ -32,11 +33,36 @@ const ITEMS_MENU = [
   { codigo: 'SERVICIOS', nombre: 'Servicios', modulo: 'config', ruta: '/config/servicios', orden: 74 },
   { codigo: 'ZONAS', nombre: 'Zonas', modulo: 'config', ruta: '/config/zonas', orden: 75 },
   { codigo: 'TIPOS_SERVICIO', nombre: 'Tipos de servicio', modulo: 'config', ruta: '/config/tipos-servicio', orden: 76 },
-  { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 80 },
+  // RN-PAG-01/RN-GEO-01: seis mantenedores nuevos, cada uno con su propio
+  // ItemMenu, mismo criterio de granularidad que los seis de Etapa 4.
+  { codigo: 'FORMAS_PAGO', nombre: 'Formas de pago', modulo: 'config', ruta: '/config/formas-pago', orden: 77 },
+  { codigo: 'CONDICIONES_PAGO', nombre: 'Condiciones de pago', modulo: 'config', ruta: '/config/condiciones-pago', orden: 78 },
+  { codigo: 'PAISES', nombre: 'Países', modulo: 'config', ruta: '/config/paises', orden: 79 },
+  { codigo: 'REGIONES', nombre: 'Regiones', modulo: 'config', ruta: '/config/regiones', orden: 80 },
+  { codigo: 'PROVINCIAS', nombre: 'Provincias', modulo: 'config', ruta: '/config/provincias', orden: 81 },
+  { codigo: 'COMUNAS', nombre: 'Comunas', modulo: 'config', ruta: '/config/comunas', orden: 82 },
+  { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
 // Mantenedores separados de MAESTROS en esta migración (ver comentario arriba).
-const MANTENEDORES_SEPARADOS = ['CLIENTES', 'GRUPOS', 'PROVEEDORES', 'SERVICIOS', 'ZONAS', 'TIPOS_SERVICIO']
+// Extensión Etapa 4 (29-ago-2026): los 6 mantenedores nuevos de geografía y
+// pago entran al mismo backfill — sin esto, un perfil con nivel ya ajustado
+// en MAESTROS no heredaría acceso a PAISES/COMUNAS/etc., y los selectores de
+// Cliente/Proveedor (que dependen de leerlos) quedarían sin permiso.
+const MANTENEDORES_SEPARADOS = [
+  'CLIENTES',
+  'GRUPOS',
+  'PROVEEDORES',
+  'SERVICIOS',
+  'ZONAS',
+  'TIPOS_SERVICIO',
+  'FORMAS_PAGO',
+  'CONDICIONES_PAGO',
+  'PAISES',
+  'REGIONES',
+  'PROVINCIAS',
+  'COMUNAS',
+]
 
 // Zonas de operación (levantamiento: Arica a Santiago)
 const ZONAS = [
@@ -56,6 +82,56 @@ const TIPOS_SERVICIO = [
   { codigo: 'ENTRADAS',     nombre: 'Entradas y visitas', modeloTarifaDefault: ModeloTarifa.UNITARIO_PAX, ventanaAvisoDias: 15 },
   { codigo: 'ALIMENTACION', nombre: 'Alimentación',  modeloTarifaDefault: ModeloTarifa.UNITARIO_PAX, ventanaAvisoDias: 15 },
   { codigo: 'OTRO',         nombre: 'Otro',          modeloTarifaDefault: ModeloTarifa.UNITARIO_PAX, ventanaAvisoDias: 30 },
+]
+
+// Países de referencia para Direcciones (RN-GEO-01/RN-GEO-02). Chile es el
+// único con esPaisNacional=true — exige comuna en las direcciones. El resto
+// cubre los orígenes más frecuentes de agencias receptivas; se amplía a mano
+// desde el mantenedor si hace falta.
+const PAISES = [
+  { codigo: 'CHL', nombre: 'Chile', esPaisNacional: true },
+  { codigo: 'ARG', nombre: 'Argentina' },
+  { codigo: 'BOL', nombre: 'Bolivia' },
+  { codigo: 'PER', nombre: 'Perú' },
+  { codigo: 'BRA', nombre: 'Brasil' },
+  { codigo: 'URY', nombre: 'Uruguay' },
+  { codigo: 'PRY', nombre: 'Paraguay' },
+  { codigo: 'COL', nombre: 'Colombia' },
+  { codigo: 'MEX', nombre: 'México' },
+  { codigo: 'USA', nombre: 'Estados Unidos' },
+  { codigo: 'CAN', nombre: 'Canadá' },
+  { codigo: 'ESP', nombre: 'España' },
+  { codigo: 'FRA', nombre: 'Francia' },
+  { codigo: 'DEU', nombre: 'Alemania' },
+  { codigo: 'GBR', nombre: 'Reino Unido' },
+  { codigo: 'ITA', nombre: 'Italia' },
+  { codigo: 'AUS', nombre: 'Australia' },
+  { codigo: 'CHN', nombre: 'China' },
+  { codigo: 'JPN', nombre: 'Japón' },
+]
+
+// Formas de pago iniciales (RN-PAG-01) — catálogo único, seleccionable desde
+// Cliente y Proveedor.
+const FORMAS_PAGO = [
+  { codigo: 'EFECTIVO_USD', nombre: 'Efectivo USD' },
+  { codigo: 'TRANSFERENCIA_CLP', nombre: 'Transferencia CLP' },
+  { codigo: 'TRANSFERENCIA_USD', nombre: 'Transferencia USD' },
+  { codigo: 'TARJETA_CREDITO', nombre: 'Tarjeta de crédito' },
+]
+
+// Condiciones de pago iniciales (RN-PAG-01/RN-PAG-02) — cada una con sus
+// cuotas (porcentaje + plazo en días); la suma de porcentajes es siempre 100%.
+const CONDICIONES_PAGO = [
+  { codigo: 'CONTADO', nombre: 'Contado', cuotas: [{ numeroCuota: 1, porcentaje: 100, plazoDias: 0 }] },
+  { codigo: 'D30', nombre: '30 días', cuotas: [{ numeroCuota: 1, porcentaje: 100, plazoDias: 30 }] },
+  {
+    codigo: 'ANT50_30',
+    nombre: '50% anticipo + 50% a 30 días',
+    cuotas: [
+      { numeroCuota: 1, porcentaje: 50, plazoDias: 0 },
+      { numeroCuota: 2, porcentaje: 50, plazoDias: 30 },
+    ],
+  },
 ]
 
 const PREFIJOS = [
@@ -139,7 +215,33 @@ async function main() {
     })
   }
 
-  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio y prefijos.')
+  for (const p of PAISES) {
+    await prisma.pais.upsert({ where: { codigo: p.codigo }, update: {}, create: { ...p, creadoPor: SISTEMA } })
+  }
+  await sembrarGeografiaChile(prisma, SISTEMA)
+
+  for (const f of FORMAS_PAGO) {
+    await prisma.formaPago.upsert({ where: { codigo: f.codigo }, update: {}, create: { ...f, creadoPor: SISTEMA } })
+  }
+
+  // CondicionPago no tiene upsert simple (las cuotas son una subtabla): se
+  // crea solo si el código no existe todavía, igual que el resto del seed es
+  // idempotente por `codigo`.
+  for (const c of CONDICIONES_PAGO) {
+    const existente = await prisma.condicionPago.findUnique({ where: { codigo: c.codigo } })
+    if (!existente) {
+      await prisma.condicionPago.create({
+        data: {
+          codigo: c.codigo,
+          nombre: c.nombre,
+          creadoPor: SISTEMA,
+          cuotas: { create: c.cuotas },
+        },
+      })
+    }
+  }
+
+  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio, prefijos, geografía y formas/condiciones de pago.')
 }
 
 main()

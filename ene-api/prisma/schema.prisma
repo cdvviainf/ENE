@@ -294,9 +294,10 @@ model Cliente {
   razonSocial     String
   rut             String?
   nombreComercial String?
-  pais            String
+  paisId          Int
   monedaHabitual  Moneda      @default(USD)
-  condicionesPago String?
+  formaPagoId     Int?
+  condicionPagoId Int?
   email           String?
   telefono        String?
   creadoEn        DateTime    @default(now())
@@ -306,13 +307,19 @@ model Cliente {
   eliminadoEn     DateTime?
   eliminadoPor    String?
 
+  pais          Pais           @relation(fields: [paisId], references: [id])
+  formaPago     FormaPago?     @relation(fields: [formaPagoId], references: [id])
+  condicionPago CondicionPago? @relation(fields: [condicionPagoId], references: [id])
+
   ejecutivos   ClienteEjecutivo[]
+  direcciones  ClienteDireccion[]
   grupos       Grupo[]
   cotizaciones Cotizacion[]
   ordenes      OrdenTrabajo[]
   movimientos  MovimientoCuenta[]
 
   @@index([tipo])
+  @@index([paisId])
   @@map("cliente")
 }
 
@@ -337,6 +344,35 @@ model ClienteEjecutivo {
 
   @@index([clienteId])
   @@map("cliente_ejecutivo")
+}
+
+/// Dirección del cliente (RN-GEO-02): `comunaId` es obligatorio solo si el
+/// país elegido es Chile (`Pais.esPaisNacional`), validado en el service.
+/// RN-GEO-03: como máximo una dirección por cliente con `esPorDefecto=true`,
+/// garantizado por un índice único parcial fuera de este schema (Prisma no
+/// expresa índices parciales) — ver migración
+/// `direccion_default_unico_parcial`.
+model ClienteDireccion {
+  id             Int       @id @default(autoincrement())
+  clienteId      Int
+  etiqueta       String
+  paisId         Int
+  comunaId       Int?
+  direccion      String
+  esPorDefecto   Boolean   @default(false)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  pais    Pais    @relation(fields: [paisId], references: [id])
+  comuna  Comuna? @relation(fields: [comunaId], references: [id])
+
+  @@index([clienteId])
+  @@map("cliente_direccion")
 }
 
 /// Grupo o pasajero individual. `apellido` es el identificador operativo de la
@@ -428,6 +464,137 @@ model TipoServicio {
   @@map("tipo_servicio")
 }
 
+/// Forma de pago (Efectivo USD, Transferencia CLP, Tarjeta de crédito...).
+/// Catálogo único compartido entre Cliente y Proveedor (RN-PAG-01).
+model FormaPago {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  clientes    Cliente[]
+  proveedores Proveedor[]
+
+  @@map("forma_pago")
+}
+
+/// Condición de pago (Contado, 30 días, 50% anticipo...). Catálogo único
+/// compartido entre Cliente y Proveedor (RN-PAG-01), con cronograma de cuotas
+/// (RN-PAG-02: la suma de porcentajes de las cuotas debe ser 100%).
+model CondicionPago {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  cuotas      CondicionPagoCuota[]
+  clientes    Cliente[]
+  proveedores Proveedor[]
+
+  @@map("condicion_pago")
+}
+
+model CondicionPagoCuota {
+  id              Int     @id @default(autoincrement())
+  condicionPagoId Int
+  numeroCuota     Int
+  porcentaje      Decimal @db.Decimal(5, 2)
+  plazoDias       Int
+
+  condicionPago CondicionPago @relation(fields: [condicionPagoId], references: [id], onDelete: Cascade)
+
+  @@index([condicionPagoId])
+  @@map("condicion_pago_cuota")
+}
+
+/// Jerarquía geográfica para Direcciones (RN-GEO-01). `Region` no lleva FK a
+/// `Pais`: la cadena Region→Provincia→Comuna es implícitamente solo de Chile
+/// (mismo modelo que FAS, que solo siembra geografía chilena); `Pais` es una
+/// lista plana aparte, con `esPaisNacional` marcando la fila Chile.
+model Pais {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  esPaisNacional Boolean   @default(false)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  clientes              Cliente[]
+  direccionesCliente    ClienteDireccion[]
+  direccionesProveedor  ProveedorDireccion[]
+
+  @@map("pais")
+}
+
+model Region {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  provincias Provincia[]
+
+  @@map("region")
+}
+
+model Provincia {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  regionId       Int
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  region  Region   @relation(fields: [regionId], references: [id])
+  comunas Comuna[]
+
+  @@index([regionId])
+  @@map("provincia")
+}
+
+model Comuna {
+  id             Int       @id @default(autoincrement())
+  codigo         String    @unique
+  nombre         String
+  provinciaId    Int
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  provincia            Provincia            @relation(fields: [provinciaId], references: [id])
+  direccionesCliente   ClienteDireccion[]
+  direccionesProveedor ProveedorDireccion[]
+
+  @@index([provinciaId])
+  @@map("comuna")
+}
+
 /// `rut` es obligatorio y único (RN-PRV-01): es la llave para cotejar
 /// facturas. Un proveedor extranjero sin RUT chileno real usa el RUT genérico
 /// 55.555.555-5 (definición del cliente, 27-ago-2026) — sigue siendo un RUT
@@ -442,7 +609,8 @@ model Proveedor {
   rut                 String
   nombreComercial     String?
   tipoServicioId      Int
-  condicionesPago     String?
+  formaPagoId         Int?
+  condicionPagoId     Int?
   politicaCancelacion String?
   email               String?
   telefono            String?
@@ -453,12 +621,15 @@ model Proveedor {
   eliminadoEn         DateTime?
   eliminadoPor        String?
 
-  tipoServicio TipoServicio @relation(fields: [tipoServicioId], references: [id])
+  tipoServicio  TipoServicio   @relation(fields: [tipoServicioId], references: [id])
+  formaPago     FormaPago?     @relation(fields: [formaPagoId], references: [id])
+  condicionPago CondicionPago? @relation(fields: [condicionPagoId], references: [id])
 
   zonas            ProveedorZona[]
   alias            ProveedorAlias[]
   cuentas          ProveedorCuenta[]
   contactos        ProveedorContacto[]
+  direcciones      ProveedorDireccion[]
   tarifarios       Tarifario[]
   ordenes          OrdenCompra[]
   facturas         FacturaProveedor[]
@@ -540,6 +711,31 @@ model ProveedorContacto {
   proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
 
   @@map("proveedor_contacto")
+}
+
+/// Dirección del proveedor (RN-GEO-02): mismo criterio que ClienteDireccion.
+/// RN-GEO-03: índice único parcial, ver comentario en ClienteDireccion.
+model ProveedorDireccion {
+  id             Int       @id @default(autoincrement())
+  proveedorId    Int
+  etiqueta       String
+  paisId         Int
+  comunaId       Int?
+  direccion      String
+  esPorDefecto   Boolean   @default(false)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id])
+  pais      Pais      @relation(fields: [paisId], references: [id])
+  comuna    Comuna?   @relation(fields: [comunaId], references: [id])
+
+  @@index([proveedorId])
+  @@map("proveedor_direccion")
 }
 
 model Servicio {

@@ -32,12 +32,14 @@ let ocId: number
 let otV1Id: number
 
 beforeAll(async () => {
+  // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
+  const { id: paisId } = await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })
   const cliente = await prisma.cliente.create({
     data: {
       codigo: 'QA-ADAP',
       tipo: 'AGENCIA',
       razonSocial: 'QA Adaptadores',
-      pais: 'Chile',
+      paisId,
       monedaHabitual: 'USD',
       creadoPor: 'test',
     },

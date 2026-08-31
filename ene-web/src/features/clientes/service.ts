@@ -5,19 +5,21 @@ import type {
   ClienteCreateInput,
   ClienteUpdateInput,
   ClienteEjecutivo,
-  EjecutivoInput
+  EjecutivoInput,
+  ClienteDireccion,
+  DireccionInput
 } from './types';
 
 export const clientesService = {
   async list(
-    params: { page?: number; limit?: number; q?: string; tipo?: string; pais?: string; monedaHabitual?: string } = {}
+    params: { page?: number; limit?: number; q?: string; tipo?: string; paisId?: number; monedaHabitual?: string } = {}
   ): Promise<ClienteListResponse> {
     const searchParams: Record<string, string> = {};
     if (params.page) searchParams.page = String(params.page);
     if (params.limit) searchParams.limit = String(params.limit);
     if (params.q) searchParams.q = params.q;
     if (params.tipo) searchParams.tipo = params.tipo;
-    if (params.pais) searchParams.pais = params.pais;
+    if (params.paisId) searchParams.paisId = String(params.paisId);
     if (params.monedaHabitual) searchParams.monedaHabitual = params.monedaHabitual;
     return api.get('clientes', { searchParams }).json();
   },
@@ -57,5 +59,17 @@ export const clientesService = {
 
   async eliminarEjecutivo(clienteId: number, ejecutivoId: number): Promise<void> {
     await api.delete(`clientes/${clienteId}/ejecutivos/${ejecutivoId}`);
+  },
+
+  async crearDireccion(clienteId: number, data: DireccionInput): Promise<ClienteDireccion> {
+    return api.post(`clientes/${clienteId}/direcciones`, { json: data }).json();
+  },
+
+  async actualizarDireccion(clienteId: number, direccionId: number, data: Partial<DireccionInput>): Promise<ClienteDireccion> {
+    return api.patch(`clientes/${clienteId}/direcciones/${direccionId}`, { json: data }).json();
+  },
+
+  async eliminarDireccion(clienteId: number, direccionId: number): Promise<void> {
+    await api.delete(`clientes/${clienteId}/direcciones/${direccionId}`);
   }
 };

@@ -10,6 +10,9 @@ import {
   createEjecutivo,
   updateEjecutivo,
   deleteEjecutivo,
+  createDireccion,
+  updateDireccion,
+  deleteDireccion,
 } from './clientes.controller.js'
 
 const ITEM = 'CLIENTES'
@@ -42,5 +45,21 @@ export async function clientesRoutes(app: FastifyInstance) {
     '/clientes/:id/ejecutivos/:eid',
     { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
     deleteEjecutivo,
+  )
+
+  app.post(
+    '/clientes/:id/direcciones',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    createDireccion,
+  )
+  app.patch(
+    '/clientes/:id/direcciones/:did',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    updateDireccion,
+  )
+  app.delete(
+    '/clientes/:id/direcciones/:did',
+    { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] },
+    deleteDireccion,
   )
 }

@@ -220,23 +220,37 @@ ene-web/src/
 
 ```
 Cliente            tipo(AGENCIA|EMPRESA), codigo, razonSocial, rut,
-                   nombreComercial, pais, monedaHabitual, condicionesPago
+                   nombreComercial, paisId, monedaHabitual, formaPagoId,
+                   condicionPagoId
 ClienteEjecutivo   clienteId, nombre, email, telefono, cargo
+ClienteDireccion   clienteId, etiqueta, paisId, comunaId?, direccion,
+                   esPorDefecto
 Grupo              codigo, apellido*, clienteId, nacionalidad, paisOrigen,
                    idioma, cantidadPax        (* identificador operativo)
 Pasajero           grupoId, nombre, edad, nacionalidad, restricciones,
                    documento
 Proveedor          codigo, razonSocial, rut, nombreComercial, tipoServicioId,
-                   condicionesPago, politicaCancelacion
+                   formaPagoId, condicionPagoId, politicaCancelacion
 ProveedorZona      proveedorId, zonaId       # N:N — un proveedor opera en varias zonas
 ProveedorAlias     proveedorId, alias        # nombre interno / glosa bancaria
 ProveedorCuenta    proveedorId, banco, tipoCuenta, numeroCuenta, titular, rut
 ProveedorContacto  proveedorId, nombre, email, telefono, cargo
+ProveedorDireccion proveedorId, etiqueta, paisId, comunaId?, direccion,
+                   esPorDefecto
 Zona               codigo, nombre, nombreEn
 TipoServicio       codigo, nombre, modeloTarifaDefault
 Servicio           codigo, nombre, nombreEn, descripcion, descripcionEn,
                    zonaId, tipoServicioId, modeloTarifa, margenSugerido,
                    duracionDias
+
+# Extensión Etapa 4 (29-ago-2026) — geografía y pago, RN-GEO-*/RN-PAG-*
+Pais               codigo, nombre, esPaisNacional     # solo Chile = true
+Region             codigo, nombre
+Provincia          codigo, nombre, regionId
+Comuna             codigo, nombre, provinciaId
+FormaPago          codigo, nombre                     # catálogo único Cliente/Proveedor
+CondicionPago      codigo, nombre                      # catálogo único Cliente/Proveedor
+CondicionPagoCuota condicionPagoId, numeroCuota, porcentaje, plazoDias
 ```
 
 ### Tarifas
@@ -562,6 +576,61 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > backfill idempotente: cualquier perfil con un nivel ya configurado a mano en
 > `MAESTROS` lo hereda en los seis ítems nuevos, para no revocar acceso en
 > silencio a `OPERACIONES`/`ADMINISTRACION` si ya estaban ajustados.
+>
+> **Extensión Etapa 4 — geografía, direcciones y pago (29-ago-2026).**
+> `Cliente.condicionesPago` y `Proveedor.condicionesPago` (texto libre) se
+> reemplazan por `formaPagoId`/`condicionPagoId`, dos catálogos únicos
+> compartidos (`RN-PAG-01`) sembrados con datos iniciales. `CondicionPago`
+> agrega cronograma de cuotas (`CondicionPagoCuota`), validado a que sume
+> exactamente 100% (`RN-PAG-02`). Se agrega `ClienteDireccion`/
+> `ProveedorDireccion`, direcciones múltiples con `esPorDefecto` exclusivo por
+> dueño (`RN-GEO-03`) y `comunaId` obligatorio solo si el país es Chile
+> (`RN-GEO-02`, `Pais.esPaisNacional`). Geografía nueva: `Pais` (lista plana,
+> editable) y, solo para Chile, `Region → Provincia → Comuna` (`RN-GEO-01`,
+> geografía porteada de FAS igual que las Zonas de Etapa 1). Seis mantenedores
+> nuevos con `ItemMenu` propio: `PAISES`, `REGIONES`, `PROVINCIAS`, `COMUNAS`,
+> `FORMAS_PAGO`, `CONDICIONES_PAGO` — mismo patrón que los seis de Etapa 4, sin
+> etapa propia en `Docs/plan-implementacion.md` (decisión: se registra como
+> anexo de Etapa 4, no como etapa nueva). Migración destructiva
+> (`DROP COLUMN condicionesPago`) aceptada sin backfill: no había datos reales
+> cargados todavía. Pendiente al cerrar este anexo: capa frontend en `ene-web`
+> (mantenedores nuevos + bloque Direcciones en los formularios de Cliente y
+> Proveedor) — quedó truncada en un corte de sesión anterior y se completa
+> ahora.
+>
+> **QA Codex ronda 1 del anexo (30-ago-2026), correcciones aplicadas:**
+> `condiciones-pago.schema.ts` sumaba porcentajes con `number` de JS y
+> redondeaba el total — `33.333×3` se veía como 100% pero `Decimal(5,2)`
+> persistía 99.99; ahora cada cuota se limita a 2 decimales y la suma se
+> valida en centésimos enteros (mismo criterio en el espejo de UI). RN-GEO-03:
+> el desmarcar-y-crear en transacción no cerraba la carrera cuando el dueño no
+> tenía ningún default todavía (dos altas concurrentes podían confirmar dos
+> defaults) — se agregó índice único parcial (`direccion_default_unico_parcial`,
+> mismo patrón que `proveedor_alias_unico_parcial`) y su `P2002` se traduce a
+> `CONFLICT` en el service. `Pais.esPaisNacional` dejó de ser editable vía API
+> (alta/edición) — es un hecho estructural fijado solo por el seed, no un
+> campo de mantenedor (RN-GEO-01). Los 6 `ItemMenu` nuevos se agregaron a
+> `MANTENEDORES_SEPARADOS` en `seed.ts`: sin esto no heredaban el nivel ya
+> configurado en `MAESTROS`, y `OPERACIONES`/`ADMINISTRACION` habrían quedado
+> sin poder leer los selectores de País/Comuna/Forma de pago en los
+> formularios de Cliente/Proveedor. **Decisión adicional del usuario:**
+> `Cliente.pais` (texto libre) se unificó con `Cliente.paisId` (FK a `Pais`,
+> mismo catálogo que usan las Direcciones) — migración destructiva sin
+> backfill (0 filas reales), con Select + `PaisQuickCreate` reemplazando el
+> campo de texto en `cliente-form.tsx` y `cliente-quick-create.tsx`. Esa
+> unificación rompió los fixtures de Cliente en 8 archivos de test (`pais:
+> 'Chile'/'Perú'` ya no compila contra Prisma) — corregidos resolviendo el id
+> real vía `prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL'|'PER' } })`
+> en cada suite en vez de asumir un id fijo.
+>
+> **Cierre del anexo (30-ago-2026):** ciclo QA-Codex cerrado en ronda 3,
+> `APROBADO_CON_OBSERVACIONES` → `TESTS_OK` (105/105 tests, build API y web
+> limpios). Deuda pendiente registrada, no bloqueante: **QA-TEST-001** — faltan
+> los 3 casos obligatorios de la sección 16 de `Docs/reglas-negocio.md`
+> (RN-GEO-02 comuna requerida en Chile, RN-GEO-03 exclusividad de dirección
+> default, RN-PAG-02 cuotas que no suman 100%) — a agregar en una futura
+> pasada de tests. Los 11 errores/5 advertencias de ESLint en `ene-web` son
+> deuda preexistente fuera de este alcance, sin archivos modificados aquí.
 
 ---
 

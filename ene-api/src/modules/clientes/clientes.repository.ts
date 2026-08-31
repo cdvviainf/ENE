@@ -1,12 +1,19 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { idsPorTexto } from '../../shared/busqueda.js'
-import type { ClienteCreateInput, ClienteUpdateInput, EjecutivoInput, EjecutivoUpdateInput } from './clientes.schema.js'
+import type {
+  ClienteCreateInput,
+  ClienteUpdateInput,
+  DireccionInput,
+  DireccionUpdateInput,
+  EjecutivoInput,
+  EjecutivoUpdateInput,
+} from './clientes.schema.js'
 
 interface ClienteFiltros {
   q?: string
   tipo?: 'AGENCIA' | 'EMPRESA'
-  pais?: string
+  paisId?: number
   monedaHabitual?: 'CLP' | 'USD'
 }
 
@@ -31,7 +38,7 @@ export async function findAllClientes(page: number, limit: number, filtros: Clie
     eliminadoEn: null,
     ...(idsTexto ? { id: { in: idsTexto } } : {}),
     ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
-    ...(filtros.pais ? { pais: filtros.pais } : {}),
+    ...(filtros.paisId ? { paisId: filtros.paisId } : {}),
     ...(filtros.monedaHabitual ? { monedaHabitual: filtros.monedaHabitual } : {}),
   }
 
@@ -43,6 +50,7 @@ export async function findAllClientes(page: number, limit: number, filtros: Clie
       skip: (page - 1) * limit,
       take: limit,
       include: {
+        pais: { select: { id: true, codigo: true, nombre: true } },
         _count: { select: { ordenes: true, ejecutivos: { where: { eliminadoEn: null } } } },
       },
     }),
@@ -56,7 +64,18 @@ export async function findAllClientes(page: number, limit: number, filtros: Clie
 export async function findClienteById(id: number) {
   return prisma.cliente.findFirst({
     where: { id },
-    include: { ejecutivos: { where: { eliminadoEn: null }, orderBy: { nombre: 'asc' } } },
+    include: {
+      pais: { select: { id: true, codigo: true, nombre: true } },
+      ejecutivos: { where: { eliminadoEn: null }, orderBy: { nombre: 'asc' } },
+      direcciones: {
+        where: { eliminadoEn: null },
+        orderBy: { etiqueta: 'asc' },
+        include: {
+          pais: { select: { id: true, codigo: true, nombre: true, esPaisNacional: true } },
+          comuna: { select: { id: true, codigo: true, nombre: true } },
+        },
+      },
+    },
   })
 }
 
@@ -126,4 +145,48 @@ export async function softDeleteEjecutivo(ejecutivoId: number, eliminadoPor: str
     where: { id: ejecutivoId },
     data: { eliminadoEn: new Date(), eliminadoPor },
   })
+}
+
+// ─── Direcciones (RN-GEO-02) ─────────────────────────────────────────────────
+
+export async function createDireccion(clienteId: number, data: DireccionInput, creadoPor: string) {
+  // RN-GEO-03: al marcar esta dirección como default, desmarca las demás del
+  // mismo cliente en la misma transacción.
+  if (data.esPorDefecto) {
+    return prisma.$transaction(async (tx) => {
+      await tx.clienteDireccion.updateMany({
+        where: { clienteId, eliminadoEn: null },
+        data: { esPorDefecto: false },
+      })
+      return tx.clienteDireccion.create({ data: { ...data, clienteId, creadoPor } })
+    })
+  }
+  return prisma.clienteDireccion.create({ data: { ...data, clienteId, creadoPor } })
+}
+
+export async function findDireccionById(clienteId: number, direccionId: number) {
+  return prisma.clienteDireccion.findFirst({ where: { id: direccionId, clienteId, eliminadoEn: null } })
+}
+
+export async function updateDireccion(
+  clienteId: number,
+  direccionId: number,
+  data: DireccionUpdateInput,
+  actualizadoPor: string,
+) {
+  // RN-GEO-03: idem createDireccion.
+  if (data.esPorDefecto) {
+    return prisma.$transaction(async (tx) => {
+      await tx.clienteDireccion.updateMany({
+        where: { clienteId, eliminadoEn: null, id: { not: direccionId } },
+        data: { esPorDefecto: false },
+      })
+      return tx.clienteDireccion.update({ where: { id: direccionId }, data: { ...data, actualizadoPor } })
+    })
+  }
+  return prisma.clienteDireccion.update({ where: { id: direccionId }, data: { ...data, actualizadoPor } })
+}
+
+export async function softDeleteDireccion(direccionId: number, eliminadoPor: string) {
+  await prisma.clienteDireccion.update({ where: { id: direccionId }, data: { eliminadoEn: new Date(), eliminadoPor } })
 }

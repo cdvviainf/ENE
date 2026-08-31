@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { PrismaClient } from '@prisma/client'
 import {
   crearCliente,
@@ -29,6 +29,16 @@ const idsCreados: number[] = []
 const cotizacionesCreadas: number[] = []
 const gruposCreados: number[] = []
 
+// RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado — se resuelve una
+// vez por código en vez de asumir un id fijo (autoincrement no es estable).
+let chileId: number
+let peruId: number
+
+beforeAll(async () => {
+  chileId = (await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })).id
+  peruId = (await prisma.pais.findUniqueOrThrow({ where: { codigo: 'PER' } })).id
+})
+
 // Orden de borrado por dependencias de FK: cotización (referencia grupo y
 // cliente) → grupo → ejecutivos → cliente. Un grupo borrado antes que la
 // cotización que lo referencia falla en silencio (índice RESTRICT) y deja el
@@ -45,19 +55,19 @@ const agencia = (codigo: string) => ({
   codigo,
   tipo: 'AGENCIA' as const,
   razonSocial: `Agencia QA ${codigo}`,
-  pais: 'Perú',
+  paisId: peruId,
 })
 
 describe('RN-CLI-01: el RUT es obligatorio si tipo=EMPRESA', () => {
   it('rechaza una EMPRESA sin RUT (VALIDATION_ERROR)', async () => {
     await expect(
-      crearCliente({ codigo: 'QAC-E1', tipo: 'EMPRESA', razonSocial: 'Empresa QA', pais: 'Chile' }, 'test'),
+      crearCliente({ codigo: 'QAC-E1', tipo: 'EMPRESA', razonSocial: 'Empresa QA', paisId: chileId }, 'test'),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
   })
 
   it('acepta una EMPRESA con RUT válido y lo normaliza', async () => {
     const cliente = await crearCliente(
-      { codigo: 'QAC-E2', tipo: 'EMPRESA', razonSocial: 'Empresa QA 2', pais: 'Chile', rut: '11.111.111-1' },
+      { codigo: 'QAC-E2', tipo: 'EMPRESA', razonSocial: 'Empresa QA 2', paisId: chileId, rut: '11.111.111-1' },
       'test',
     )
     idsCreados.push(cliente.id)
@@ -78,7 +88,7 @@ describe('RN-CLI-01: el RUT es obligatorio si tipo=EMPRESA', () => {
 
   it('revalida RN-CLI-01 al editar: no se puede quitar el RUT de una EMPRESA', async () => {
     const cliente = await crearCliente(
-      { codigo: 'QAC-E3', tipo: 'EMPRESA', razonSocial: 'Empresa QA 3', pais: 'Chile', rut: '11111111-1' },
+      { codigo: 'QAC-E3', tipo: 'EMPRESA', razonSocial: 'Empresa QA 3', paisId: chileId, rut: '11111111-1' },
       'test',
     )
     idsCreados.push(cliente.id)
@@ -93,7 +103,7 @@ describe('RN-CLI-01: el RUT es obligatorio si tipo=EMPRESA', () => {
     expect(ag.monedaHabitual).toBe('USD')
 
     const emp = await crearCliente(
-      { codigo: 'QAC-E4', tipo: 'EMPRESA', razonSocial: 'Empresa QA 4', pais: 'Chile', rut: '11111111-1' },
+      { codigo: 'QAC-E4', tipo: 'EMPRESA', razonSocial: 'Empresa QA 4', paisId: chileId, rut: '11111111-1' },
       'test',
     )
     idsCreados.push(emp.id)

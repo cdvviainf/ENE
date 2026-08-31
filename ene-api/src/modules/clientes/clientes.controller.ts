@@ -5,9 +5,12 @@ import {
   clienteUpdateSchema,
   clienteIdParamSchema,
   clienteEjecutivoParamSchema,
+  clienteDireccionParamSchema,
   clienteListQuerySchema,
   ejecutivoInputSchema,
   ejecutivoUpdateSchema,
+  direccionInputSchema,
+  direccionUpdateSchema,
 } from './clientes.schema.js'
 
 function usuarioSesion(req: FastifyRequest): string {
@@ -20,7 +23,7 @@ export async function listClientes(req: FastifyRequest, reply: FastifyReply) {
     await service.listarClientes(query.page, query.limit, {
       q: query.q,
       tipo: query.tipo,
-      pais: query.pais,
+      paisId: query.paisId,
       monedaHabitual: query.monedaHabitual,
     }),
   )
@@ -63,5 +66,23 @@ export async function updateEjecutivo(req: FastifyRequest, reply: FastifyReply) 
 export async function deleteEjecutivo(req: FastifyRequest, reply: FastifyReply) {
   const { id, eid } = clienteEjecutivoParamSchema.parse(req.params)
   await service.eliminarEjecutivo(id, eid, usuarioSesion(req))
+  return reply.status(204).send()
+}
+
+export async function createDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = clienteIdParamSchema.parse(req.params)
+  const input = direccionInputSchema.parse(req.body)
+  return reply.status(201).send(await service.crearDireccion(id, input, usuarioSesion(req)))
+}
+
+export async function updateDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id, did } = clienteDireccionParamSchema.parse(req.params)
+  const input = direccionUpdateSchema.parse(req.body)
+  return reply.send(await service.actualizarDireccion(id, did, input, usuarioSesion(req)))
+}
+
+export async function deleteDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id, did } = clienteDireccionParamSchema.parse(req.params)
+  await service.eliminarDireccion(id, did, usuarioSesion(req))
   return reply.status(204).send()
 }

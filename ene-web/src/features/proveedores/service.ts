@@ -9,7 +9,9 @@ import type {
   CuentaInput,
   ProveedorCuenta,
   ContactoInput,
-  ProveedorContacto
+  ProveedorContacto,
+  ProveedorDireccion,
+  DireccionInput
 } from './types';
 
 export const proveedoresService = {
@@ -79,5 +81,21 @@ export const proveedoresService = {
   },
   async eliminarContacto(proveedorId: number, contactoId: number): Promise<void> {
     await api.delete(`proveedores/${proveedorId}/contactos/${contactoId}`);
+  },
+
+  async crearDireccion(proveedorId: number, data: DireccionInput): Promise<ProveedorDireccion> {
+    return api.post(`proveedores/${proveedorId}/direcciones`, { json: data }).json();
+  },
+
+  async actualizarDireccion(
+    proveedorId: number,
+    direccionId: number,
+    data: Partial<DireccionInput>
+  ): Promise<ProveedorDireccion> {
+    return api.patch(`proveedores/${proveedorId}/direcciones/${direccionId}`, { json: data }).json();
+  },
+
+  async eliminarDireccion(proveedorId: number, direccionId: number): Promise<void> {
+    await api.delete(`proveedores/${proveedorId}/direcciones/${direccionId}`);
   }
 };

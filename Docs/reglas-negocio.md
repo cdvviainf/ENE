@@ -447,7 +447,45 @@ garantizando el `@unique` de la columna `codigo` al guardar.
 
 ---
 
-## 13. Adjuntos
+## 13. Geografía, direcciones y formas/condiciones de pago
+
+> **Extensión de Etapa 4 (29-ago-2026).** Cliente y Proveedor tenían `pais` y
+> `condicionesPago` como texto libre. Se reemplazan por maestros propios para
+> que Direcciones sea estructurado (con comuna cuando corresponde) y para que
+> el cronograma de pago de una condición sea explícito, no una glosa.
+
+**RN-GEO-01** La jerarquía geográfica para Direcciones tiene dos partes: una
+lista plana de `Pais` (catálogo abierto, editable) y, **solo para Chile**, la
+cadena `Region → Provincia → Comuna` (mismo modelo que la geografía de FAS,
+que también siembra únicamente Chile). No existe Región/Provincia/Comuna para
+otros países. `Pais.esPaisNacional` es un hecho estructural, no un atributo
+editable del mantenedor: se fija solo por seed (Chile) y la API no lo acepta
+ni en el alta ni en la edición de País.
+
+**RN-GEO-02 [BLOQUEA]** En `ClienteDireccion`/`ProveedorDireccion`, `comunaId`
+es obligatorio cuando el país elegido es Chile (`Pais.esPaisNacional = true`)
+y opcional para cualquier otro país. Se valida en el service
+(`shared/direcciones.ts`), no en el schema Zod, porque depende de una consulta
+a `Pais`.
+
+**RN-GEO-03 [BLOQUEA]** Un Cliente o Proveedor tiene **como máximo una**
+dirección marcada `esPorDefecto = true`. Al crear o actualizar una dirección
+con `esPorDefecto = true`, el sistema desmarca automáticamente cualquier otra
+dirección del mismo dueño que lo tuviera — en la misma transacción, no como
+paso separado.
+
+**RN-PAG-01** `FormaPago` y `CondicionPago` son catálogos **únicos y
+compartidos** entre Cliente y Proveedor: no existe una lista de formas de pago
+de cliente distinta de la de proveedor.
+
+**RN-PAG-02 [BLOQUEA]** Una `CondicionPago` define un cronograma de cuotas
+(`CondicionPagoCuota`: porcentaje + plazo en días). La suma de los porcentajes
+de sus cuotas debe ser exactamente 100%. Se valida al crear y al editar el
+cronograma completo.
+
+---
+
+## 14. Adjuntos
 
 **RN-ADJ-01** Los adjuntos son polimórficos: cuelgan de OT, OC, cotización,
 factura de proveedor o pago.
@@ -460,7 +498,7 @@ servidor, no solo en el navegador.
 
 ---
 
-## 14. Fuera de las reglas del sistema
+## 15. Fuera de las reglas del sistema
 
 Estos procesos siguen ocurriendo fuera y el sistema **no debe intentar
 resolverlos**: conciliación bancaria, libro de compras y ventas, IVA, Previred,
@@ -469,7 +507,7 @@ automática de correos entrantes.
 
 ---
 
-## 15. Casos de prueba obligatorios
+## 16. Casos de prueba obligatorios
 
 Estos deben existir como tests antes de cerrar la etapa correspondiente.
 
@@ -487,3 +525,6 @@ Estos deben existir como tests antes de cerrar la etapa correspondiente.
 | 10 | RN-COR-01 | Dos correlativos concurrentes | Números distintos, sin saltos |
 | 11 | RN-FAC-03 | Abono sin factura previa | Se registra y queda disponible |
 | 12 | RN-OT-06 | Cierre de OT cancelada | Rechaza salvo NO_SHOW |
+| 13 | RN-GEO-02 | Dirección con país Chile sin comuna | Rechaza |
+| 14 | RN-GEO-03 | Marcar una segunda dirección como default | La anterior queda `esPorDefecto=false` |
+| 15 | RN-PAG-02 | Condición de pago con cuotas 50%+40% | Rechaza por no sumar 100% |

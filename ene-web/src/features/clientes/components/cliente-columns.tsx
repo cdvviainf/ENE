@@ -102,7 +102,7 @@ export const clienteColumns: ColumnDef<Cliente>[] = [
   {
     id: 'pais',
     header: 'País',
-    cell: ({ row }) => <span className='text-sm'>{row.original.pais}</span>
+    cell: ({ row }) => <span className='text-sm'>{row.original.pais?.nombre ?? '—'}</span>
   },
   {
     id: 'monedaHabitual',

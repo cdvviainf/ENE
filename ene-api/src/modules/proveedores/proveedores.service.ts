@@ -4,6 +4,7 @@ import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
 import { resolverCodigo } from '../../shared/correlativos.js'
 import { validarRutChileno, formatearRut } from '../../shared/rut-validator.js'
 import { operacionesAbiertas, hayOperacionesAbiertas, errorSoftDeleteBloqueado } from '../../shared/operaciones-abiertas.js'
+import { validarComunaRequerida, esViolacionDireccionDefaultUnica } from '../../shared/direcciones.js'
 import * as repo from './proveedores.repository.js'
 import type {
   AliasInput,
@@ -11,6 +12,8 @@ import type {
   ContactoUpdateInput,
   CuentaInput,
   CuentaUpdateInput,
+  DireccionInput,
+  DireccionUpdateInput,
   ProveedorCreateInput,
   ProveedorUpdateInput,
 } from './proveedores.schema.js'
@@ -99,7 +102,8 @@ export async function crearProveedor(input: ProveedorCreateInput, creadoPor: str
           rut,
           nombreComercial: input.nombreComercial,
           tipoServicioId: input.tipoServicioId,
-          condicionesPago: input.condicionesPago,
+          formaPagoId: input.formaPagoId,
+          condicionPagoId: input.condicionPagoId,
           politicaCancelacion: input.politicaCancelacion,
           email: input.email,
           telefono: input.telefono,
@@ -202,4 +206,47 @@ export async function eliminarContacto(proveedorId: number, contactoId: number, 
   const contacto = await repo.findContactoById(proveedorId, contactoId)
   if (!contacto) throw noEncontrado('Contacto', contactoId)
   await repo.softDeleteContacto(contactoId, eliminadoPor)
+}
+
+// ─── Direcciones (RN-GEO-02) ─────────────────────────────────────────────────
+
+// Backstop de RN-GEO-03 ante una carrera que el desmarcar-y-crear del
+// repository no alcanzó a serializar: el índice único parcial sí la bloquea.
+const MENSAJE_DEFAULT_CARRERA =
+  'Otra solicitud ya marcó una dirección predeterminada al mismo tiempo. Intenta nuevamente (RN-GEO-03)'
+
+export async function crearDireccion(proveedorId: number, input: DireccionInput, creadoPor: string) {
+  await obtenerProveedorVigente(proveedorId)
+  await validarComunaRequerida(input.paisId, input.comunaId)
+  try {
+    return await repo.createDireccion(proveedorId, input, creadoPor)
+  } catch (err) {
+    if (esViolacionDireccionDefaultUnica(err)) throw conflicto(MENSAJE_DEFAULT_CARRERA)
+    throw err
+  }
+}
+
+export async function actualizarDireccion(
+  proveedorId: number,
+  direccionId: number,
+  input: DireccionUpdateInput,
+  actualizadoPor: string,
+) {
+  const direccion = await repo.findDireccionById(proveedorId, direccionId)
+  if (!direccion) throw noEncontrado('Dirección', direccionId)
+  const paisId = input.paisId ?? direccion.paisId
+  const comunaId = input.comunaId !== undefined ? input.comunaId : (direccion.comunaId ?? undefined)
+  await validarComunaRequerida(paisId, comunaId)
+  try {
+    return await repo.updateDireccion(proveedorId, direccionId, input, actualizadoPor)
+  } catch (err) {
+    if (esViolacionDireccionDefaultUnica(err)) throw conflicto(MENSAJE_DEFAULT_CARRERA)
+    throw err
+  }
+}
+
+export async function eliminarDireccion(proveedorId: number, direccionId: number, eliminadoPor: string) {
+  const direccion = await repo.findDireccionById(proveedorId, direccionId)
+  if (!direccion) throw noEncontrado('Dirección', direccionId)
+  await repo.softDeleteDireccion(direccionId, eliminadoPor)
 }

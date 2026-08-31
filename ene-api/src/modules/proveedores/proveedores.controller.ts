@@ -11,6 +11,8 @@ import {
   cuentaUpdateSchema,
   contactoInputSchema,
   contactoUpdateSchema,
+  direccionInputSchema,
+  direccionUpdateSchema,
 } from './proveedores.schema.js'
 
 function usuarioSesion(req: FastifyRequest): string {
@@ -95,5 +97,23 @@ export async function updateContacto(req: FastifyRequest, reply: FastifyReply) {
 export async function deleteContacto(req: FastifyRequest, reply: FastifyReply) {
   const { id, sid } = proveedorSubrecursoParamSchema.parse(req.params)
   await service.eliminarContacto(id, sid, usuarioSesion(req))
+  return reply.status(204).send()
+}
+
+export async function createDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = proveedorIdParamSchema.parse(req.params)
+  const input = direccionInputSchema.parse(req.body)
+  return reply.status(201).send(await service.crearDireccion(id, input, usuarioSesion(req)))
+}
+
+export async function updateDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id, sid } = proveedorSubrecursoParamSchema.parse(req.params)
+  const input = direccionUpdateSchema.parse(req.body)
+  return reply.send(await service.actualizarDireccion(id, sid, input, usuarioSesion(req)))
+}
+
+export async function deleteDireccion(req: FastifyRequest, reply: FastifyReply) {
+  const { id, sid } = proveedorSubrecursoParamSchema.parse(req.params)
+  await service.eliminarDireccion(id, sid, usuarioSesion(req))
   return reply.status(204).send()
 }

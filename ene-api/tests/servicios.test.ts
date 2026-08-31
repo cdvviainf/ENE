@@ -122,8 +122,10 @@ describe('RN-MAN-04/05: soft delete de servicio', () => {
     const servicio = await crearServicio(base('QAS-06'), 'test')
     idsCreados.push(servicio.id)
 
+    // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
+    const { id: paisId } = await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })
     const cliente = await prisma.cliente.create({
-      data: { codigo: 'QAS-06-CLI', tipo: 'AGENCIA', razonSocial: 'QA', pais: 'Chile', creadoPor: 'test' },
+      data: { codigo: 'QAS-06-CLI', tipo: 'AGENCIA', razonSocial: 'QA', paisId, creadoPor: 'test' },
     })
     const grupo = await prisma.grupo.create({
       data: { codigo: 'QAS-06-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },

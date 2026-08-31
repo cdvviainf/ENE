@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { PrismaClient } from '@prisma/client'
 import { peekSiguienteCodigo } from '../src/shared/correlativos.js'
 import { crearCliente } from '../src/modules/clientes/clientes.service.js'
@@ -35,6 +35,13 @@ const prisma = new PrismaClient()
 const clientesCreados: number[] = []
 const proveedoresCreados: number[] = []
 
+// RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
+let chileId: number
+
+beforeAll(async () => {
+  chileId = (await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })).id
+})
+
 afterAll(async () => {
   await prisma.cliente.deleteMany({ where: { id: { in: clientesCreados } } }).catch(() => {})
   await prisma.proveedor.deleteMany({ where: { id: { in: proveedoresCreados } } }).catch(() => {})
@@ -45,7 +52,7 @@ const clienteBase = (codigo: string) => ({
   codigo,
   tipo: 'AGENCIA' as const,
   razonSocial: `QA correlativo ${codigo}`,
-  pais: 'Chile',
+  paisId: chileId,
 })
 
 describe('RN-MAN-02: la sugerencia se consume solo si el código enviado coincide', () => {

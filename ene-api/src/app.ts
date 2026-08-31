@@ -20,6 +20,12 @@ import { clientesRoutes } from './modules/clientes/clientes.routes.js'
 import { serviciosRoutes } from './modules/servicios/servicios.routes.js'
 import { gruposRoutes } from './modules/grupos/grupos.routes.js'
 import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
+import { formasPagoRoutes } from './modules/config/formas-pago/formas-pago.routes.js'
+import { condicionesPagoRoutes } from './modules/config/condiciones-pago/condiciones-pago.routes.js'
+import { paisesRoutes } from './modules/config/paises/paises.routes.js'
+import { regionesRoutes } from './modules/config/regiones/regiones.routes.js'
+import { provinciasRoutes } from './modules/config/provincias/provincias.routes.js'
+import { comunasRoutes } from './modules/config/comunas/comunas.routes.js'
 
 export async function construirApp() {
   const app = Fastify({
@@ -148,6 +154,12 @@ export async function construirApp() {
   await app.register(serviciosRoutes, { prefix: '/api' })
   await app.register(gruposRoutes, { prefix: '/api' })
   await app.register(proveedoresRoutes, { prefix: '/api' })
+  await app.register(formasPagoRoutes, { prefix: '/api/config' })
+  await app.register(condicionesPagoRoutes, { prefix: '/api/config' })
+  await app.register(paisesRoutes, { prefix: '/api/config' })
+  await app.register(regionesRoutes, { prefix: '/api/config' })
+  await app.register(provinciasRoutes, { prefix: '/api/config' })
+  await app.register(comunasRoutes, { prefix: '/api/config' })
 
   return app
 }

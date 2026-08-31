@@ -25,6 +25,27 @@ export interface ProveedorZona {
   zona: { id: number; codigo: string; nombre: string };
 }
 
+export interface ProveedorDireccion {
+  id: number;
+  proveedorId: number;
+  etiqueta: string;
+  paisId: number;
+  comunaId: number | null;
+  direccion: string;
+  esPorDefecto: boolean;
+  creadoEn: string;
+  pais?: { id: number; codigo: string; nombre: string; esPaisNacional: boolean };
+  comuna?: { id: number; codigo: string; nombre: string } | null;
+}
+
+export interface DireccionInput {
+  etiqueta: string;
+  paisId: number;
+  comunaId?: number;
+  direccion: string;
+  esPorDefecto?: boolean;
+}
+
 export interface Proveedor {
   id: number;
   codigo: string;
@@ -32,7 +53,8 @@ export interface Proveedor {
   rut: string;
   nombreComercial: string | null;
   tipoServicioId: number;
-  condicionesPago: string | null;
+  formaPagoId: number | null;
+  condicionPagoId: number | null;
   politicaCancelacion: string | null;
   email: string | null;
   telefono: string | null;
@@ -43,6 +65,7 @@ export interface Proveedor {
   alias?: ProveedorAlias[];
   cuentas?: ProveedorCuenta[];
   contactos?: ProveedorContacto[];
+  direcciones?: ProveedorDireccion[];
 }
 
 export interface ProveedorListResponse {
@@ -76,7 +99,8 @@ export interface ProveedorCreateInput {
   nombreComercial?: string;
   tipoServicioId: number;
   zonas?: number[];
-  condicionesPago?: string;
+  formaPagoId?: number;
+  condicionPagoId?: number;
   politicaCancelacion?: string;
   email?: string;
   telefono?: string;
