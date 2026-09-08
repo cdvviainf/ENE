@@ -1,5 +1,18 @@
 import { z } from 'zod'
 
+// Ver comentario equivalente en clientes.schema.ts: `.email()` rechaza '',
+// así que vaciar el campo en un PATCH necesita esta variante que acepta ''
+// o null como "vaciar" (normalizados a null) sin dejar de exigir formato
+// válido para cualquier string no vacío.
+const emailUpdateSchema = z
+  .string()
+  .trim()
+  .max(120)
+  .refine((v) => v === '' || z.string().email().safeParse(v).success, 'Email inválido')
+  .nullable()
+  .optional()
+  .transform((v) => (v === '' ? null : v))
+
 export const aliasInputSchema = z.object({
   alias: z.string().min(1, 'El alias es requerido').max(150).trim(),
 })
@@ -26,7 +39,7 @@ export const contactoInputSchema = z.object({
   esEjecutivo: z.boolean().default(false),
 })
 
-export const contactoUpdateSchema = contactoInputSchema.partial()
+export const contactoUpdateSchema = contactoInputSchema.partial().extend({ email: emailUpdateSchema })
 
 // RN-GEO-02: comunaId es obligatorio si el país es Chile — se valida en el
 // service (requiere consultar Pais.esPaisNacional), no acá.
@@ -64,6 +77,7 @@ export const proveedorCreateSchema = z.object({
 export const proveedorUpdateSchema = proveedorCreateSchema
   .omit({ codigo: true, alias: true, cuentas: true, contactos: true })
   .partial()
+  .extend({ email: emailUpdateSchema })
 
 export const proveedorIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),

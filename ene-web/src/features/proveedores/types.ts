@@ -96,7 +96,8 @@ export interface CuentaInput {
 
 export interface ContactoInput {
   nombre: string;
-  email?: string;
+  // null solo es válido en edición (vaciar el campo); en creación se omite.
+  email?: string | null;
   telefono?: string;
   cargo?: string;
   descripcion?: string;
@@ -114,7 +115,8 @@ export interface ProveedorCreateInput {
   formaPagoId?: number;
   condicionPagoId?: number;
   politicaCancelacion?: string;
-  email?: string;
+  // null solo es válido en edición (vaciar el campo); en creación se omite.
+  email?: string | null;
   telefono?: string;
   alias?: AliasInput[];
   cuentas?: CuentaInput[];

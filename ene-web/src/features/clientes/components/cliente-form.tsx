@@ -81,7 +81,11 @@ export function ClienteForm({ clienteId }: ClienteFormProps) {
 
   const mutation = useMutation({
     mutationFn: (values: ClienteFormValues) => {
-      const payload = { ...values, email: values.email || undefined };
+      // En edición, '' significa "vaciar el email" y debe viajar como null
+      // explícito — enviarlo como undefined hace que el PATCH omita la clave
+      // y el backend interprete "no tocar", dejando pegado el valor viejo.
+      // En creación no hay valor previo que limpiar: se omite (undefined).
+      const payload = { ...values, email: values.email ? values.email : isEdit ? null : undefined };
       return isEdit ? clientesService.update(clienteId!, payload) : clientesService.create(payload);
     },
     onSuccess: (resultado) => {

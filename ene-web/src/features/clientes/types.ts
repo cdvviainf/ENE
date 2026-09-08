@@ -67,7 +67,8 @@ export interface ClienteListResponse {
 
 export interface EjecutivoInput {
   nombre: string;
-  email?: string;
+  // null solo es válido en edición (vaciar el campo); en creación se omite.
+  email?: string | null;
   telefono?: string;
   cargo?: string;
   descripcion?: string;
@@ -85,7 +86,8 @@ export interface ClienteCreateInput {
   monedaHabitual?: Moneda;
   formaPagoId?: number;
   condicionPagoId?: number;
-  email?: string;
+  // null solo es válido en edición (vaciar el campo); en creación se omite.
+  email?: string | null;
   telefono?: string;
   ejecutivos?: EjecutivoInput[];
 }

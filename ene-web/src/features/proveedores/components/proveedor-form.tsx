@@ -68,7 +68,10 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
 
   const mutation = useMutation({
     mutationFn: (values: ProveedorFormValues) => {
-      const payload = { ...values, email: values.email || undefined };
+      // Ver comentario equivalente en cliente-form.tsx: en edición, '' debe
+      // viajar como null explícito para vaciar el campo; undefined se
+      // interpreta como "no tocar" y deja pegado el valor anterior.
+      const payload = { ...values, email: values.email ? values.email : isEdit ? null : undefined };
       return isEdit ? proveedoresService.update(proveedorId!, payload) : proveedoresService.create(payload);
     },
     onSuccess: (resultado) => {

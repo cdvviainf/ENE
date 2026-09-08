@@ -75,7 +75,10 @@ function EjecutivoDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onSubmit: ejecutivoSchema as any },
     onSubmit: async ({ value }) => {
-      await mutation.mutateAsync({ ...value, email: value.email || undefined });
+      // Ver comentario equivalente en cliente-form.tsx: en edición, '' debe
+      // viajar como null explícito para vaciar el campo; undefined se
+      // interpreta como "no tocar" y deja pegado el valor anterior.
+      await mutation.mutateAsync({ ...value, email: value.email ? value.email : isEdit ? null : undefined });
     }
   });
 

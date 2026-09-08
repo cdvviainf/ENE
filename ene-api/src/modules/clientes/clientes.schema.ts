@@ -1,5 +1,22 @@
 import { z } from 'zod'
 
+// Email es el único campo opcional con formato validado: a diferencia de
+// telefono/cargo/descripcion (string libre, '' ya es un valor válido),
+// `.email()` rechaza '' — así que un PATCH que intenta vaciar el campo
+// enviando '' fallaba la validación y, si el frontend en cambio omitía la
+// clave (undefined) para esquivar eso, Prisma interpretaba "no tocar" y el
+// valor viejo quedaba pegado. Esta variante para UPDATE acepta '' o null
+// como "vaciar" (se normalizan a null, valor real de la columna nullable) y
+// sigue exigiendo formato válido para cualquier string no vacío.
+const emailUpdateSchema = z
+  .string()
+  .trim()
+  .max(120)
+  .refine((v) => v === '' || z.string().email().safeParse(v).success, 'Email inválido')
+  .nullable()
+  .optional()
+  .transform((v) => (v === '' ? null : v))
+
 export const ejecutivoInputSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido').max(120).trim(),
   email: z.string().email('Email inválido').max(120).trim().optional(),
@@ -11,7 +28,7 @@ export const ejecutivoInputSchema = z.object({
   activo: z.boolean().default(true),
 })
 
-export const ejecutivoUpdateSchema = ejecutivoInputSchema.partial()
+export const ejecutivoUpdateSchema = ejecutivoInputSchema.partial().extend({ email: emailUpdateSchema })
 
 // RN-GEO-02: comunaId es obligatorio si el país es Chile — se valida en el
 // service (requiere consultar Pais.esPaisNacional), no acá.
@@ -48,6 +65,7 @@ export const clienteCreateSchema = z.object({
 export const clienteUpdateSchema = clienteCreateSchema
   .omit({ codigo: true, ejecutivos: true })
   .partial()
+  .extend({ email: emailUpdateSchema })
 
 export const clienteIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
