@@ -230,8 +230,8 @@ Grupo              codigo, apellido*, clienteId, nacionalidad, paisOrigen,
                    idioma, cantidadPax        (* identificador operativo)
 Pasajero           grupoId, nombre, edad, nacionalidad, restricciones,
                    documento
-Proveedor          codigo, razonSocial, rut, nombreComercial,
-                   formaPagoId, condicionPagoId, politicaCancelacion
+Proveedor          codigo, razonSocial, rut, nombreComercial, tipoDocumento,
+                   urlPago, formaPagoId, condicionPagoId, politicaCancelacion
 ProveedorTipoServicio proveedorId, tipoServicioId  # N:N — un proveedor pertenece a varios tipos de servicio
 ProveedorZona      proveedorId, zonaId       # N:N — un proveedor opera en varias zonas
 ProveedorAlias     proveedorId, alias        # nombre interno / glosa bancaria
@@ -660,6 +660,15 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > `cliente-form.tsx`/`proveedor-form.tsx` (identidad → clasificador propio →
 > contacto → términos comerciales) y `nombre` pasó a ser el segundo campo de
 > `servicio-form.tsx`, junto a `codigo`.
+>
+> **Tipo de documento y link de pago del proveedor (10-sep-2026).** `Proveedor`
+> suma `tipoDocumento` (enum `TipoDocProveedor`: `FACTURA_AFECTA` |
+> `FACTURA_EXENTA` | `BOLETA_HONORARIOS`, default `FACTURA_AFECTA`, `RN-PRV-09`)
+> y `urlPago` (String? validado como URL, `RN-PRV-10`). El enum es distinto de
+> `TipoDTE` (lo que ENE emite a clientes): acá modela lo que el proveedor emite
+> a ENE, y `BOLETA_HONORARIOS` implica retención en el pago — el cálculo se
+> difiere a la Etapa 10, este anexo solo agrega el atributo del maestro.
+> Migración no destructiva (`ADD COLUMN` con default), sin backfill necesario.
 
 ---
 

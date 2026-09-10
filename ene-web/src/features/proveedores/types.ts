@@ -56,12 +56,16 @@ export interface DireccionInput {
   esPorDefecto?: boolean;
 }
 
+export type TipoDocProveedor = 'FACTURA_AFECTA' | 'FACTURA_EXENTA' | 'BOLETA_HONORARIOS';
+
 export interface Proveedor {
   id: number;
   codigo: string;
   razonSocial: string;
   rut: string;
   nombreComercial: string | null;
+  tipoDocumento: TipoDocProveedor;
+  urlPago: string | null;
   formaPagoId: number | null;
   condicionPagoId: number | null;
   politicaCancelacion: string | null;
@@ -110,6 +114,9 @@ export interface ProveedorCreateInput {
   razonSocial: string;
   rut: string;
   nombreComercial?: string;
+  tipoDocumento?: TipoDocProveedor;
+  // null solo es válido en edición (vaciar el campo); en creación se omite.
+  urlPago?: string | null;
   tiposServicio: number[];
   zonas?: number[];
   formaPagoId?: number;

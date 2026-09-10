@@ -244,6 +244,8 @@ pago.
 | `razonSocial` | String(150) | Sí | Como aparece en la factura |
 | `rut` | String(12) | Sí | Validado con `rut-validator` |
 | `nombreComercial` | String(150) | No | Como lo conoce el equipo |
+| `tipoDocumento` | Enum `TipoDocProveedor` | Sí, default `FACTURA_AFECTA` | Documento que emite: factura afecta/exenta o boleta de honorarios (`RN-PRV-09`) |
+| `urlPago` | String(500) | No | Link de pago, validado como URL si viene (`RN-PRV-10`) |
 | `tiposServicio` | Int[] (N:N vía `ProveedorTipoServicio`) | **Sí, ≥1** | Un proveedor puede pertenecer a varios tipos de servicio a la vez (`RN-PRV-08`) |
 | `zonas` | Int[] (N:N vía `ProveedorZona`) | No | Un proveedor puede operar en varias zonas a la vez |
 | `formaPagoId` | FK → `FormaPago` | No | Catálogo único compartido con Cliente (RN-PAG-01) |
@@ -278,6 +280,18 @@ del cliente, 27-ago-2026). Se modela `ProveedorZona` (N:N) en vez de
 nombre comercial y cualquiera de sus alias**, en una sola consulta. Es el dolor
 declarado de administración: la factura, el cargo bancario y el nombre interno
 casi nunca coinciden.
+
+**RN-PRV-09** El proveedor declara qué documento tributario emite:
+`FACTURA_AFECTA`, `FACTURA_EXENTA` o `BOLETA_HONORARIOS` (enum
+`TipoDocProveedor`, default `FACTURA_AFECTA`). No es cosmético: una boleta de
+honorarios lleva **retención de impuesto**, y el pago al proveedor va neto de
+esa retención — el cálculo se resuelve en la Etapa 10 (pagos), acá solo se
+registra el atributo. Es distinto de `TipoDTE`, que modela lo que **ENE emite a
+sus clientes**.
+
+**RN-PRV-10** `urlPago` es un link de pago opcional (portal de pago del
+proveedor, dato de transferencia, etc.). Si viene, se valida como URL; en
+edición, `''`/`null` lo vacían (mismo criterio que `email`).
 
 ### Alias — subtabla
 

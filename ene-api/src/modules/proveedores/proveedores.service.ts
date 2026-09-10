@@ -102,6 +102,8 @@ export async function crearProveedor(input: ProveedorCreateInput, creadoPor: str
           razonSocial: input.razonSocial,
           rut,
           nombreComercial: input.nombreComercial,
+          tipoDocumento: input.tipoDocumento,
+          urlPago: input.urlPago,
           formaPagoId: input.formaPagoId,
           condicionPagoId: input.condicionPagoId,
           politicaCancelacion: input.politicaCancelacion,

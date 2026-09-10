@@ -13,6 +13,20 @@ const emailUpdateSchema = z
   .optional()
   .transform((v) => (v === '' ? null : v))
 
+// RN-PRV-10: mismo criterio que emailUpdateSchema — '' o null vacían el link
+// en un PATCH; cualquier string no vacío debe ser una URL válida.
+const urlPagoUpdateSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === '' || z.string().url().safeParse(v).success, 'URL inválida')
+  .nullable()
+  .optional()
+  .transform((v) => (v === '' ? null : v))
+
+// RN-PRV-09: documento tributario que emite el proveedor.
+export const tipoDocProveedorSchema = z.enum(['FACTURA_AFECTA', 'FACTURA_EXENTA', 'BOLETA_HONORARIOS'])
+
 export const aliasInputSchema = z.object({
   alias: z.string().min(1, 'El alias es requerido').max(150).trim(),
 })
@@ -59,6 +73,10 @@ export const proveedorCreateSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
+  // RN-PRV-09: por defecto factura afecta (el caso más común).
+  tipoDocumento: tipoDocProveedorSchema.default('FACTURA_AFECTA'),
+  // RN-PRV-10: link de pago opcional.
+  urlPago: z.string().url('URL inválida').max(500).trim().optional(),
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
   tiposServicio: z.array(z.coerce.number().int().positive()).min(1, 'Selecciona al menos un tipo de servicio'),
   // RN-PRV-05: un proveedor puede operar en varias zonas a la vez (N:N).
@@ -77,7 +95,7 @@ export const proveedorCreateSchema = z.object({
 export const proveedorUpdateSchema = proveedorCreateSchema
   .omit({ codigo: true, alias: true, cuentas: true, contactos: true })
   .partial()
-  .extend({ email: emailUpdateSchema })
+  .extend({ email: emailUpdateSchema, urlPago: urlPagoUpdateSchema })
 
 export const proveedorIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),

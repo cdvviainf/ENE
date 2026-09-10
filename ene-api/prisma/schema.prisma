@@ -608,12 +608,26 @@ model Comuna {
 /// entre proveedores distintos, la unicidad real NO se declara acá con
 /// `@unique`: se aplica con un índice único parcial en la migración SQL
 /// (`WHERE rut <> '55.555.555-5'`), documentado en CLAUDE.md §7.
+/// RN-PRV-09: documento tributario que el proveedor emite a ENE. Condiciona el
+/// pago —una boleta de honorarios lleva retención (Etapa 10)—, por eso es un
+/// enum y no texto libre. FACTURA_EXENTA/AFECTA distinguen si el servicio paga
+/// IVA. Distinto de `TipoDTE`, que es lo que ENE emite a sus clientes.
+enum TipoDocProveedor {
+  FACTURA_AFECTA
+  FACTURA_EXENTA
+  BOLETA_HONORARIOS
+}
+
 model Proveedor {
-  id                  Int       @id @default(autoincrement())
-  codigo              String    @unique
+  id                  Int              @id @default(autoincrement())
+  codigo              String           @unique
   razonSocial         String
   rut                 String
   nombreComercial     String?
+  // RN-PRV-09: tipo de documento que emite (factura afecta/exenta u honorarios).
+  tipoDocumento       TipoDocProveedor @default(FACTURA_AFECTA)
+  // RN-PRV-10: link de pago del proveedor (URL a portal de pago o transferencia).
+  urlPago             String?
   formaPagoId         Int?
   condicionPagoId     Int?
   politicaCancelacion String?
