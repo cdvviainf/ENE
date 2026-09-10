@@ -226,8 +226,10 @@ ClienteEjecutivo   clienteId, nombre, email, telefono, cargo, descripcion,
                    esRepresentanteLegal
 ClienteDireccion   clienteId, etiqueta, descripcion, paisId, comunaId?,
                    direccion, esPorDefecto
-Grupo              codigo, apellido*, clienteId, nacionalidad, paisOrigen,
-                   idioma, cantidadPax        (* identificador operativo)
+Grupo              codigo, apellido*, clienteId?, nacionalidad, paisOrigen,
+                   idioma, cantidadPax        (* identificador operativo;
+                   obligatorios: codigo, apellido, cantidadPax — clienteId
+                   opcional, RN-GRP-05)
 Pasajero           grupoId, nombre, edad, nacionalidad, restricciones,
                    documento
 Proveedor          codigo, razonSocial, rut, nombreComercial, tipoDocumento,
@@ -669,6 +671,13 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > a ENE, y `BOLETA_HONORARIOS` implica retención en el pago — el cálculo se
 > difiere a la Etapa 10, este anexo solo agrega el atributo del maestro.
 > Migración no destructiva (`ADD COLUMN` con default), sin backfill necesario.
+>
+> **Grupo: cliente opcional (10-sep-2026).** `Grupo.clienteId` pasa de
+> `NOT NULL` a nullable (`RN-GRP-05`) — un grupo puede registrarse sin cliente y
+> asociarse después. Obligatorios quedan `codigo`, `apellido` y `cantidadPax`
+> (esta con default 1). En el frontend el selector de cliente suma una opción
+> "Sin cliente" y deja de ser obligatorio. Migración no destructiva
+> (`DROP NOT NULL`); la FK pasa a `ON DELETE SET NULL`.
 
 ---
 

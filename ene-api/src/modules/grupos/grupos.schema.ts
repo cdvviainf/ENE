@@ -14,7 +14,8 @@ export const grupoCreateSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
   // RN-OT-03: identificador operativo de la reserva, obligatorio.
   apellido: z.string().min(1, 'El apellido es requerido').max(80).trim(),
-  clienteId: z.coerce.number().int().positive('El cliente es requerido'),
+  // RN-GRP-05: el cliente es opcional — null/ausente deja el grupo sin cliente.
+  clienteId: z.coerce.number().int().positive('El cliente no es válido').nullable().optional(),
   nacionalidad: z.string().max(60).trim().optional(),
   paisOrigen: z.string().max(60).trim().optional(),
   idioma: z.string().max(30).trim().optional(),

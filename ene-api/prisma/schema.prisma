@@ -387,7 +387,8 @@ model Grupo {
   id             Int       @id @default(autoincrement())
   codigo         String    @unique
   apellido       String
-  clienteId      Int
+  // RN-GRP-05: el cliente es opcional — solo código y apellido son obligatorios.
+  clienteId      Int?
   nacionalidad   String?
   paisOrigen     String?
   idioma         String?
@@ -400,7 +401,7 @@ model Grupo {
   eliminadoEn    DateTime?
   eliminadoPor   String?
 
-  cliente      Cliente        @relation(fields: [clienteId], references: [id])
+  cliente      Cliente?       @relation(fields: [clienteId], references: [id])
   pasajeros    Pasajero[]
   cotizaciones Cotizacion[]
   ordenes      OrdenTrabajo[]

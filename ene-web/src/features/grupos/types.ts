@@ -12,7 +12,7 @@ export interface Grupo {
   id: number;
   codigo: string;
   apellido: string;
-  clienteId: number;
+  clienteId: number | null;
   nacionalidad: string | null;
   paisOrigen: string | null;
   idioma: string | null;
@@ -41,7 +41,7 @@ export interface PasajeroInput {
 export interface GrupoCreateInput {
   codigo: string;
   apellido: string;
-  clienteId: number;
+  clienteId?: number | null;
   nacionalidad?: string;
   paisOrigen?: string;
   idioma?: string;

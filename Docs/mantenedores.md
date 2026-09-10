@@ -194,14 +194,18 @@ Los que viajan. **No son el cliente**: el cliente contrata, el grupo viaja.
 
 | Campo | Tipo | Oblig. | Validación |
 |---|---|---|---|
-| `codigo` | String(20) | Sí | Único, sugerido `GR00001` |
+| `codigo` | String(20) | **Sí** | Único, sugerido `GR00001` |
 | `apellido` | String(80) | **Sí** | Identificador operativo (`RN-OT-03`) |
-| `clienteId` | Int | Sí | |
+| `clienteId` | Int | No | Opcional (`RN-GRP-05`) |
 | `nacionalidad` | String(60) | No | |
 | `paisOrigen` | String(60) | No | Segmenta reportes |
 | `idioma` | String(30) | No | Define el idioma sugerido del documento |
-| `cantidadPax` | Int | Sí | ≥ 1 |
+| `cantidadPax` | Int | **Sí** | ≥ 1, default 1 (referencial, `RN-GRP-03`) |
 | `observaciones` | Text | No | |
+
+> **Obligatorios: `codigo`, `apellido` y `cantidadPax`** (definición del
+> cliente, 10-sep-2026). El `clienteId` es opcional (`RN-GRP-05`); el resto de
+> campos también.
 
 **RN-GRP-01** El grupo se puede crear **desde la cotización**, sin salir del
 flujo. No obliga a ir al mantenedor primero. Es el caso normal: la agencia pide
@@ -213,6 +217,12 @@ operación, y por eso el listado siempre muestra ambas.
 
 **RN-GRP-03** `cantidadPax` en el grupo es referencial. La cantidad que manda
 para el costeo es la de la **cotización**, que puede diferir.
+
+**RN-GRP-05** El `clienteId` es **opcional** (definición del cliente,
+10-sep-2026): un grupo puede registrarse sin cliente y asociarse después. Los
+obligatorios son `codigo`, `apellido` y `cantidadPax`. Cuando se crea desde la
+cotización (`RN-GRP-01`) el cliente suele venir del contexto, pero el maestro no
+lo exige.
 
 **Listado:** apellido, cliente, cantidad de pasajeros, país de origen, próxima operación.
 **Buscable por:** apellido, código, nombre de pasajero.
@@ -547,7 +557,7 @@ después en el mantenedor propio.
 | **Tipo de servicio** | `codigo`, `nombre`, `modeloTarifaDefault`, `ventanaAvisoDias` |
 | **Cliente** | `codigo`, `tipo`, `razonSocial`, `rut` (si `EMPRESA`), `paisId` `+`, `monedaHabitual` |
 | **Ejecutivo** | `nombre`, `email` |
-| **Grupo** | `codigo`, `apellido`, `clienteId` `+`, `cantidadPax` |
+| **Grupo** | `codigo`, `apellido`, `cantidadPax` (obligatorios), `clienteId` `+` (opcional, `RN-GRP-05`) |
 | **Proveedor** | `codigo`, `razonSocial`, `rut`, `tipoServicioId` `+`, `zonas` `+` (multi-select) |
 | **Servicio** | `codigo`, `nombre`, `tipoServicioId` `+`, `modeloTarifa`, `margenSugerido` |
 

@@ -22,7 +22,8 @@ import { GrupoPasajerosCard } from './grupo-pasajeros-card';
 const grupoSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
   apellido: z.string().min(1, 'El apellido es requerido').max(80).trim(),
-  clienteId: z.coerce.number().int().positive('El cliente es requerido'),
+  // RN-GRP-05: el cliente es opcional — solo código y apellido son obligatorios.
+  clienteId: z.number().int().positive().nullable(),
   nacionalidad: z.string().max(60).trim().optional(),
   paisOrigen: z.string().max(60).trim().optional(),
   idioma: z.string().max(30).trim().optional(),
@@ -65,7 +66,7 @@ export function GrupoForm({ grupoId }: GrupoFormProps) {
     defaultValues: {
       codigo: '',
       apellido: '',
-      clienteId: 0,
+      clienteId: null,
       nacionalidad: '',
       paisOrigen: '',
       idioma: '',
@@ -137,13 +138,17 @@ export function GrupoForm({ grupoId }: GrupoFormProps) {
                 <form.Field name='clienteId'>
                   {(field) => (
                     <div className='space-y-1.5'>
-                      <Label>
-                        Cliente <span className='text-destructive'>*</span>
-                      </Label>
+                      {/* RN-GRP-05: el cliente es opcional. */}
+                      <Label>Cliente</Label>
                       <div className='flex items-center gap-2'>
                         <Select
                           value={field.state.value ? String(field.state.value) : ''}
                           onValueChange={(v) => {
+                            // "__none__" deja el grupo sin cliente (RN-GRP-05).
+                            if (v === '__none__') {
+                              field.handleChange(null);
+                              return;
+                            }
                             // Radix puede disparar onValueChange con un valor no
                             // parseable al remontar SelectContent (p. ej. al
                             // refrescar la lista tras un QuickCreate) — ignorarlo
@@ -153,9 +158,12 @@ export function GrupoForm({ grupoId }: GrupoFormProps) {
                           }}
                         >
                           <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Seleccionar cliente...' />
+                            <SelectValue placeholder='Sin cliente...' />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value='__none__'>
+                              <span className='text-muted-foreground'>Sin cliente</span>
+                            </SelectItem>
                             {clientes.map((c) => (
                               <SelectItem key={c.id} value={String(c.id)}>
                                 {c.razonSocial}
