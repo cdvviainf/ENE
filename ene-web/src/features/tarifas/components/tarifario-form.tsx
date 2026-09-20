@@ -6,12 +6,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiCombobox } from '@/components/ui/multi-combobox';
 import { Icons } from '@/components/icons';
-import { cn } from '@/lib/utils';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { SoloLectura } from '@/components/shared/solo-lectura';
@@ -99,6 +98,16 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
   // vigencia y valores) — se crea un Tarifario independiente por cada uno.
   // Solo aplica en modo "nuevo": nueva-version está atada a un único id.
   const [servicioIds, setServicioIds] = useState<number[]>([]);
+
+  // El modelo de tarifa activo (y por lo tanto el editor de valores) lo fija
+  // el primer servicio elegido; si la lista queda vacía o vuelve a un solo
+  // servicio, se reinicia la tabla de valores.
+  function aplicarServicioIds(nuevos: number[]) {
+    setServicioIds(nuevos);
+    const primero = nuevos[0] != null ? servicios.find((x) => x.id === nuevos[0]) : undefined;
+    setModeloTarifaActual(primero?.modeloTarifa ?? null);
+    if (nuevos.length <= 1) setValores([{ ...FILA_VACIA }]);
+  }
 
   const form = useAppForm({
     defaultValues: {
@@ -283,38 +292,24 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
                     <p className='text-muted-foreground text-xs'>
                       Selecciona varios si comparten la misma tarifa — se crea un tarifario por cada uno.
                     </p>
-                    <div className='flex flex-wrap items-center gap-2'>
-                      {servicios.map((s) => {
-                        const activo = servicioIds.includes(s.id);
-                        const bloqueado = !activo && modeloTarifaActual != null && s.modeloTarifa !== modeloTarifaActual;
-                        return (
-                          <Badge
-                            key={s.id}
-                            variant={activo ? 'default' : 'outline'}
-                            className={cn('cursor-pointer select-none', bloqueado && 'cursor-not-allowed opacity-40')}
-                            title={bloqueado ? 'No comparte el mismo modelo de tarifa que los ya seleccionados' : undefined}
-                            onClick={() => {
-                              if (bloqueado) return;
-                              const nuevos = activo ? servicioIds.filter((id) => id !== s.id) : [...servicioIds, s.id];
-                              setServicioIds(nuevos);
-                              const primero = nuevos[0] ? servicios.find((x) => x.id === nuevos[0]) : undefined;
-                              setModeloTarifaActual(primero?.modeloTarifa ?? null);
-                              if (nuevos.length <= 1) setValores([{ ...FILA_VACIA }]);
-                            }}
-                          >
-                            {s.nombre}
-                          </Badge>
-                        );
-                      })}
+                    <div className='flex items-start gap-2'>
+                      <div className='flex-1'>
+                        <MultiCombobox
+                          options={servicios.map((s) => ({
+                            value: String(s.id),
+                            label: s.nombre,
+                            disabled: modeloTarifaActual != null && s.modeloTarifa !== modeloTarifaActual && !servicioIds.includes(s.id)
+                          }))}
+                          values={servicioIds.map(String)}
+                          onChange={(valores) => aplicarServicioIds(valores.map(Number))}
+                          placeholder='Seleccionar servicios...'
+                          searchPlaceholder='Buscar servicio...'
+                        />
+                      </div>
                       <ServicioQuickCreate
                         onCreated={(nuevo) => {
                           queryClient.invalidateQueries({ queryKey: ['servicios'] });
-                          const nuevos = [...servicioIds, nuevo.id];
-                          setServicioIds(nuevos);
-                          if (nuevos.length === 1) {
-                            setModeloTarifaActual(nuevo.modeloTarifa);
-                            setValores([{ ...FILA_VACIA }]);
-                          }
+                          aplicarServicioIds([...servicioIds, nuevo.id]);
                         }}
                       />
                     </div>
