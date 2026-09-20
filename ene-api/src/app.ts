@@ -18,6 +18,7 @@ import { zonasRoutes } from './modules/config/zonas/zonas.routes.js'
 import { tiposServicioRoutes } from './modules/config/tipos-servicio/tipos-servicio.routes.js'
 import { clientesRoutes } from './modules/clientes/clientes.routes.js'
 import { serviciosRoutes } from './modules/servicios/servicios.routes.js'
+import { tarifasRoutes } from './modules/tarifas/tarifas.routes.js'
 import { gruposRoutes } from './modules/grupos/grupos.routes.js'
 import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
 import { formasPagoRoutes } from './modules/config/formas-pago/formas-pago.routes.js'
@@ -153,6 +154,7 @@ export async function construirApp() {
   await app.register(tiposServicioRoutes, { prefix: '/api/config' })
   await app.register(clientesRoutes, { prefix: '/api' })
   await app.register(serviciosRoutes, { prefix: '/api' })
+  await app.register(tarifasRoutes, { prefix: '/api' })
   await app.register(gruposRoutes, { prefix: '/api' })
   await app.register(proveedoresRoutes, { prefix: '/api' })
   await app.register(formasPagoRoutes, { prefix: '/api/config' })

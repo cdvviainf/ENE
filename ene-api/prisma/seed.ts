@@ -46,6 +46,9 @@ const ITEMS_MENU = [
   // SIN_ACCESO salvo GERENCIA/ADMINISTRADOR, que heredan TOTAL en todo ítem
   // nuevo por el loop genérico de abajo.
   { codigo: 'CARGA_MASIVA', nombre: 'Carga masiva', modulo: 'config', ruta: '/config/carga-masiva', orden: 83 },
+  // Etapa 5: mantenedor de Tarifario — mismo criterio de mantenedor propio
+  // que el resto, entra en MANTENEDORES_SEPARADOS más abajo.
+  { codigo: 'TARIFAS', nombre: 'Tarifas', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
@@ -59,6 +62,7 @@ const MANTENEDORES_SEPARADOS = [
   'GRUPOS',
   'PROVEEDORES',
   'SERVICIOS',
+  'TARIFAS',
   'ZONAS',
   'TIPOS_SERVICIO',
   'FORMAS_PAGO',

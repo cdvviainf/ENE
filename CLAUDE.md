@@ -485,6 +485,8 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 491008  Versionado de OrdenCompra (clave: ordenCompraId)
 491009  Correlativo de código de maestro — Cliente/Proveedor/Grupo/Servicio
         (namespace compartido entre las cuatro entidades, clave: hashtext(entidad))
+491010  Vigencia de Tarifario (RN-TAR-07, serializa creación/versionado del
+        mismo proveedor+servicio; clave: hashtext('proveedorId:servicioId'))
 ```
 
 > **Cierre etapa 4 (agosto 2026).** Los seis mantenedores generales (Zona, TipoServicio,
@@ -678,6 +680,59 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > (esta con default 1). En el frontend el selector de cliente suma una opción
 > "Sin cliente" y deja de ser obligatorio. Migración no destructiva
 > (`DROP NOT NULL`); la FK pasa a `ON DELETE SET NULL`.
+>
+> **Etapa 5: Tarifario (20-sep-2026).** Backend completo en
+> `src/modules/tarifas/` (routes/controller/service/repository/schema/types),
+> los tres modelos de `TarifarioValor` (`TRAMO_PAX`, `ACOMODACION`,
+> `UNITARIO_PAX`). Endpoints: `GET /api/tarifas`, `GET /api/tarifas/:id`,
+> `POST /api/tarifas` (cadena nueva, `version=1`, solo si la vigencia no se
+> solapa con ninguna activa — RN-TAR-06/07), `POST /api/tarifas/:id/nueva-version`
+> (`version+1`, desactiva la anterior). Sin `PATCH`/`DELETE` — no está en el
+> contrato de endpoints ni lo pide el criterio de término. Nuevo advisory lock
+> `LOCK_TARIFARIO_VIGENCIA = 491010` (§7) serializa creación/versionado del
+> mismo proveedor+servicio.
+>
+> Ciclo QA-Codex del backend cerrado `TESTS_OK` (3 rondas + 1 arbitraje). Tres
+> hallazgos Alta: **QA-TAR-001** — arbitrado `AMBIGUO` en la práctica: el
+> árbitro leyó `RN-TAR-06` literal y lo marcó `BUG_REAL`, pero es decisión de
+> negocio del usuario permitir cadenas paralelas por período no solapado — se
+> resolvió documentando la excepción explícitamente en `RN-TAR-06` y
+> trasladando `RN-TAR-07` a `Docs/reglas-negocio.md` (antes solo vivía en
+> `mantenedores.md`, mismo patrón de discrepancia que `RN-CAR-*`). **QA-TAR-002**
+> — proveedor no se validaba (caía en `INTERNAL_ERROR` con FK inválida en vez
+> de `NOT_FOUND`), corregido. 21 tests nuevos en `tests/tarifas.test.ts` (169
+> total, sin regresiones).
+>
+> Frontend en `ene-web/src/features/tarifas/` — mismo patrón que
+> Servicios/Proveedores (`types/service/queries` + `components/`), pero sin
+> `isEdit` (no hay edición in-place): `TarifarioForm` sirve tanto "nuevo" como
+> "nueva-version" con un discriminador de modo. Primer formulario polimórfico
+> del frontend (`ValoresEditor` cambia por completo según `modeloTarifa` —
+> no había precedente). Se construyeron `ProveedorQuickCreate` y
+> `ServicioQuickCreate` (nuevos, no existían) siguiendo `Docs/mantenedores.md`
+> §8 al pie de la letra, cada uno anidando `TipoServicioQuickCreate`/
+> `ZonaQuickCreate` ya existentes.
+>
+> Ciclo QA-Codex del frontend cerrado `TESTS_OK` (2 rondas). Dos hallazgos
+> Media corregidos: **QA-TAR-WEB-001** — `tarifario-columns.tsx`/
+> `tarifario-detail.tsx` formateaban la vigencia con
+> `new Date(iso).toLocaleDateString()` directo, que en `America/Santiago`
+> mostraba un día antes (`2026-01-01T00:00:00Z` → `31-12-2025`); corregido
+> usando el helper ya existente `formatFechaCorta` (`lib/format.ts`).
+> **QA-TAR-WEB-002** — `ServicioQuickCreate` no incluía `zonaId`/
+> `ZonaQuickCreate`, aunque `Docs/mantenedores.md` §8 "Anidamiento" declara
+> explícitamente la cadena `Tarifario → +Servicio → +Zona` (la tabla de
+> "formularios reducidos" del mismo §8 no la listaba — dos tablas del
+> documento se contradecían); corregido agregándolo, mismo patrón que
+> `servicio-form.tsx` completo.
+>
+> **Verificación manual en navegador sigue pendiente**: la extensión de
+> Chrome no estaba conectada en la sesión que lo construyó ni en el ciclo
+> QA-Codex (ambos hicieron solo revisión estática + `tsc`/`eslint`/`build`,
+> nunca un recorrido interactivo real). Falta crear un tarifario de cada
+> modelo, versionar uno, y probar los QuickCreate anidados preservando el
+> estado del formulario padre (RN-QC-01) antes de dar el criterio de término
+> de la etapa por cumplido con la demo real.
 
 ---
 

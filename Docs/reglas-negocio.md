@@ -178,9 +178,26 @@ degustaciones.
 `vigenciaHasta` es anterior a la fecha de operación, se advierte pero se permite.
 El usuario decide.
 
-**RN-TAR-06** Un tarifario nuevo para el mismo proveedor y servicio no reemplaza
-al anterior: se crea con `version + 1` y el anterior queda con `activo = false`.
-Las líneas ya valorizadas siguen apuntando al valor antiguo (RN-COS-06).
+**RN-TAR-06** Un tarifario nuevo para el mismo proveedor y servicio cuya
+vigencia **se solapa** con la de un tarifario activo existente no lo reemplaza:
+se crea con `version + 1` y el anterior queda con `activo = false`. Las líneas
+ya valorizadas siguen apuntando al valor antiguo (RN-COS-06). Esto se hace
+explícitamente vía `POST /tarifas/:id/nueva-version`, sobre el tarifario que
+se está versionando.
+
+**Excepción por período no solapado (decisión de usuario, 20-sep-2026):** un
+tarifario para el mismo proveedor y servicio cuya vigencia **no se solapa**
+con ninguna activa existente (ej. una temporada distinta, negociada aparte) no
+es una "versión" de la cadena existente — es una cadena independiente, propia,
+con `version = 1`. Pueden coexistir varios tarifarios activos del mismo
+proveedor+servicio siempre que sus vigencias no se solapen entre sí
+(RN-TAR-07). `POST /tarifas` crea siempre una cadena nueva; solo
+`POST /tarifas/:id/nueva-version` incrementa `version` y desactiva la
+anterior.
+
+**RN-TAR-07 [BLOQUEA]** No pueden existir dos tarifarios **activos** del mismo
+proveedor y servicio con vigencias que se solapen. (Trasladada desde
+`Docs/mantenedores.md` §7 al cerrar Etapa 5 — antes solo vivía ahí.)
 
 ---
 

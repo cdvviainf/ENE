@@ -41,6 +41,12 @@ export const LOCK_ORDEN_COMPRA_VERSION = 491008
 /// entidades distintas nunca se serializan entre sí por error.
 export const LOCK_MAESTRO_CODIGO_CORRELATIVO = 491009
 
+/// Vigencia de Tarifario (RN-TAR-07) — serializa la creación/versionado de
+/// tarifarios del mismo proveedor+servicio, para que dos requests
+/// concurrentes no lean ambos "sin solape" antes de que el otro escriba.
+/// Clave: `hashtext('${proveedorId}:${servicioId}')`.
+export const LOCK_TARIFARIO_VIGENCIA = 491010
+
 import type { Prisma } from '@prisma/client'
 
 /// Toma el lock dentro de la transacción actual. Se libera al hacer commit

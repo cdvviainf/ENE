@@ -92,6 +92,11 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
+            title: 'Tarifas',
+            url: '/config/tarifas',
+            items: []
+          },
+          {
             title: 'Zonas',
             url: '/config/zonas',
             items: []
