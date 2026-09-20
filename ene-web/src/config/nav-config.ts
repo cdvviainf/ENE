@@ -135,6 +135,11 @@ export const navGroups: NavGroup[] = [
             title: 'Prefijos de código',
             url: '/config/prefijos-codigo',
             items: []
+          },
+          {
+            title: 'Carga Masiva',
+            url: '/config/carga-masiva',
+            items: []
           }
         ]
       },

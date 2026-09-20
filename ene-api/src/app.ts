@@ -26,6 +26,7 @@ import { paisesRoutes } from './modules/config/paises/paises.routes.js'
 import { regionesRoutes } from './modules/config/regiones/regiones.routes.js'
 import { provinciasRoutes } from './modules/config/provincias/provincias.routes.js'
 import { comunasRoutes } from './modules/config/comunas/comunas.routes.js'
+import { cargaMasivaRoutes } from './modules/config/carga-masiva/carga-masiva.routes.js'
 
 export async function construirApp() {
   const app = Fastify({
@@ -160,6 +161,7 @@ export async function construirApp() {
   await app.register(regionesRoutes, { prefix: '/api/config' })
   await app.register(provinciasRoutes, { prefix: '/api/config' })
   await app.register(comunasRoutes, { prefix: '/api/config' })
+  await app.register(cargaMasivaRoutes, { prefix: '/api/config' })
 
   return app
 }

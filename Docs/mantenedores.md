@@ -651,6 +651,127 @@ Hay dependencias reales:
 tarifarios lo hace inviable a mano, se evalúa un importador acotado como
 excepción, y se descuenta del tiempo de otra etapa.
 
+> **Decisión de usuario (17-sep-2026): se amplía RN-CAR-02.** El cliente pidió
+> la réplica completa del motor de Carga Masiva ya construido en FAS, no solo
+> el caso acotado de tarifarios. Se construyó `shared/carga-masiva/` (núcleo
+> portable: `tipos.ts`, `generar-template.ts`, `parsear.ts`,
+> `reporte-errores.ts`) + `modules/config/carga-masiva/` (registro, service,
+> controller, routes), con un Excel de una hoja por maestro: Zonas,
+> TiposServicio, FormasPago, CondicionesPago(+Cuotas), Países, Clientes(+
+> Ejecutivos+Direcciones), Proveedores(+Alias/Cuentas/Contactos+Direcciones) y
+> Servicios. Nuevo `ItemMenu` `CARGA_MASIVA` (`/config/carga-masiva`), fuera
+> de `MANTENEDORES_SEPARADOS` (no hereda de `MAESTROS`).
+>
+> Quedan explícitamente fuera de este Excel: **Grupo/Pasajero** (RN-CAR-01 no
+> se reabre) y **Tarifario/TarifarioValor** (su CRUD de Etapa 5 todavía no
+> existe en `ene-api`; se agrega en una iteración posterior una vez cerrada
+> esa etapa). Región/Provincia/Comuna van como hojas de solo referencia
+> (prellenadas desde la BD, geografía fija por seed, RN-GEO-01) — no se cargan
+> desde este archivo.
+>
+> Adaptaciones al motor de FAS por las convenciones propias de ENE: las
+> columnas `decimal` viajan como `string` en todo el motor (RN-DIN-01, nunca
+> `number` de JS); se agregó un tipo de columna nuevo, `fkMulti` (códigos
+> separados por coma resueltos contra otra hoja), para las relaciones N:N
+> Proveedor↔TipoServicio y Proveedor↔Zona (RN-PRV-08, RN-PRV-05), que no
+> tienen equivalente en el registro original de FAS. Cada fila se valida con
+> el mismo Zod `*CreateSchema` que usa el alta manual antes de invocar el
+> `service.crear*` correspondiente, así que hereda toda regla de negocio ya
+> implementada (RUT, RN-GEO-02/03, RN-PAG-02, unicidad de código, etc.) sin
+> duplicarla.
+>
+> **QA-CM-001 (17-sep-2026): garantías de "Validar", atomicidad y flujo,
+> decisión de usuario tras arbitraje ambiguo.**
+>
+> **RN-CAR-03** "Validar" (dry-run) debe dejar el archivo tan cerca de
+> "confirmado que funciona" como sea posible sin escribir en la base: corre
+> los mismos Zod `*CreateSchema` que el commit, resuelve FKs (contra la base y
+> contra códigos de una hoja anterior de este mismo archivo), y detecta
+> colisiones de RUT y alias de Proveedor **entre filas del propio archivo**
+> (no solo contra la base, que en dry-run nunca cambia) — RN-PRV-01/RN-PRV-03.
+> Implementado con un acumulador en memoria (`AcumuladorProveedor`) que
+> registra cada RUT/alias ya aceptado en el archivo antes de pasar a la fila
+> siguiente.
+>
+> **RN-CAR-04** La carga es **parcial, no atómica**: cada fila se procesa de
+> forma independiente — las válidas se crean, las inválidas quedan reportadas
+> con hoja/fila/motivo. Mismo patrón que ya usa FAS en producción. No hay
+> rollback global ni por hoja.
+>
+> **RN-CAR-05** "Validar" es **opcional**, no un prerrequisito técnico de
+> "Cargar a la base": el usuario puede confirmar directamente un archivo sin
+> haberlo validado antes (igual que en FAS). La UI lo recomienda pero no lo
+> exige.
+>
+> **Tests pendientes cerrados (20-sep-2026), excepción puntual fuera del ciclo
+> QA-Codex a pedido explícito del usuario** (mismo patrón que QA-TEST-001):
+> `tests/carga-masiva.motor.test.ts` (23 tests, núcleo portable puro: tipos de
+> columna, `validarReferenciasInternas`, `generarTemplate`,
+> `generarReporteErrores`, `ordenTopologico`) y `tests/carga-masiva.test.ts`
+> (13 tests de integración contra BD real para `cargarMaestros`: RN-CAR-03,
+> RN-CAR-04, RN-CAR-05, RN-COR-01 vía carga masiva, FK contra fila del mismo
+> archivo, RN-GEO-02, RN-PRV-01/03, RN-PAG-02). 148 tests en total, sin
+> regresiones.
+>
+> **Bug encontrado y corregido durante la escritura de tests:**
+> `parsearHoja` (`shared/carga-masiva/parsear.ts`) acotaba el loop de filas
+> con `ws.actualRowCount` — que en ExcelJS cuenta filas *con datos*, no el
+> último índice de fila. Una fila totalmente en blanco en medio de una hoja
+> (separador accidental, fila con contenido borrado) hacía que el loop
+> terminara antes de tiempo y **descartara en silencio, sin ningún error
+> reportado, todas las filas de datos posteriores a esa fila en blanco**.
+> Reproducido con un round-trip real de ExcelJS (escribir con `writeBuffer` y
+> releer con `load`), no solo en memoria. Corregido a `ws.rowCount` (última
+> fila tocada, tolera huecos). Test de regresión en
+> `carga-masiva.motor.test.ts`.
+>
+> **Ciclo QA-Codex cerrado (20-sep-2026): `TESTS_OK`, ronda 3.** Primera
+> pasada QA-Codex sobre el módulo completo (nunca había pasado por el ciclo).
+> Tres hallazgos Alta encontrados y corregidos, todos en
+> `carga-masiva.service.ts`:
+>
+> - **QA-CM-001** (ronda 1): una fila con error de parseo en una columna
+>   *opcional* (ej. un enum inválido) quedaba reportada como inválida pero
+>   igual se creaba, porque `coaccionar` descarta el valor roto
+>   (`undefined`) y el orquestador solo bloqueaba la fila si esa columna era
+>   `requerido` — Zod terminaba aplicando su default. Corregido con un
+>   índice `hoja::fila` de cualquier error de parseo, consultado antes de
+>   construir/crear cada fila (y cada subfila, en hojas agrupadas).
+> - **QA-CM-002** (ronda 1): "Validar" (dry-run) podía aceptar como FK
+>   virtual el código de una fila padre que iba a ser rechazada al
+>   confirmar (ej. una Zona sin nombre referenciada por un Servicio),
+>   porque el conjunto de códigos válidos para el sentinel virtual se
+>   construía de una sola vez desde el parseo crudo, sin esperar a que la
+>   fila padre superara su propia validación. Corregido con un acumulador
+>   incremental que solo suma un código después de que su fila pasa
+>   parseo + Zod + validaciones extra — igual en dry-run y en commit.
+> - **QA-CM-003** (ronda 2): una subfila agrupada (ejecutivo, alias,
+>   cuenta, contacto, cuota) que superaba el parser pero fallaba su propio
+>   Zod (ej. un email con formato inválido) se anidaba sin validar en el
+>   payload del padre; el `schema.safeParse` del padre completo fallaba,
+>   tumbando también al padre válido y a sus demás subfilas hermanas, con
+>   el error atribuido a la fila del padre en vez de a la fila real de la
+>   subfila. Corregido validando cada subfila individualmente contra su
+>   propio schema (`ejecutivoInputSchema`, `aliasInputSchema`,
+>   `cuentaInputSchema`, `contactoInputSchema`,
+>   `condicionPagoCuotaInputSchema`) antes de anexarla al padre — solo las
+>   válidas se anexan, las inválidas quedan reportadas con su hoja/fila
+>   real sin afectar al resto. RN-PAG-02 (cuotas suman 100%) se sigue
+>   validando sobre el conjunto ya individualmente válido.
+>
+> Los tres casos se verificaron manualmente contra los ejemplos demostrados
+> por Codex (scripts descartables, no comiteados) antes de cada revalidación.
+> Tests finales: 148/148 sin regresiones, build API y web limpios, ESLint web
+> limpio sobre el alcance (deuda preexistente de `main` sin tocar).
+>
+> **Pendiente sin bloquear** (observación no vinculante del ciclo, rondas
+> 1-3): `RN-CAR-01..05` viven solo en `Docs/mantenedores.md`, no en
+> `Docs/reglas-negocio.md` — la fuente autoritativa de reglas de dominio
+> declarada por `CLAUDE.md` §0. Falta decidir si se trasladan. Falta también
+> un test de regresión explícito para QA-CM-003 (padre con una subfila
+> inválida solo por Zod + una hermana válida) — se verificó a mano, no quedó
+> en la suite.
+
 ---
 
 ## 11. Definiciones pendientes con el cliente

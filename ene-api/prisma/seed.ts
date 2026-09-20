@@ -41,6 +41,11 @@ const ITEMS_MENU = [
   { codigo: 'REGIONES', nombre: 'Regiones', modulo: 'config', ruta: '/config/regiones', orden: 80 },
   { codigo: 'PROVINCIAS', nombre: 'Provincias', modulo: 'config', ruta: '/config/provincias', orden: 81 },
   { codigo: 'COMUNAS', nombre: 'Comunas', modulo: 'config', ruta: '/config/comunas', orden: 82 },
+  // Carga Masiva es una capacidad nueva, no un mantenedor más: no hereda de
+  // MAESTROS (no entra en MANTENEDORES_SEPARADOS) — cada perfil parte en
+  // SIN_ACCESO salvo GERENCIA/ADMINISTRADOR, que heredan TOTAL en todo ítem
+  // nuevo por el loop genérico de abajo.
+  { codigo: 'CARGA_MASIVA', nombre: 'Carga masiva', modulo: 'config', ruta: '/config/carga-masiva', orden: 83 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
