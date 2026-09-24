@@ -734,6 +734,33 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > estado del formulario padre (RN-QC-01) antes de dar el criterio de término
 > de la etapa por cumplido con la demo real.
 
+**Etapa 6: Motor de costeo (23-sep-2026).** `src/modules/costeo/` —
+`costeo.service.ts` (lógica pura, no importa Prisma), `costeo.repository.ts`
+(resuelve el tarifario vigente del proveedor+servicio para una fecha de
+operación) y `costeo.types.ts`. Tres funciones: `resolverCosto` (costo de una
+línea `ESTANDAR` según su modelo), `valorizar` (aplica margen por línea y
+totaliza, RN-COS-01/04) y `recalcularPorPax` (RN-COS-07). 10 tests en
+`tests/costeo.test.ts`, corren sin base de datos — los seis casos exactos del
+criterio de término de la etapa pasan.
+
+**Decisión de usuario (23-sep-2026): costeo de líneas `ACOMODACION`.** Ningún
+documento definía qué pasa cuando `cantidadPax` no calza 1 a 1 con la
+capacidad del tipo de habitación (p. ej. `DOBLE` con 4 pax). Se resolvió:
+**una línea de cotización ACOMODACION es una habitación** — el valor del
+tarifario no se multiplica por `cantidadPax`. Si se necesitan varias
+habitaciones (p. ej. 2 pax en singles separados en vez de una doble), se
+cargan como líneas repetidas y se suman por RN-COS-04, en vez de que el motor
+calcule automáticamente cuántas habitaciones hacen falta por capacidad. Evita
+inventar una aritmética de "habitaciones necesarias" que ninguna regla
+documenta.
+
+Pendiente para cuando Etapa 7 (Cotizaciones) consuma este módulo: construir el
+armado real de `LineaCosteo` desde `CotizacionLinea` + `TarifarioVigente`
+(hoy `costeo.repository.ts` resuelve el tarifario pero no arma la línea), y
+decidir qué pasa con una línea `ACOMODACION` existente cuando cambia
+`cantidadPax` de la cotización (`recalcularPorPax` hoy la deja intacta salvo
+por el campo `cantidadPax`, ya que su costo no depende de él).
+
 ---
 
 ## 8. Motor de documentos
