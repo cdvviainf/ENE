@@ -13,7 +13,13 @@ async function launch(): Promise<Browser> {
   if (env.PDF_BROWSER_WS) {
     return chromium.connect(env.PDF_BROWSER_WS)
   }
-  return chromium.launch({ args: ['--font-render-hinting=none'] })
+  // executablePath vacío en desarrollo → Playwright usa su Chromium local. En el
+  // contenedor apunta al chromium del sistema (PLAYWRIGHT_EXECUTABLE_PATH), ya
+  // que la imagen no descarga el binario propio de Playwright (--ignore-scripts).
+  return chromium.launch({
+    executablePath: env.PLAYWRIGHT_EXECUTABLE_PATH || undefined,
+    args: ['--font-render-hinting=none'],
+  })
 }
 
 export async function getBrowser(): Promise<Browser> {

@@ -15,6 +15,10 @@ const esquema = z.object({
   DTE_RUT_EMISOR: z.string().optional(),
   DTE_AMBIENTE: z.enum(['certificacion', 'produccion']).default('certificacion'),
   PDF_BROWSER_WS: z.string().optional(),
+  // Ruta al Chromium del sistema para el motor de documentos. En el contenedor
+  // (Alpine) apunta al chromium instalado por apk (Dockerfile); vacío en
+  // desarrollo, donde Playwright usa el que instaló `npx playwright install`.
+  PLAYWRIGHT_EXECUTABLE_PATH: z.string().optional(),
   ADJUNTOS_PATH: z.string().default('/data/adjuntos'),
   ADJUNTOS_MAX_MB: z.coerce.number().default(25),
   TC_REFERENCIA_USD: z.coerce.number().default(950),
