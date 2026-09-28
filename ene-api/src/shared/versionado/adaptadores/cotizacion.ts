@@ -68,6 +68,9 @@ export const cotizacionVersionable: Versionable<
         costoTotal: l.costoTotal,
         margenPct: l.margenPct,
         ventaTotal: l.ventaTotal,
+        // RN-COS-06: la base tarifaria congelada viaja con la línea copiada;
+        // una versión nueva conserva el costo original, no lo re-resuelve.
+        tarifarioSnapshot: l.tarifarioSnapshot ?? undefined,
       })),
     })
   },

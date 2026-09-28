@@ -58,3 +58,40 @@ export async function resolverCodigo(
 
   return codigoEnviado
 }
+
+// ─── Correlativo anual de documentos (Cotización, OT, OC) ───────────────────
+// A diferencia de los maestros, el número del documento NO lo digita el
+// usuario: lo asigna el sistema, es correlativo por año y con guión
+// (COT-2026-0001). RN-COT-03/RN-OT-01: solo lo consume quien realmente crea el
+// documento (una cotización perdida no consume número de OT). El lock lo pasa
+// el módulo llamador (491001 Cotización, 491002 OT, 491003 OC).
+
+/** Reserva y devuelve el siguiente número correlativo anual para `entidad`
+ * (que debe tener `incluyeAnio = true` en `PrefijoCodigo`). Debe llamarse
+ * DENTRO de la transacción que crea el documento y DESPUÉS de tomar el
+ * advisory lock del correlativo — así dos altas concurrentes del mismo año no
+ * pueden reservar el mismo número (CLAUDE.md §7). Al cambiar de año reinicia
+ * `ultimoValor` a 0 y actualiza `anio`, para que el primer documento del año
+ * nuevo sea el 0001. */
+export async function generarNumeroAnual(
+  tx: Prisma.TransactionClient,
+  entidad: string,
+  anio: number,
+): Promise<string> {
+  const prefijo = await tx.prefijoCodigo.findUnique({ where: { entidad } })
+  if (!prefijo) throw conflicto(`No hay prefijo de código configurado para la entidad ${entidad}`)
+  if (!prefijo.incluyeAnio) {
+    throw conflicto(`El prefijo de ${entidad} no incluye año; use resolverCodigo (RN-COR-01)`)
+  }
+
+  // Reinicio de año: si el contador quedó de un año anterior, arranca en 0.
+  const base = prefijo.anio === anio ? prefijo.ultimoValor : 0
+  const siguiente = base + 1
+
+  await tx.prefijoCodigo.update({
+    where: { entidad },
+    data: { ultimoValor: siguiente, anio },
+  })
+
+  return `${prefijo.prefijo}-${anio}-${String(siguiente).padStart(prefijo.digitos, '0')}`
+}

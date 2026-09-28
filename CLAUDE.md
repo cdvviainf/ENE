@@ -761,6 +761,51 @@ decidir qué pasa con una línea `ACOMODACION` existente cuando cambia
 `cantidadPax` de la cotización (`recalcularPorPax` hoy la deja intacta salvo
 por el campo `cantidadPax`, ya que su costo no depende de él).
 
+**Etapa 7: Cotización + motor de documentos + PDF bilingüe (24-sep-2026).**
+Ciclo QA-Codex cerrado `TESTS_OK` en 9 rondas (2 arbitrajes). `src/modules/cotizaciones/`
+completo (schema/types/repo/service/controller/routes): CRUD, `PUT /itinerario`
+(edición directa en BORRADOR, RN-VER-08), `POST /versiones` (renegociación),
+`POST /recalcular-pax` (preview) + `PATCH /cantidad-pax` (aplica, RN-COS-07),
+`PATCH /estado` (RN-COT-01) y `POST /aprobar` (RN-COT-04). Motor de documentos
+portado de FAS (`documentos/` + `shared/pdf/`) sin multi-tenant, extendido con
+idioma/modalidad; plantilla `cotizacion/v1` bilingüe autocontenida + i18n;
+`GET /api/documentos/preview` + `POST /api/documentos/emitir`. Frontend en
+`features/cotizaciones/` + `app/(app)/cotizaciones/`.
+
+**Decisiones y correlativos nuevos.** Correlativo anual reutilizable
+`generarNumeroAnual` en `shared/correlativos.ts` (lock 491001, `COT-{YYYY}-{NNNN}`
+por año de creación). El armado convierte la moneda del tarifario a la de la
+cotización con `tipoCambio` congelado; el margen de línea nace de
+`input.margenPct ?? Servicio.margenSugerido(>0) ?? 0` (RN-COS-02: el margen
+global es acción de UI que escribe el % por línea, **no** un valor de cabecera —
+se descartó una columna `margenDefecto`). `/aprobar` solo valida y transiciona:
+la generación de OT es Etapa 8 (RN-COT-02, ver `Docs/reglas-negocio.md`).
+
+**Congelamiento del tarifario (RN-COS-06, el hallazgo que más costó — QA-IMP-009,
+arbitrado BUG_REAL ×2).** Cada línea ESTANDAR congela `tarifarioSnapshot` (JSON:
+modelo + tramos/valor/acomodaciones + moneda) al capturarse; el recálculo por pax
+y el versionado reconstruyen desde ese snapshot, **nunca** re-resolviendo el
+maestro. Un CHECK (`cotizacion_linea_snapshot_estandar_check`) lo hace obligatorio
+para ESTANDAR. `reemplazarLineasTx` hace **diff-update** (no delete-all) para que
+los ids de línea no cambien entre guardados; `armarLineasConservando` preserva
+costo+snapshot de las líneas cuyo servicio/proveedor/acomodación no cambian y solo
+re-cotiza nuevas o sustituidas; el frontend re-siembra sus filas desde el server
+tras cada mutación (patrón de ajuste en render) y bloquea el recálculo si hay
+cambios sin guardar. Las 5 operaciones mutantes toman `LOCK_COTIZACION_VERSION` y
+revalidan estado dentro de la transacción (QA-IMP-010: evita reabrir una
+cotización terminal por concurrencia). Emisión idempotente/`DocumentoEmitido`/marca
+`COPIA` **diferida** a etapas 8-10 (QA-IMP-011, documentada en §8).
+
+**Fixtures ESTANDAR de etapas previas** (`tarifas.test.ts`, `servicios.test.ts`)
+se ajustaron para incluir `tarifarioSnapshot` (el CHECK las rechazaba) — con
+autorización explícita del usuario, fuera del rol normal de Codex. 179 tests sin
+regresiones.
+
+**Verificación manual en navegador pendiente** (igual que Etapa 5): el ciclo fue
+revisión estática + `tsc`/`eslint`/`build` + Vitest; falta un recorrido real
+(crear cotización, itinerario de cada modelo, versionar, recalcular pax, emitir
+el PDF en ambos idiomas y modalidades) con Chromium conectado.
+
 ---
 
 ## 8. Motor de documentos
@@ -774,6 +819,21 @@ por el campo `cantidadPax`, ya que su costo no depende de él).
 - `ui/` — `Encabezado`, `TablaLineas`, `BloqueTotales`, `PieFirma`, `GrupoCampos`, `tokens`, `print-css`, `formato`
 - `shared/pdf/render.ts` — Playwright con `setContent`, locale `es-CL`, timezone `America/Santiago`
 - Emisión idempotente protegida por advisory lock, control de copia con marca de agua
+
+> **Diferimiento de la emisión idempotente (decisión de usuario, 24-sep-2026, Etapa 7 · QA-IMP-011).**
+> La Etapa 7 porta el motor (registry, resolvers, schemas, plantillas, `ui/`,
+> `shared/pdf/`) y agrega el bilingüe, y expone `GET /api/documentos/preview` +
+> `POST /api/documentos/emitir` que generan el HTML/PDF **bajo demanda**. La
+> capa de **emisión oficial idempotente** —modelo `DocumentoEmitido` con
+> snapshot del payload, serialización por `LOCK_DOCUMENTOS_EMISION` (491005) y
+> reimpresión con marca de agua `COPIA`— **se difiere**: se construye cuando
+> existan los demás documentos del catálogo (`orden-compra`, `comprobante-pago`,
+> etapas 8-10), para que la tabla `DocumentoEmitido` sirva a todos y no se
+> rehaga. El criterio de término de la Etapa 7 (que salga el PDF de cotización
+> en ambos idiomas y modalidades — `Docs/plan-implementacion.md` §8) se cumple
+> sin esa capa. Mismo criterio de diferimiento intencional que la generación de
+> OT (RN-COT-02). Hasta entonces `emitir` no persiste ni deduplica: cada llamada
+> re-resuelve el dato vigente y rinde el PDF.
 
 ### Catálogo de documentos de ENE
 

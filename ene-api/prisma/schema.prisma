@@ -938,6 +938,12 @@ model CotizacionLinea {
   costoTotal          Decimal      @db.Decimal(18, 4)
   margenPct           Decimal      @db.Decimal(7, 4)
   ventaTotal          Decimal      @db.Decimal(18, 4)
+  // RN-COS-06 [BLOQUEA]: la base tarifaria usada al capturar la línea ESTANDAR
+  // (modelo + tramos/valor/valores de acomodación + moneda) se congela acá. El
+  // recálculo por pax (RN-COS-07) se hace SIEMPRE contra este snapshot, nunca
+  // re-resolviendo el maestro, para que una modificación posterior del
+  // tarifario no altere una cotización ya cargada. null en líneas OTRO.
+  tarifarioSnapshot   Json?
 
   version        CotizacionVersion @relation(fields: [cotizacionVersionId], references: [id], onDelete: Restrict)
   servicio       Servicio?         @relation(fields: [servicioId], references: [id])

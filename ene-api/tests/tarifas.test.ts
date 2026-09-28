@@ -358,6 +358,9 @@ describe('RN-TAR-06: una nueva versión no reemplaza, versiona', () => {
         cotizacionVersionId: version.id, dia: 1, bloque: 'AM', orden: 1, tipoLinea: 'ESTANDAR',
         servicioId, tarifarioValorId, descripcion: 'QA', cantidadPax: 1,
         costoUnitario: '100000', costoTotal: '100000', margenPct: '0.5', ventaTotal: '150000',
+        // Etapa 7: toda línea ESTANDAR debe llevar la base tarifaria congelada
+        // (RN-COS-06), obligatoria por el CHECK cotizacion_linea_snapshot_estandar_check.
+        tarifarioSnapshot: { modelo: 'TRAMO_PAX', moneda: 'USD', tramos: [{ paxDesde: 1, paxHasta: null, valor: '100000' }] },
       },
     })
     cotizacionLineasCreadas.push(linea.id)

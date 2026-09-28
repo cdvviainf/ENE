@@ -116,6 +116,20 @@ tarifario ni servicio del catálogo.
 tarifas se modifique después. Nunca se recalcula una línea existente desde el
 tarifario.
 
+> **Implementación (Etapa 7).** Cada línea ESTANDAR congela su base tarifaria
+> (`tarifarioSnapshot`: modelo + tramos/valor/valores de acomodación + moneda)
+> al capturarse. El recálculo por pax (RN-COS-07) y el versionado reconstruyen
+> el costo **desde ese snapshot**, nunca re-resolviendo el maestro. Guardar el
+> itinerario, editar el margen o crear una versión **conservan** el costo y el
+> snapshot de las líneas cuyo servicio/proveedor/acomodación no cambian; solo
+> una línea nueva o una sustitución explícita (cambio de servicio/proveedor)
+> resuelve el maestro. Un CHECK de base
+> (`cotizacion_linea_snapshot_estandar_check`) hace el snapshot obligatorio
+> para toda línea ESTANDAR. **Precondición acreditada:** el módulo de
+> cotizaciones se estrena en esta etapa; no existe ninguna línea preexistente
+> sin snapshot en ningún ambiente, por lo que la migración no requiere backfill
+> (QA-IMP-009).
+
 ### Recálculo por cantidad de pasajeros
 
 **RN-COS-07** Cambiar la cantidad de pasajeros **recalcula todas las líneas** de
@@ -277,6 +291,16 @@ salidas a `PERDIDA` o `DESISTIDA` en cualquier punto.
 
 **RN-COT-02 [BLOQUEA]** Una cotización `APROBADA` no se edita. Genera la OT y
 queda inmutable.
+
+> **Secuencia de construcción (decisión de usuario, 24-sep-2026).** La
+> transacción `aprobar → genera OT` (correlativo `OT-{YYYY}-{NNNN}`, copia de
+> cabecera, versión 1 congelada como línea base) se construye en la **Etapa 8**,
+> no en la 7 — así lo fija `Docs/plan-implementacion.md` (§8, endpoint
+> `POST /aprobar → genera OT (etapa 8)`; §9 detalla la transacción). En la
+> Etapa 7 `POST /aprobar` valida `RN-COT-04` y transiciona a `APROBADA`; la
+> generación de la OT se enchufa en la Etapa 8, que es dueña del modelo de OT.
+> Mismo criterio de diferimiento intencional que `QA-VER-001`. El sistema final
+> cumple `RN-COT-02`/`RN-OT-01`; solo cambia el orden de construcción.
 
 **RN-COT-03** Una cotización `PERDIDA` o `DESISTIDA` **no genera OT ni consume
 numeración de OT**.

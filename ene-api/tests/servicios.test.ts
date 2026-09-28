@@ -152,6 +152,9 @@ describe('RN-MAN-04/05: soft delete de servicio', () => {
         cotizacionVersionId: version.id, dia: 1, bloque: 'AM', orden: 1, tipoLinea: 'ESTANDAR',
         servicioId: servicio.id, descripcion: 'QA', cantidadPax: 1,
         costoUnitario: '100', costoTotal: '100', margenPct: '0.5', ventaTotal: '150',
+        // Etapa 7: línea ESTANDAR requiere snapshot congelado (RN-COS-06),
+        // obligatorio por el CHECK cotizacion_linea_snapshot_estandar_check.
+        tarifarioSnapshot: { modelo: 'TRAMO_PAX', moneda: 'USD', tramos: [{ paxDesde: 1, paxHasta: null, valor: '100' }] },
       },
     })
 

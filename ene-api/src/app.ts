@@ -28,6 +28,9 @@ import { regionesRoutes } from './modules/config/regiones/regiones.routes.js'
 import { provinciasRoutes } from './modules/config/provincias/provincias.routes.js'
 import { comunasRoutes } from './modules/config/comunas/comunas.routes.js'
 import { cargaMasivaRoutes } from './modules/config/carga-masiva/carga-masiva.routes.js'
+import { cotizacionesRoutes } from './modules/cotizaciones/cotizaciones.routes.js'
+import { documentosRoutes } from './modules/documentos/documentos.routes.js'
+import { closeBrowser } from './shared/pdf/browser.js'
 
 export async function construirApp() {
   const app = Fastify({
@@ -164,6 +167,13 @@ export async function construirApp() {
   await app.register(provinciasRoutes, { prefix: '/api/config' })
   await app.register(comunasRoutes, { prefix: '/api/config' })
   await app.register(cargaMasivaRoutes, { prefix: '/api/config' })
+  await app.register(cotizacionesRoutes, { prefix: '/api' })
+  await app.register(documentosRoutes, { prefix: '/api/documentos' })
+
+  // Cierre ordenado del Chromium del motor de documentos (CLAUDE.md §8).
+  app.addHook('onClose', async () => {
+    await closeBrowser()
+  })
 
   return app
 }
