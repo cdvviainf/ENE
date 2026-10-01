@@ -69,10 +69,37 @@ export const cotizacionCreateSchema = z.object({
 })
 
 /** Reemplazo completo del itinerario de la versión vigente (solo BORRADOR,
- * RN-VER-08). Puede quedar vacío mientras la cotización se arma; aprobar exige
- * al menos una línea (RN-COT-04). */
+ * RN-VER-08). Exige al menos una línea: guardar un itinerario vacío no tiene
+ * valor operativo y dejaba una cotización que igual no podría aprobarse
+ * (RN-COT-04). Decisión de usuario (01-oct-2026): el bloqueo se adelanta al
+ * guardado en vez de esperar a la aprobación — RN-COT-04 (gate de aprobación)
+ * queda intacto, solo se hace estricto antes. Mismo criterio que
+ * nuevaVersionSchema, que ya lo exigía. */
 export const itinerarioSchema = z.object({
-  lineas: z.array(lineaInputSchema),
+  lineas: z.array(lineaInputSchema).min(1, 'El itinerario debe tener al menos una línea'),
+})
+
+/** POST /:id/preview-linea — cálculo de una línea ESTANDAR sin persistir, para
+ * que el diálogo del itinerario muestre el costo resuelto del tarifario vigente
+ * (RN-COS-06, RN-TAR-05) y la venta ANTES de guardar. Si no hay tarifario, el
+ * service devuelve `{ disponible: false }` en vez de error, para sugerir cargar
+ * la línea como OTRO (RN-COS-05). `ventaObjetivo` (opcional): si viene, el
+ * margen se DERIVA de la venta digitada (venta/costo − 1, RN-COS-04) en el
+ * servidor con decimal.js; si no, se usa `margenPct` o el sugerido del servicio
+ * (RN-COS-02). */
+export const previewLineaSchema = z.object({
+  // Identidad de una línea ya persistida (RN-COS-06): si viene y la línea
+  // conserva su base (servicio/proveedor/acomodación), el preview se calcula
+  // desde su costo y snapshot CONGELADOS —igual que el guardado—, no desde el
+  // maestro vigente. Ausente al previsualizar una línea nueva o una sustitución.
+  lineaId: z.coerce.number().int().positive().optional(),
+  dia: z.coerce.number().int().min(1),
+  cantidadPax: z.coerce.number().int().positive().optional(),
+  servicioId: z.coerce.number().int().positive(),
+  proveedorId: z.coerce.number().int().positive(),
+  acomodacion: acomodacionEnum.optional(),
+  margenPct: decimalString.optional(),
+  ventaObjetivo: decimalString.optional(),
 })
 
 /** Nueva versión de negociación tras el envío al cliente (RN-VER-02). El
@@ -115,3 +142,4 @@ export type LineaInput = z.infer<typeof lineaInputSchema>
 export type CotizacionCreateInput = z.infer<typeof cotizacionCreateSchema>
 export type ItinerarioInput = z.infer<typeof itinerarioSchema>
 export type NuevaVersionInput = z.infer<typeof nuevaVersionSchema>
+export type PreviewLineaInput = z.infer<typeof previewLineaSchema>

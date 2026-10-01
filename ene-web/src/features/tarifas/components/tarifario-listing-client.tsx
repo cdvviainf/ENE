@@ -40,7 +40,7 @@ export function TarifarioListingClient() {
   }
 
   return (
-    <div className='space-y-4'>
+    <DataTable table={table}>
       <div className='flex items-center gap-2'>
         <Checkbox
           id='solo-activos'
@@ -51,7 +51,6 @@ export function TarifarioListingClient() {
           Mostrar solo tarifarios activos
         </Label>
       </div>
-      <DataTable table={table} />
-    </div>
+    </DataTable>
   );
 }

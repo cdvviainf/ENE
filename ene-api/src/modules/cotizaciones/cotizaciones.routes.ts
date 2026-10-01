@@ -9,6 +9,7 @@ import {
   listVersiones,
   getVersion,
   postRecalcularPax,
+  postPreviewLinea,
   patchCantidadPax,
   patchEstado,
   postAprobar,
@@ -26,6 +27,7 @@ export async function cotizacionesRoutes(app: FastifyInstance) {
   app.put('/cotizaciones/:id/itinerario', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, putItinerario)
   app.post('/cotizaciones/:id/versiones', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, postVersion)
   app.post('/cotizaciones/:id/recalcular-pax', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, postRecalcularPax)
+  app.post('/cotizaciones/:id/preview-linea', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, postPreviewLinea)
   app.patch('/cotizaciones/:id/cantidad-pax', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, patchCantidadPax)
   app.patch('/cotizaciones/:id/estado', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, patchEstado)
   app.post('/cotizaciones/:id/aprobar', { preHandler: [requireAuth, requireLevel(ITEM, 'TOTAL')] }, postAprobar)

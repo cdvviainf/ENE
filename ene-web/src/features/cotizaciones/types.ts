@@ -136,6 +136,35 @@ export interface LineaInput {
   margenPct?: string;
 }
 
+// POST /:id/preview-linea — costo/venta de una línea ESTANDAR sin persistir.
+// `disponible: false` cuando no hay tarifario vigente para la combinación
+// (RN-COS-05): el diálogo lo muestra inline y sugiere cargar la línea como OTRO.
+export type PreviewLineaInput = {
+  // Identidad de una línea ya persistida (RN-COS-06): si conserva su base, el
+  // backend valoriza desde su costo/snapshot congelados, no desde el maestro.
+  lineaId?: number;
+  dia: number;
+  cantidadPax?: number;
+  servicioId: number;
+  proveedorId: number;
+  acomodacion?: Acomodacion;
+  margenPct?: string;
+  // Si viene, el margen se deriva de esta venta en el servidor (RN-COS-04).
+  ventaObjetivo?: string;
+};
+
+export type PreviewLineaResponse =
+  | { disponible: false; motivo: string }
+  | {
+      disponible: true;
+      moneda: Moneda;
+      costoUnitario: string;
+      costoTotal: string;
+      margenPct: string;
+      ventaTotal: string;
+      advertenciaVigencia: boolean;
+    };
+
 export interface RecalcularPaxResponse {
   lineas: Array<{
     dia: number;

@@ -45,7 +45,7 @@ export function CotizacionesListingClient() {
   }
 
   return (
-    <div className='space-y-4'>
+    <DataTable table={table}>
       <div className='flex flex-wrap items-center gap-2'>
         <Input
           placeholder='Buscar por número, cliente o grupo...'
@@ -70,7 +70,6 @@ export function CotizacionesListingClient() {
           </SelectContent>
         </Select>
       </div>
-      <DataTable table={table} />
-    </div>
+    </DataTable>
   );
 }

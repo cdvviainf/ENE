@@ -309,6 +309,14 @@ numeración de OT**.
 ejecutivo, grupo, fecha de operación, cantidad de pasajeros y al menos una línea
 valorizada.
 
+> **Decisión de usuario (01-oct-2026).** El requisito de "al menos una línea" se
+> adelanta al **guardado del itinerario**: `PUT /itinerario` y
+> `POST /versiones` rechazan un conjunto vacío de líneas. Guardar un itinerario
+> sin líneas no tiene valor operativo y dejaba una cotización que igual no
+> podría aprobarse. El gate de aprobación de esta regla no cambia; solo se hace
+> estricto antes. La cabecera de la cotización sigue creándose vacía
+> (`POST /cotizaciones`) y se arma el itinerario después.
+
 **RN-COT-05** El itinerario se organiza por **día** y **bloque AM/PM**. Un día
 puede no tener servicios en un bloque.
 

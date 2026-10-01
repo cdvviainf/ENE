@@ -7,6 +7,8 @@ import type {
   EstadoCotizacion,
   LineaInput,
   RecalcularPaxResponse,
+  PreviewLineaInput,
+  PreviewLineaResponse,
   IdiomaDocumento,
   ModalidadDocumento
 } from './types';
@@ -53,6 +55,11 @@ export const cotizacionesService = {
   // RN-COS-07: preview del recálculo, no persiste.
   async recalcularPax(id: number, cantidadPax: number): Promise<RecalcularPaxResponse> {
     return api.post(`cotizaciones/${id}/recalcular-pax`, { json: { cantidadPax } }).json();
+  },
+
+  // Preview de costo/venta de una línea ESTANDAR, no persiste (RN-COS-06).
+  async previewLinea(id: number, input: PreviewLineaInput): Promise<PreviewLineaResponse> {
+    return api.post(`cotizaciones/${id}/preview-linea`, { json: input }).json();
   },
 
   // RN-COS-07: aplica el recálculo de forma transaccional (cabecera + líneas).

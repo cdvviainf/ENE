@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useStore } from '@tanstack/react-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -13,7 +15,8 @@ import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { SoloLectura } from '@/components/shared/solo-lectura';
 import { clientesListOptions, clienteDetailOptions } from '@/features/clientes/queries';
-import { gruposListOptions } from '@/features/grupos/queries';
+import { gruposListOptions, gruposKeys } from '@/features/grupos/queries';
+import { GrupoQuickCreate } from '@/features/grupos/components/grupo-quick-create';
 import { zonasListOptions } from '@/features/zonas/queries';
 import { cotizacionesService } from '../service';
 import { cotizacionesKeys } from '../queries';
@@ -89,9 +92,24 @@ export function CotizacionForm() {
   });
 
   // Ejecutivos del cliente seleccionado (RN-COT-04: ejecutivo requerido para aprobar).
-  const clienteIdSel = form.state.values.clienteId;
+  // Se suscribe con `useStore` (no `form.state.values`, que es un snapshot no
+  // reactivo): sin esto el componente no re-renderiza al elegir un cliente y la
+  // consulta de ejecutivos queda con el id anterior (0), dejando el selector vacío.
+  const clienteIdSel = useStore(form.store, (s) => s.values.clienteId);
   const { data: clienteSel } = useQuery({ ...clienteDetailOptions(clienteIdSel), enabled: clienteIdSel > 0 });
   const ejecutivos = clienteSel?.ejecutivos ?? [];
+
+  // RN-COT-04: ejecutivo requerido para aprobar. Al cargar los ejecutivos del
+  // cliente se autoselecciona el por defecto —el representante legal, o el único
+  // activo— para no dejar el campo vacío. No pisa una elección manual: solo
+  // actúa cuando el campo está en null (elegir cliente ya lo resetea a null).
+  useEffect(() => {
+    if (clienteIdSel <= 0 || form.state.values.ejecutivoId != null) return;
+    const activos = ejecutivos.filter((e) => e.activo);
+    const porDefecto = activos.find((e) => e.esRepresentanteLegal) ?? (activos.length === 1 ? activos[0] : undefined);
+    if (porDefecto) form.setFieldValue('ejecutivoId', porDefecto.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteSel]);
 
   const { FormTextField } = useFormFields<FormValues>();
 
@@ -181,25 +199,34 @@ export function CotizacionForm() {
               {(field) => (
                 <div className='space-y-1.5'>
                   <Label>Grupo *</Label>
-                  <Select
-                    value={field.state.value ? String(field.state.value) : ''}
-                    onValueChange={(v) => {
-                      const id = Number.parseInt(v, 10);
-                      if (Number.isFinite(id)) field.handleChange(id);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Selecciona un grupo...' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {grupos.map((g) => (
-                        <SelectItem key={g.id} value={String(g.id)}>
-                          {g.apellido}
-                          <span className='text-muted-foreground ml-1.5 text-xs'>({g.codigo})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className='flex items-center gap-2'>
+                    <Select
+                      value={field.state.value ? String(field.state.value) : ''}
+                      onValueChange={(v) => {
+                        const id = Number.parseInt(v, 10);
+                        if (Number.isFinite(id)) field.handleChange(id);
+                      }}
+                    >
+                      <SelectTrigger className='flex-1'>
+                        <SelectValue placeholder='Selecciona un grupo...' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {grupos.map((g) => (
+                          <SelectItem key={g.id} value={String(g.id)}>
+                            {g.apellido}
+                            <span className='text-muted-foreground ml-1.5 text-xs'>({g.codigo})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <GrupoQuickCreate
+                      clienteId={clienteIdSel > 0 ? clienteIdSel : null}
+                      onCreated={(nuevo) => {
+                        queryClient.invalidateQueries({ queryKey: gruposKeys.all });
+                        field.handleChange(nuevo.id);
+                      }}
+                    />
+                  </div>
                   {field.state.meta.errors.length > 0 && (
                     <p className='text-destructive text-sm'>{String(field.state.meta.errors[0])}</p>
                   )}
@@ -272,7 +299,7 @@ export function CotizacionForm() {
             </form.Field>
 
             <FormTextField name='fechaOperacion' label='Fecha de operación' type='date' required />
-            <FormTextField name='cantidadPax' label='Cantidad de pasajeros' type='number' required />
+            <FormTextField name='cantidadPax' label='Cantidad de pasajeros' type='number' min={1} required className='w-28' />
 
             {/* Moneda */}
             <form.Field name='moneda'>

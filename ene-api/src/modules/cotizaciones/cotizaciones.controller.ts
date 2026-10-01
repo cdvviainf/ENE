@@ -8,6 +8,7 @@ import {
   recalcularPaxSchema,
   aplicarPaxSchema,
   cambioEstadoSchema,
+  previewLineaSchema,
   idParamSchema,
   versionParamSchema,
 } from './cotizaciones.schema.js'
@@ -63,6 +64,12 @@ export async function postRecalcularPax(req: FastifyRequest, reply: FastifyReply
   const { id } = idParamSchema.parse(req.params)
   const { cantidadPax } = recalcularPaxSchema.parse(req.body)
   return reply.send(await service.previewRecalcularPax(id, cantidadPax))
+}
+
+export async function postPreviewLinea(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = idParamSchema.parse(req.params)
+  const input = previewLineaSchema.parse(req.body)
+  return reply.send(await service.previewLinea(id, input))
 }
 
 export async function patchCantidadPax(req: FastifyRequest, reply: FastifyReply) {

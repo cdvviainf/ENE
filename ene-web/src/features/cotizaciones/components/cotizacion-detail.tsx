@@ -1,9 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatFechaCorta } from '@/lib/format';
+import { formatMonto } from '@/lib/dinero';
 import { cotizacionDetailOptions } from '../queries';
 import { AREA_LABELS, type EstadoCotizacion } from '../types';
 import { EstadoBadge } from './estado-badge';
@@ -77,6 +78,18 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
         modo={modo}
         cantidadPaxDefault={cot.cantidadPax}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className='text-base'>Resumen (versión {cot.versionVigente?.version ?? '—'})</CardTitle>
+        </CardHeader>
+        <CardContent className='grid gap-4 sm:grid-cols-4'>
+          <Dato etiqueta='Líneas' valor={String(cot.versionVigente?.lineas?.length ?? 0)} />
+          <Dato etiqueta='Costo total' valor={formatMonto(cot.versionVigente?.costoTotal, cot.moneda)} />
+          <Dato etiqueta='Margen' valor={formatMonto(cot.versionVigente?.margenTotal, cot.moneda)} />
+          <Dato etiqueta='Venta total' valor={formatMonto(cot.versionVigente?.ventaTotal, cot.moneda)} />
+        </CardContent>
+      </Card>
 
       <div className='grid gap-6 lg:grid-cols-2'>
         <VersionesPanel cotizacionId={cot.id} moneda={cot.moneda} versionVigente={cot.versionVigente?.version ?? null} />

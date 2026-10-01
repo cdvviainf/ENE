@@ -22,7 +22,8 @@ export function RecalcularPaxDialog({
   cotizacionId,
   moneda,
   modo,
-  bloqueado
+  bloqueado,
+  sinLineas
 }: {
   cotizacionId: number;
   moneda: Moneda;
@@ -30,6 +31,8 @@ export function RecalcularPaxDialog({
   // Hay cambios del itinerario sin guardar: aplicar un recálculo ahora dejaría
   // ids obsoletos (RN-COS-06). Se bloquea hasta guardar/descartar.
   bloqueado: boolean;
+  // Sin líneas no hay nada que recalcular: el disparador queda deshabilitado.
+  sinLineas: boolean;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -80,7 +83,12 @@ export function RecalcularPaxDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant='outline' size='sm'>
+        <Button
+          variant='outline'
+          size='sm'
+          disabled={sinLineas}
+          title={sinLineas ? 'Agrega al menos una línea para recalcular por pasajeros' : undefined}
+        >
           <Icons.arrowRight className='mr-2 h-4 w-4' />
           Recalcular por pax
         </Button>
@@ -89,6 +97,11 @@ export function RecalcularPaxDialog({
         <DialogHeader>
           <DialogTitle>Recalcular por cantidad de pasajeros</DialogTitle>
         </DialogHeader>
+        <p className='text-muted-foreground text-sm'>
+          Vuelve a valorizar todas las líneas del itinerario para una nueva cantidad de pasajeros. Con tarifas por
+          tramo el costo salta de forma escalonada, no proporcional (RN-COS-07): por eso conviene revisar la vista
+          previa antes de aplicar.
+        </p>
         {bloqueado && (
           <p className='text-destructive text-sm'>
             Guarda o descarta los cambios del itinerario antes de recalcular por pasajeros.

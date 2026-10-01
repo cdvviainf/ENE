@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js'
 import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
 import { tomarLock, LOCK_COTIZACION_CORRELATIVO, LOCK_COTIZACION_VERSION } from '../../shared/advisory-locks.js'
 import { generarNumeroAnual } from '../../shared/correlativos.js'
-import { aClp, aplicarMargen, aString, desdeClp, dividir, monto, type Decimal, type Montoish } from '../../shared/dinero/index.js'
+import { aClp, aplicarMargen, aString, desdeClp, dividir, margenDesdeVenta, monto, type Decimal, type Montoish } from '../../shared/dinero/index.js'
 import { crearSiguienteVersion, exigirVersionEditable } from '../../shared/versionado/index.js'
 import { cotizacionVersionable } from '../../shared/versionado/adaptadores/cotizacion.js'
 import { resolverCosto, valorizar } from '../costeo/costeo.service.js'
@@ -11,7 +11,7 @@ import { resolverTarifarioVigente, type TarifarioVigente } from '../costeo/coste
 import type { LineaCosteo, LineaEstandar } from '../costeo/costeo.types.js'
 import * as repo from './cotizaciones.repository.js'
 import { TRANSICIONES_ESTADO, type LineaResuelta, type TarifarioSnapshot, type TotalesVersion } from './cotizaciones.types.js'
-import type { CotizacionCreateInput, ItinerarioInput, LineaInput, NuevaVersionInput } from './cotizaciones.schema.js'
+import type { CotizacionCreateInput, ItinerarioInput, LineaInput, NuevaVersionInput, PreviewLineaInput } from './cotizaciones.schema.js'
 
 // ============================================================================
 // Cotización — Docs/reglas-negocio.md §6. Consume el motor de costeo (Etapa 6:
@@ -514,6 +514,105 @@ export async function previewRecalcularPax(id: number, nuevoPax: number) {
   if (!cot) throw noEncontrado('Cotización', id)
   const lineas = recalcularLineas(cot, nuevoPax)
   return { lineas, totales: totalesDeLineas(lineas) }
+}
+
+/** POST /:id/preview-linea — valoriza una línea ESTANDAR sin persistir, para
+ * que el diálogo del itinerario muestre el costo del tarifario vigente y la
+ * venta ANTES de guardar (ítems de UX del cotizador). Reutiliza `armarLineaCosteo`
+ * —la MISMA ruta de costeo que el guardado real (RN-COS-06)—, sin duplicar
+ * lógica. Si no hay tarifario vigente para la combinación, devuelve
+ * `{ disponible: false }` en vez de lanzar: el diálogo lo muestra inline y
+ * sugiere cargar la línea como OTRO (RN-COS-05), sin esperar al guardado.
+ * `ventaObjetivo` deriva el margen desde la venta digitada (RN-COS-04) con
+ * decimal.js en el servidor; ningún monto pasa por number (RN-DIN-01). */
+export async function previewLinea(id: number, input: PreviewLineaInput) {
+  const cot = await repo.findCotizacionById(id)
+  if (!cot) throw noEncontrado('Cotización', id)
+  const ctx = contextoDe(cot)
+
+  // RN-COS-06: si es una línea YA PERSISTIDA de la versión vigente que conserva
+  // su base (servicio/proveedor/acomodación), el costo está congelado y NO se
+  // re-resuelve del maestro —espejo exacto de conservarLineaEstandar, para que
+  // el preview coincida con lo que persiste el guardado aunque el tarifario haya
+  // cambiado después—. El costo congelado ya está en la moneda de la cotización.
+  if (input.lineaId != null) {
+    const existing = cot.versionVigente?.lineas.find((l) => l.id === input.lineaId)
+    const mismaBase =
+      existing != null &&
+      existing.tipoLinea === 'ESTANDAR' &&
+      existing.servicioId === input.servicioId &&
+      existing.proveedorId === input.proveedorId &&
+      (existing.acomodacion ?? null) === (input.acomodacion ?? null)
+    if (mismaBase && existing) {
+      const costoTotal = existing.costoTotal.toString()
+      const { margenPct, ventaTotal } = resolverMargenYVenta(costoTotal, input.margenPct ?? existing.margenPct.toString(), input.ventaObjetivo)
+      return {
+        disponible: true as const,
+        moneda: ctx.moneda,
+        costoUnitario: existing.costoUnitario.toString(),
+        costoTotal,
+        margenPct,
+        ventaTotal,
+        advertenciaVigencia: false,
+      }
+    }
+  }
+
+  // Línea nueva o sustitución (cambió servicio/proveedor/acomodación): se
+  // resuelve el maestro. Pre-chequeo de disponibilidad: el caso "sin tarifario"
+  // es respuesta normal, no error (RN-TAR-07: la vigencia se resuelve en el
+  // servidor con la fecha).
+  const fecha = fechaDelDia(ctx.fechaOperacion, input.dia)
+  const tarifario = await resolverTarifarioVigente(input.proveedorId, input.servicioId, fecha)
+  if (!tarifario) {
+    return {
+      disponible: false as const,
+      motivo: `No hay tarifario vigente para este servicio y proveedor en la fecha del día ${input.dia}; cárguela como línea OTRO (RN-COS-05).`,
+    }
+  }
+
+  // Misma valorización que el guardado real (margen sugerido del servicio si no
+  // viene uno, RN-COS-02). `armarLineaCosteo` puede lanzar RN-TAR-03 (ningún
+  // tramo cubre el pax): eso sí es un error de captura y se propaga.
+  const linea = await armarLineaCosteo(
+    {
+      dia: input.dia,
+      bloque: 'AM',
+      orden: 0,
+      tipoLinea: 'ESTANDAR',
+      servicioId: input.servicioId,
+      proveedorId: input.proveedorId,
+      acomodacion: input.acomodacion,
+      cantidadPax: input.cantidadPax,
+      margenPct: input.margenPct,
+    },
+    ctx,
+  )
+
+  const { margenPct, ventaTotal } = resolverMargenYVenta(linea.costoTotal, linea.margenPct, input.ventaObjetivo)
+  return {
+    disponible: true as const,
+    moneda: ctx.moneda,
+    costoUnitario: linea.costoUnitario,
+    costoTotal: linea.costoTotal,
+    margenPct,
+    ventaTotal,
+    advertenciaVigencia: linea.advertenciaVigencia,
+  }
+}
+
+/** Margen y venta a mostrar en el preview. Si el usuario digitó una venta
+ * objetivo, el margen se DERIVA de ella (RN-COS-04: venta/costo − 1) y la venta
+ * se recompone desde ese margen ya redondeado a Decimal(7,4), para que el valor
+ * mostrado sea el que quedaría guardado y no el objetivo crudo. Si no, se aplica
+ * el margen base (el del input o el sugerido/congelado). Todo con decimal.js
+ * (RN-DIN-01). */
+function resolverMargenYVenta(costoTotal: string, margenBase: string, ventaObjetivo?: string): { margenPct: string; ventaTotal: string } {
+  if (ventaObjetivo != null) {
+    const margenPct = margenDesdeVenta(costoTotal, ventaObjetivo).toFixed(4)
+    return { margenPct, ventaTotal: aString(aplicarMargen(costoTotal, margenPct)) }
+  }
+  return { margenPct: margenBase, ventaTotal: aString(aplicarMargen(costoTotal, margenBase)) }
 }
 
 /** PATCH /cantidad-pax — aplica el recálculo (RN-COS-07) de forma transaccional,
