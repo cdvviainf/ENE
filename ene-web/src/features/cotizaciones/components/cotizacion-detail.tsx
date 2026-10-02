@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatFechaCorta } from '@/lib/format';
 import { formatMonto } from '@/lib/dinero';
+import { fraccionAPorcentaje } from '@/lib/porcentaje';
 import { cotizacionDetailOptions } from '../queries';
 import { AREA_LABELS, type EstadoCotizacion } from '../types';
 import { EstadoBadge } from './estado-badge';
@@ -43,6 +44,21 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
 
   const modo = modoDe(cot.estado);
   const idiomaDefault = cot.idiomaDocumento === 'en' ? 'en' : 'es';
+
+  // Firma de TODO lo que consume el resolver del documento (cotizacion.resolver.ts):
+  // cabecera (cantidadPax) + versión (venta total) + cada línea con los campos que
+  // el PDF muestra, incluida la descripción en inglés y el pax por línea (cambian
+  // con el recálculo por pax, RN-COS-07). Si cambia, se remonta el iframe para que
+  // el documento no quede desfasado —antes solo se recargaba al cambiar idioma o
+  // modalidad—.
+  const pdfSig = [
+    `pax${cot.cantidadPax}`,
+    `v${cot.versionVigente?.version ?? 0}`,
+    `vt${cot.versionVigente?.ventaTotal ?? ''}`,
+    ...(cot.versionVigente?.lineas ?? []).map(
+      (l) => `${l.id}:${l.dia}:${l.bloque}:${l.orden}:${l.cantidadPax}:${l.ventaTotal}:${l.descripcion}:${l.descripcionEn ?? ''}`
+    )
+  ].join('|');
 
   return (
     <div className='space-y-6'>
@@ -86,7 +102,12 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
         <CardContent className='grid gap-4 sm:grid-cols-4'>
           <Dato etiqueta='Líneas' valor={String(cot.versionVigente?.lineas?.length ?? 0)} />
           <Dato etiqueta='Costo total' valor={formatMonto(cot.versionVigente?.costoTotal, cot.moneda)} />
-          <Dato etiqueta='Margen' valor={formatMonto(cot.versionVigente?.margenTotal, cot.moneda)} />
+          {/* margenTotal es el margen promedio ponderado (ratio, p. ej. 0,30), no
+              un monto: se muestra como porcentaje, no como dinero (RN-COS-04). */}
+          <Dato
+            etiqueta='Margen promedio'
+            valor={cot.versionVigente?.margenTotal != null ? `${fraccionAPorcentaje(cot.versionVigente.margenTotal)}%` : '—'}
+          />
           <Dato etiqueta='Venta total' valor={formatMonto(cot.versionVigente?.ventaTotal, cot.moneda)} />
         </CardContent>
       </Card>
@@ -95,7 +116,7 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
         <VersionesPanel cotizacionId={cot.id} moneda={cot.moneda} versionVigente={cot.versionVigente?.version ?? null} />
       </div>
 
-      <PdfPreview cotizacionId={cot.id} idiomaDefault={idiomaDefault} />
+      <PdfPreview cotizacionId={cot.id} idiomaDefault={idiomaDefault} refreshKey={pdfSig} />
     </div>
   );
 }

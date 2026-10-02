@@ -13,7 +13,17 @@ import type { IdiomaDocumento, ModalidadDocumento } from '../types';
 
 // RN-COT-06: idioma (es/en) y modalidad (total/desglosado). RN-COT-07: la
 // modalidad desglosada muestra la venta por ítem, nunca costo ni margen.
-export function PdfPreview({ cotizacionId, idiomaDefault }: { cotizacionId: number; idiomaDefault: IdiomaDocumento }) {
+export function PdfPreview({
+  cotizacionId,
+  idiomaDefault,
+  // Firma del contenido de la versión vigente: al cambiar (tras un auto-guardado)
+  // fuerza la recarga del iframe para que el documento muestre los datos frescos.
+  refreshKey
+}: {
+  cotizacionId: number;
+  idiomaDefault: IdiomaDocumento;
+  refreshKey?: string;
+}) {
   const [idioma, setIdioma] = useState<IdiomaDocumento>(idiomaDefault);
   const [modalidad, setModalidad] = useState<ModalidadDocumento>('total');
 
@@ -67,7 +77,7 @@ export function PdfPreview({ cotizacionId, idiomaDefault }: { cotizacionId: numb
       </CardHeader>
       <CardContent>
         <iframe
-          key={`${idioma}-${modalidad}`}
+          key={`${idioma}-${modalidad}-${refreshKey ?? ''}`}
           title='Vista previa de la cotización'
           src={previewUrl(cotizacionId, idioma, modalidad)}
           className='h-[600px] w-full rounded-md border bg-white'

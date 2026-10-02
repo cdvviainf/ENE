@@ -71,6 +71,12 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
   const [margenGlobalPct, setMargenGlobalPct] = useState('');
   const editable = modo !== 'bloqueado';
   const sinLineas = rows.length === 0;
+  // En BORRADOR el itinerario se escribe directo (RN-VER-08): cada cambio se
+  // auto-guarda y el servidor devuelve los montos, así resumen, versión y PDF se
+  // refrescan solos. Tras el envío (modo 'version') los cambios son una
+  // renegociación con motivo obligatorio (RN-VER-02), así que NO se auto-guarda:
+  // se acumulan y el usuario crea la versión explícitamente.
+  const autoguardado = modo === 'borrador';
 
   // RN-COS-06: tras una mutación externa (p. ej. aplicar recálculo por pax, que
   // reemplaza las líneas y les cambia el id), las props traen líneas frescas. Si
@@ -89,21 +95,8 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
     setRows(desdeServidor(lineas));
   }
 
-  // RN-COS-02: el margen global es una acción de interfaz que escribe el mismo
-  // porcentaje en cada línea; no se guarda como valor de cabecera. Se ingresa en
-  // porcentaje y se persiste como fracción. El monto se recalcula al guardar.
-  function aplicarMargenGlobal() {
-    if (!/^\d+(\.\d+)?$/.test(margenGlobalPct)) {
-      toast.error('Margen inválido (ej: 50)');
-      return;
-    }
-    const fraccion = porcentajeAFraccion(margenGlobalPct);
-    setRows((prev) => prev.map((r) => ({ ...r, margenPct: fraccion, _ventaTotal: undefined })));
-    setDirty(true);
-  }
-
-  function payloadLineas(): LineaInput[] {
-    return rows.map((r, i) => ({
+  function payloadDe(rowsFuente: Row[]): LineaInput[] {
+    return rowsFuente.map((r, i) => ({
       id: r.id,
       dia: r.dia,
       bloque: r.bloque,
@@ -120,19 +113,27 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
     }));
   }
 
+  // Auto-guardado de BORRADOR: invalida detalle Y versiones para que el resumen,
+  // el total de la versión y el PDF se refresquen (antes solo se invalidaba el
+  // detalle y la versión quedaba en 0). Ante un error NO deja el cambio local
+  // como si estuviera aplicado: restaura las filas confirmadas (`anterior`), para
+  // que la lista no muestre un estado que el servidor rechazó (RN-VER-08).
   const saveMutation = useMutation({
-    mutationFn: () => cotizacionesService.guardarItinerario(cotizacionId, payloadLineas()),
+    mutationFn: ({ next }: { next: Row[]; anterior: Row[] }) =>
+      cotizacionesService.guardarItinerario(cotizacionId, payloadDe(next)),
     onSuccess: (cot) => {
-      toast.success('Itinerario guardado');
-      setDirty(false);
       setRows(desdeServidor(cot.versionVigente?.lineas ?? []));
       queryClient.invalidateQueries({ queryKey: cotizacionesKeys.detail(cotizacionId) });
+      queryClient.invalidateQueries({ queryKey: cotizacionesKeys.versiones(cotizacionId) });
     },
-    onError: (e: Error) => toast.error(e.message || 'Error al guardar el itinerario')
+    onError: (e: Error, vars) => {
+      setRows(vars.anterior);
+      toast.error(e.message || 'No se pudo guardar el cambio; se revirtió');
+    }
   });
 
   const versionMutation = useMutation({
-    mutationFn: () => cotizacionesService.nuevaVersion(cotizacionId, { motivo: motivo.trim(), lineas: payloadLineas() }),
+    mutationFn: () => cotizacionesService.nuevaVersion(cotizacionId, { motivo: motivo.trim(), lineas: payloadDe(rows) }),
     onSuccess: (cot) => {
       toast.success('Nueva versión creada');
       setDirty(false);
@@ -145,23 +146,55 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
     onError: (e: Error) => toast.error(e.message || 'No se pudo crear la versión')
   });
 
+  const guardando = saveMutation.isPending;
+
+  // Aplica un conjunto de líneas nuevo: en BORRADOR lo auto-guarda (el servidor
+  // devuelve los montos y refresca todo); tras el envío solo marca cambios
+  // pendientes para la futura versión.
+  function aplicarCambio(next: Row[]) {
+    if (autoguardado) {
+      // `rows` acá es el último estado confirmado (las acciones se deshabilitan
+      // mientras un guardado está en vuelo): sirve para revertir si el PUT falla.
+      const anterior = rows;
+      setRows(next);
+      saveMutation.mutate({ next, anterior });
+    } else {
+      setRows(next);
+      setDirty(true);
+    }
+  }
+
+  // RN-COS-02: el margen global es una acción de interfaz que escribe el mismo
+  // porcentaje en cada línea; no se guarda como valor de cabecera. Se ingresa en
+  // porcentaje y se persiste como fracción.
+  function aplicarMargenGlobal() {
+    if (!/^\d+(\.\d+)?$/.test(margenGlobalPct)) {
+      toast.error('Margen inválido (ej: 50)');
+      return;
+    }
+    const fraccion = porcentajeAFraccion(margenGlobalPct);
+    aplicarCambio(rows.map((r) => ({ ...r, margenPct: fraccion, _ventaTotal: undefined })));
+  }
+
   function agregar(row: Omit<Row, '_key'>) {
-    setRows((prev) => [...prev, { ...row, _key: `new-${Date.now()}-${prev.length}` }]);
-    setDirty(true);
+    aplicarCambio([...rows, { ...row, _key: `new-${Date.now()}-${rows.length}` }]);
   }
 
   // Edita una línea ya presente conservando su identidad (`id`, `_key`) para que
   // el backend preserve su costo congelado si servicio/proveedor/acomodación no
-  // cambian, y re-cotice solo si cambiaron (RN-COS-06). El `_ventaTotal` que trae
-  // el diálogo es el previsualizado; el valor definitivo se confirma al guardar.
+  // cambian, y re-cotice solo si cambiaron (RN-COS-06).
   function editar(key: string, row: Omit<Row, '_key'>) {
-    setRows((prev) => prev.map((r) => (r._key === key ? { ...row, _key: key } : r)));
-    setDirty(true);
+    aplicarCambio(rows.map((r) => (r._key === key ? { ...row, _key: key } : r)));
   }
 
   function quitar(key: string) {
-    setRows((prev) => prev.filter((r) => r._key !== key));
-    setDirty(true);
+    // RN-COT-04: el itinerario no puede quedar vacío. En BORRADOR el auto-guardado
+    // rechazaría un PUT sin líneas, así que se bloquea quitar la última.
+    if (autoguardado && rows.length === 1) {
+      toast.error('El itinerario debe tener al menos una línea; reemplázala en vez de vaciarlo');
+      return;
+    }
+    aplicarCambio(rows.filter((r) => r._key !== key));
   }
 
   // Agrupa por día y bloque para mostrar (RN-COT-05).
@@ -191,19 +224,19 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
                 />
                 <span className='text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm'>%</span>
               </div>
-              <Button variant='outline' size='sm' onClick={aplicarMargenGlobal} disabled={sinLineas}>
+              <Button variant='outline' size='sm' onClick={aplicarMargenGlobal} disabled={sinLineas || guardando}>
                 Aplicar a todas
               </Button>
             </div>
-            {/* El recálculo por pax es una operación del itinerario: vive acá para
-                compartir el estado `dirty` y bloquearse si hay cambios sin guardar
-                (RN-COS-06: evita que un recálculo con líneas locales sin persistir
-                deje ids obsoletos que luego re-cotizarían desde el maestro). */}
+            {/* El recálculo por pax es una operación del itinerario. En modo
+                'version' se bloquea con cambios pendientes (RN-COS-06); en BORRADOR
+                se bloquea mientras un auto-guardado está en vuelo, para no dejar
+                ids obsoletos que luego re-cotizarían desde el maestro. */}
             <RecalcularPaxDialog
               cotizacionId={cotizacionId}
               moneda={moneda}
               modo={modo === 'version' ? 'version' : 'borrador'}
-              bloqueado={dirty}
+              bloqueado={autoguardado ? guardando : dirty}
               sinLineas={sinLineas}
             />
             <LineaDialog
@@ -213,22 +246,19 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
               margenGlobalPct={margenGlobalPct}
               onSubmit={agregar}
               trigger={
-                <Button size='sm' variant='outline'>
+                <Button size='sm' variant='outline' disabled={guardando}>
                   <Icons.add className='mr-2 h-4 w-4' />
                   Agregar línea
                 </Button>
               }
             />
             {modo === 'borrador' ? (
-              <Button
-                size='sm'
-                onClick={() => saveMutation.mutate()}
-                isLoading={saveMutation.isPending}
-                disabled={!dirty || sinLineas}
-              >
-                <Icons.check className='mr-2 h-4 w-4' />
-                Guardar itinerario
-              </Button>
+              guardando && (
+                <span className='text-muted-foreground flex items-center gap-1.5 text-sm'>
+                  <Icons.spinner className='h-4 w-4 animate-spin' />
+                  Guardando…
+                </span>
+              )
             ) : (
               <Dialog open={motivoOpen} onOpenChange={setMotivoOpen}>
                 <DialogTrigger asChild>
@@ -310,12 +340,12 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
                                     initial={r}
                                     onSubmit={(row) => editar(r._key, row)}
                                     trigger={
-                                      <Button variant='ghost' size='icon' className='h-7 w-7' title='Editar línea'>
+                                      <Button variant='ghost' size='icon' className='h-7 w-7' title='Editar línea' disabled={guardando}>
                                         <Icons.edit className='h-4 w-4' />
                                       </Button>
                                     }
                                   />
-                                  <Button variant='ghost' size='icon' className='h-7 w-7' title='Quitar línea' onClick={() => quitar(r._key)}>
+                                  <Button variant='ghost' size='icon' className='h-7 w-7' title='Quitar línea' onClick={() => quitar(r._key)} disabled={guardando}>
                                     <Icons.trash className='h-4 w-4' />
                                   </Button>
                                 </>
@@ -331,13 +361,12 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
             </div>
           ))
         )}
-        {dirty && (
+        {/* Solo en modo 'version': en BORRADOR cada cambio se auto-guarda y no hay
+            estado pendiente. */}
+        {dirty && !autoguardado && (
           <div className='flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200'>
             <Icons.warning className='h-4 w-4 shrink-0' />
-            <span>
-              Hay cambios sin guardar. Los montos, el resumen y el PDF se actualizan recién al{' '}
-              {modo === 'borrador' ? 'guardar el itinerario' : 'crear la nueva versión'}.
-            </span>
+            <span>Hay cambios sin guardar. Los montos, el resumen y el PDF se actualizan al crear la nueva versión.</span>
           </div>
         )}
       </CardContent>
