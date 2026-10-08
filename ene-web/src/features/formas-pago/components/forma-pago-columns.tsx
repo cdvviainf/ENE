@@ -18,6 +18,7 @@ import {
 import { AlertModal } from '@/components/modal/alert-modal';
 import { Icons } from '@/components/icons';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
+import { fraccionAPorcentaje } from '@/lib/porcentaje';
 import { formasPagoService } from '../service';
 import { formasPagoKeys } from '../queries';
 import type { FormaPago } from '../types';
@@ -87,6 +88,17 @@ export const formaPagoColumns: ColumnDef<FormaPago>[] = [
     accessorKey: 'nombre',
     header: ({ column }) => <DataTableColumnHeader column={column} title='Nombre' />,
     cell: ({ row }) => <span className='font-medium'>{row.original.nombre}</span>
+  },
+  {
+    id: 'porcentajeAdicional',
+    accessorKey: 'porcentajeAdicional',
+    header: ({ column }) => <DataTableColumnHeader column={column} title='Recargo' />,
+    cell: ({ row }) => {
+      const pct = fraccionAPorcentaje(String(row.original.porcentajeAdicional ?? 0));
+      if (pct === '' || pct === '0') return <span className='text-muted-foreground'>—</span>;
+      return <span className='font-mono text-xs'>{pct}%</span>;
+    },
+    size: 110
   },
   {
     id: 'actions',

@@ -28,6 +28,9 @@ export interface LineaResuelta {
   tarifarioValorId: number | null
   descripcion: string
   descripcionEn: string | null
+  // RN-COT-10: observación libre por línea (bilingüe).
+  observacion: string | null
+  observacionEn: string | null
   cantidadPax: number
   acomodacion: Acomodacion | null
   costoUnitario: string
@@ -45,6 +48,23 @@ export interface TotalesVersion {
   costoTotal: string
   margenTotal: string
   ventaTotal: string
+}
+
+/** RN-COT-09/10, RN-COS-08: contenido de encabezado que se persiste en cada
+ * versión. El recargo (pass-through de la forma de pago) se congela acá:
+ * recargoPct snapshotea FormaPago.porcentajeAdicional y recargoTotal =
+ * ventaTotal × recargoPct. Montos como string (RN-DIN-01). */
+export interface ContenidoVersion {
+  fechaVigencia: Date | null
+  incluidos: string | null
+  incluidosEn: string | null
+  noIncluidos: string | null
+  noIncluidosEn: string | null
+  notasImportantes: string | null
+  notasImportantesEn: string | null
+  formaPagoId: number | null
+  recargoPct: string
+  recargoTotal: string
 }
 
 /** Transiciones válidas de estado (RN-COT-01). APROBADA no está acá: se

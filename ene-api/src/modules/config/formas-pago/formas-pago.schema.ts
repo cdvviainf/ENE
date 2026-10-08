@@ -10,6 +10,13 @@ export const formaPagoCreateSchema = z.object({
     .toUpperCase()
     .regex(/^\S+$/, 'El código no puede tener espacios'),
   nombre: z.string().min(1, 'El nombre es requerido').max(80).trim(),
+  // RN-COS-08: recargo operacional (0.03 = 3%). Se suma a la propuesta como
+  // pass-through sobre la venta. Máx 4 decimales, entre 0 y 1 (100%).
+  porcentajeAdicional: z
+    .number()
+    .min(0, 'No puede ser negativo')
+    .max(1, 'No puede superar 100%')
+    .default(0),
 })
 
 export const formaPagoUpdateSchema = formaPagoCreateSchema.partial()

@@ -22,7 +22,7 @@ try {
 const prisma = new PrismaClient()
 
 let clienteId: number
-let grupoId: number
+let negocioId: number
 let cotizacionId: number
 
 beforeAll(async () => {
@@ -40,16 +40,16 @@ beforeAll(async () => {
   })
   clienteId = cliente.id
 
-  const grupo = await prisma.grupo.create({
+  const negocio = await prisma.negocio.create({
     data: { codigo: 'GQA-CONC', apellido: 'QA', clienteId, cantidadPax: 1, creadoPor: 'test' },
   })
-  grupoId = grupo.id
+  negocioId = negocio.id
 
   const cot = await prisma.cotizacion.create({
     data: {
       numero: 'COT-QA-CONC',
       clienteId,
-      grupoId,
+      negocioId,
       areaNegocio: 'RECEPTIVO',
       fechaOperacion: new Date(),
       cantidadPax: 2,
@@ -77,7 +77,7 @@ afterAll(async () => {
     await prisma.cotizacionVersion.deleteMany({ where: { cotizacionId } })
     await prisma.cotizacion.delete({ where: { id: cotizacionId } }).catch(() => {})
   }
-  if (grupoId) await prisma.grupo.delete({ where: { id: grupoId } }).catch(() => {})
+  if (negocioId) await prisma.negocio.delete({ where: { id: negocioId } }).catch(() => {})
   if (clienteId) await prisma.cliente.delete({ where: { id: clienteId } }).catch(() => {})
   await prisma.$disconnect()
 })
@@ -118,7 +118,7 @@ describe('versionado — RN-VER-04/07: concurrencia real serializada por advisor
       data: {
         numero: 'COT-QA-CONC-2',
         clienteId,
-        grupoId,
+        negocioId,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
         cantidadPax: 2,

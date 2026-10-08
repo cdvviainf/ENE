@@ -77,8 +77,8 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
-            title: 'Grupos',
-            url: '/config/grupos',
+            title: 'Negocios',
+            url: '/config/negocios',
             items: []
           },
           {
@@ -114,6 +114,16 @@ export const navGroups: NavGroup[] = [
           {
             title: 'Condiciones de pago',
             url: '/config/condiciones-pago',
+            items: []
+          },
+          {
+            title: 'Tipos de documento',
+            url: '/config/tipos-documento',
+            items: []
+          },
+          {
+            title: 'Datos de empresa',
+            url: '/config/empresa',
             items: []
           },
           {

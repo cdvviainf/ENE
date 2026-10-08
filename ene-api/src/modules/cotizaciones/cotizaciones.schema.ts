@@ -38,8 +38,14 @@ export const lineaInputSchema = z
     cantidadPax: z.coerce.number().int().positive().optional(),
     descripcion: z.string().trim().min(1).optional(),
     descripcionEn: z.string().trim().min(1).optional(),
+    // RN-COT-10: observación libre por línea (bilingüe), sale en el PDF.
+    observacion: z.string().trim().min(1).optional(),
+    observacionEn: z.string().trim().min(1).optional(),
     costoTotal: decimalString.optional(),
     margenPct: decimalString.optional(),
+    // RN-COT-11: venta objetivo. Si viene, el margen se DERIVA de la venta
+    // digitada (venta/costo − 1). Habilitado para ESTANDAR y OTRO por igual.
+    ventaObjetivo: decimalString.optional(),
   })
   .superRefine((l, ctx) => {
     if (l.tipoLinea === 'ESTANDAR') {
@@ -58,15 +64,36 @@ export const lineaInputSchema = z
 export const cotizacionCreateSchema = z.object({
   clienteId: z.coerce.number().int().positive(),
   ejecutivoId: z.coerce.number().int().positive().optional(),
-  grupoId: z.coerce.number().int().positive(),
+  negocioId: z.coerce.number().int().positive(),
   areaNegocio: areaNegocioEnum,
-  zonaId: z.coerce.number().int().positive().optional(),
+  // RN-COT-08: una cotización puede abarcar varias zonas (antes era una sola).
+  zonaIds: z.array(z.coerce.number().int().positive()).optional().default([]),
   fechaOperacion: z.coerce.date(),
   cantidadPax: z.coerce.number().int().positive(),
   idiomaDocumento: idiomaEnum.default('es'),
+  // RN-MON-01 (enmendada): la moneda es libre (USD/CLP), independiente del
+  // área. El frontend sugiere un default por área, pero no se fuerza.
   moneda: monedaEnum,
   tipoCambio: decimalString,
 })
+
+/** Campos de cabecera editables de una cotización (todos opcionales). Mismo
+ * conjunto que acepta el update parcial. RN-COT-08 (zonas). */
+export const cotizacionUpdateSchema = cotizacionCreateSchema.partial()
+
+/** RN-COT-09/10/COS-08: contenido de encabezado que viaja con cada versión —
+ * vigencia, comentarios bilingües y forma de pago (con su recargo). Compartido
+ * por el guardado de itinerario (BORRADOR) y la creación de versión. */
+const contenidoVersionSchema = {
+  fechaVigencia: z.coerce.date().optional().nullable(),
+  incluidos: z.string().trim().optional().nullable(),
+  incluidosEn: z.string().trim().optional().nullable(),
+  noIncluidos: z.string().trim().optional().nullable(),
+  noIncluidosEn: z.string().trim().optional().nullable(),
+  notasImportantes: z.string().trim().optional().nullable(),
+  notasImportantesEn: z.string().trim().optional().nullable(),
+  formaPagoId: z.coerce.number().int().positive().optional().nullable(),
+}
 
 /** Reemplazo completo del itinerario de la versión vigente (solo BORRADOR,
  * RN-VER-08). Exige al menos una línea: guardar un itinerario vacío no tiene
@@ -77,6 +104,7 @@ export const cotizacionCreateSchema = z.object({
  * nuevaVersionSchema, que ya lo exigía. */
 export const itinerarioSchema = z.object({
   lineas: z.array(lineaInputSchema).min(1, 'El itinerario debe tener al menos una línea'),
+  ...contenidoVersionSchema,
 })
 
 /** POST /:id/preview-linea — cálculo de una línea ESTANDAR sin persistir, para
@@ -87,26 +115,40 @@ export const itinerarioSchema = z.object({
  * margen se DERIVA de la venta digitada (venta/costo − 1, RN-COS-04) en el
  * servidor con decimal.js; si no, se usa `margenPct` o el sugerido del servicio
  * (RN-COS-02). */
-export const previewLineaSchema = z.object({
-  // Identidad de una línea ya persistida (RN-COS-06): si viene y la línea
-  // conserva su base (servicio/proveedor/acomodación), el preview se calcula
-  // desde su costo y snapshot CONGELADOS —igual que el guardado—, no desde el
-  // maestro vigente. Ausente al previsualizar una línea nueva o una sustitución.
-  lineaId: z.coerce.number().int().positive().optional(),
-  dia: z.coerce.number().int().min(1),
-  cantidadPax: z.coerce.number().int().positive().optional(),
-  servicioId: z.coerce.number().int().positive(),
-  proveedorId: z.coerce.number().int().positive(),
-  acomodacion: acomodacionEnum.optional(),
-  margenPct: decimalString.optional(),
-  ventaObjetivo: decimalString.optional(),
-})
+export const previewLineaSchema = z
+  .object({
+    // Identidad de una línea ya persistida (RN-COS-06): si viene y la línea
+    // conserva su base (servicio/proveedor/acomodación), el preview se calcula
+    // desde su costo y snapshot CONGELADOS —igual que el guardado—, no desde el
+    // maestro vigente. Ausente al previsualizar una línea nueva o una sustitución.
+    lineaId: z.coerce.number().int().positive().optional(),
+    // RN-COT-11: el preview también sirve a OTRO (costo digitado) para derivar su
+    // venta/margen igual que ESTANDAR. Default ESTANDAR por compatibilidad.
+    tipoLinea: tipoLineaEnum.default('ESTANDAR'),
+    dia: z.coerce.number().int().min(1),
+    cantidadPax: z.coerce.number().int().positive().optional(),
+    servicioId: z.coerce.number().int().positive().optional(),
+    proveedorId: z.coerce.number().int().positive().optional(),
+    acomodacion: acomodacionEnum.optional(),
+    costoTotal: decimalString.optional(),
+    margenPct: decimalString.optional(),
+    ventaObjetivo: decimalString.optional(),
+  })
+  .superRefine((l, ctx) => {
+    if (l.tipoLinea === 'ESTANDAR') {
+      if (l.servicioId == null) ctx.addIssue({ code: 'custom', path: ['servicioId'], message: 'servicioId es requerido para preview ESTANDAR' })
+      if (l.proveedorId == null) ctx.addIssue({ code: 'custom', path: ['proveedorId'], message: 'proveedorId es requerido para preview ESTANDAR' })
+    } else if (l.costoTotal == null) {
+      ctx.addIssue({ code: 'custom', path: ['costoTotal'], message: 'costoTotal es requerido para preview OTRO' })
+    }
+  })
 
 /** Nueva versión de negociación tras el envío al cliente (RN-VER-02). El
  * motivo es obligatorio a partir de la v2 (RN-VER-06). */
 export const nuevaVersionSchema = z.object({
   motivo: z.string().trim().min(1, 'El motivo es obligatorio a partir de la versión 2 (RN-VER-06)'),
   lineas: z.array(lineaInputSchema).min(1, 'Una versión nueva debe tener al menos una línea'),
+  ...contenidoVersionSchema,
 })
 
 export const recalcularPaxSchema = z.object({
@@ -140,6 +182,7 @@ export const versionParamSchema = z.object({
 
 export type LineaInput = z.infer<typeof lineaInputSchema>
 export type CotizacionCreateInput = z.infer<typeof cotizacionCreateSchema>
+export type CotizacionUpdateInput = z.infer<typeof cotizacionUpdateSchema>
 export type ItinerarioInput = z.infer<typeof itinerarioSchema>
 export type NuevaVersionInput = z.infer<typeof nuevaVersionSchema>
 export type PreviewLineaInput = z.infer<typeof previewLineaSchema>

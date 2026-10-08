@@ -28,14 +28,17 @@ import { formasPagoListOptions } from '@/features/formas-pago/queries';
 import { FormaPagoQuickCreate } from '@/features/formas-pago/components/forma-pago-quick-create';
 import { condicionesPagoListOptions } from '@/features/condiciones-pago/queries';
 import { CondicionPagoQuickCreate } from '@/features/condiciones-pago/components/condicion-pago-quick-create';
+import { tiposDocumentoListOptions } from '@/features/tipos-documento/queries';
+import { TipoDocumentoQuickCreate } from '@/features/tipos-documento/components/tipo-documento-quick-create';
 
 const proveedorSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  // RN-PRV-09: documento tributario que emite el proveedor.
-  tipoDocumento: z.enum(['FACTURA_AFECTA', 'FACTURA_EXENTA', 'BOLETA_HONORARIOS']),
+  // RN-PRV-09: documento tributario que emite el proveedor. Ahora es FK al
+  // catálogo config/tipos-documento (opcional), ya no un enum fijo.
+  tipoDocumentoId: z.coerce.number().int().positive().optional(),
   // RN-PRV-10: link de pago opcional.
   urlPago: z.string().url('URL inválida').max(500).trim().optional().or(z.literal('')),
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
@@ -49,13 +52,6 @@ const proveedorSchema = z.object({
 });
 
 type ProveedorFormValues = z.infer<typeof proveedorSchema>;
-
-// RN-PRV-09: etiquetas legibles del documento tributario que emite el proveedor.
-const TIPO_DOCUMENTO_OPCIONES: { value: ProveedorFormValues['tipoDocumento']; label: string }[] = [
-  { value: 'FACTURA_AFECTA', label: 'Factura afecta' },
-  { value: 'FACTURA_EXENTA', label: 'Factura exenta' },
-  { value: 'BOLETA_HONORARIOS', label: 'Boleta de honorarios' }
-];
 
 interface ProveedorFormProps {
   proveedorId?: number;
@@ -72,10 +68,12 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
   const { data: tiposData } = useQuery(tiposServicioListOptions({ limit: 200 }));
   const { data: formasPagoData } = useQuery(formasPagoListOptions({ limit: 200 }));
   const { data: condicionesPagoData } = useQuery(condicionesPagoListOptions({ limit: 200 }));
+  const { data: tiposDocumentoData } = useQuery(tiposDocumentoListOptions({ limit: 200 }));
   const zonas = zonasData?.data ?? [];
   const tipos = tiposData?.data ?? [];
   const formasPago = formasPagoData?.data ?? [];
   const condicionesPago = condicionesPagoData?.data ?? [];
+  const tiposDocumento = tiposDocumentoData?.data ?? [];
 
   const mutation = useMutation({
     mutationFn: (values: ProveedorFormValues) => {
@@ -107,7 +105,7 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       razonSocial: '',
       rut: '',
       nombreComercial: '',
-      tipoDocumento: 'FACTURA_AFECTA',
+      tipoDocumentoId: undefined,
       urlPago: '',
       tiposServicio: [],
       zonas: [],
@@ -130,7 +128,7 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       form.setFieldValue('razonSocial', proveedor.razonSocial);
       form.setFieldValue('rut', proveedor.rut);
       form.setFieldValue('nombreComercial', proveedor.nombreComercial ?? '');
-      form.setFieldValue('tipoDocumento', proveedor.tipoDocumento);
+      form.setFieldValue('tipoDocumentoId', proveedor.tipoDocumentoId ?? undefined);
       form.setFieldValue('urlPago', proveedor.urlPago ?? '');
       form.setFieldValue('tiposServicio', (proveedor.tiposServicio ?? []).map((t) => t.tipoServicioId));
       form.setFieldValue('zonas', (proveedor.zonas ?? []).map((z) => z.zonaId));
@@ -192,25 +190,43 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                 <FormTextField name='rut' label='RUT' required placeholder='12.345.678-9' />
                 <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Como lo conoce el equipo' />
 
-                <form.Field name='tipoDocumento'>
+                <form.Field name='tipoDocumentoId'>
                   {(field) => (
                     <div className='space-y-1.5'>
                       <Label>Documento que emite</Label>
-                      <Select
-                        value={field.state.value}
-                        onValueChange={(v) => field.handleChange(v as ProveedorFormValues['tipoDocumento'])}
-                      >
-                        <SelectTrigger className='w-full'>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIPO_DOCUMENTO_OPCIONES.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={field.state.value ? String(field.state.value) : ''}
+                          onValueChange={(v) => {
+                            // Radix puede disparar onValueChange con un valor no
+                            // parseable al remontar SelectContent (p. ej. al
+                            // refrescar la lista tras un QuickCreate) — ignorarlo
+                            // evita resetear el campo a NaN.
+                            const id = Number.parseInt(v, 10);
+                            if (Number.isFinite(id)) field.handleChange(id);
+                          }}
+                        >
+                          <SelectTrigger className='flex-1'>
+                            <SelectValue placeholder='Sin definir...' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tiposDocumento.map((td) => (
+                              <SelectItem key={td.id} value={String(td.id)}>
+                                {td.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <TipoDocumentoQuickCreate
+                          onCreated={(nuevo) => {
+                            queryClient.invalidateQueries({ queryKey: ['tipos-documento'] });
+                            // form.setFieldValue (no field.handleChange): el callback corre
+                            // después del ciclo de vida async del diálogo hijo, y solo la
+                            // API del form de nivel superior queda garantizado que siga viva.
+                            form.setFieldValue('tipoDocumentoId', nuevo.id);
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
                 </form.Field>

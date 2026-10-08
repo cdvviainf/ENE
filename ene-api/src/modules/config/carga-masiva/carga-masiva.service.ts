@@ -16,6 +16,9 @@ import { tipoServicioCreateSchema } from '../tipos-servicio/tipos-servicio.schem
 import * as formasPagoRepo from '../formas-pago/formas-pago.repository.js'
 import * as formasPagoService from '../formas-pago/formas-pago.service.js'
 import { formaPagoCreateSchema } from '../formas-pago/formas-pago.schema.js'
+import * as tiposDocumentoRepo from '../tipos-documento/tipos-documento.repository.js'
+import * as tiposDocumentoService from '../tipos-documento/tipos-documento.service.js'
+import { tipoDocumentoCreateSchema } from '../tipos-documento/tipos-documento.schema.js'
 import * as condicionesPagoRepo from '../condiciones-pago/condiciones-pago.repository.js'
 import * as condicionesPagoService from '../condiciones-pago/condiciones-pago.service.js'
 import { condicionPagoCreateSchema, condicionPagoCuotaInputSchema } from '../condiciones-pago/condiciones-pago.schema.js'
@@ -56,6 +59,7 @@ const SCHEMA_POR_MODELO: Record<string, ZodTypeAny> = {
   zona: zonaCreateSchema,
   tipoServicio: tipoServicioCreateSchema,
   formaPago: formaPagoCreateSchema,
+  tipoDocumento: tipoDocumentoCreateSchema,
   condicionPago: condicionPagoCreateSchema,
   pais: paisCreateSchema,
   cliente: clienteCreateSchema,
@@ -137,6 +141,8 @@ async function resolverCodigoAIdEnBD(modelo: string, codigo: string): Promise<nu
       return (await tiposServicioRepo.findTipoServicioByCodigo(codigo))?.id ?? null
     case 'formaPago':
       return (await formasPagoRepo.findFormaPagoByCodigo(codigo))?.id ?? null
+    case 'tipoDocumento':
+      return (await tiposDocumentoRepo.findTipoDocumentoByCodigo(codigo))?.id ?? null
     case 'condicionPago':
       return (await condicionesPagoRepo.findCondicionPagoByCodigo(codigo))?.id ?? null
     case 'pais':
@@ -374,6 +380,9 @@ async function crearRegistro(modelo: string, input: any, creadoPor: string): Pro
       break
     case 'formaPago':
       await formasPagoService.crearFormaPago(input, creadoPor)
+      break
+    case 'tipoDocumento':
+      await tiposDocumentoService.crearTipoDocumento(input, creadoPor)
       break
     case 'condicionPago':
       await condicionesPagoService.crearCondicionPago(input, creadoPor)

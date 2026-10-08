@@ -25,7 +25,7 @@ const prisma = new PrismaClient()
 
 const idsCreados: number[] = []
 let clienteId: number
-let grupoId: number
+let negocioId: number
 
 beforeAll(async () => {
   // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado.
@@ -34,15 +34,15 @@ beforeAll(async () => {
     data: { codigo: 'QA-ZON-CLI', tipo: 'AGENCIA', razonSocial: 'QA Zonas', paisId, creadoPor: 'test' },
   })
   clienteId = cliente.id
-  const grupo = await prisma.grupo.create({
+  const negocio = await prisma.negocio.create({
     data: { codigo: 'QA-ZON-GR', apellido: 'QA', clienteId, cantidadPax: 2, creadoPor: 'test' },
   })
-  grupoId = grupo.id
+  negocioId = negocio.id
 })
 
 afterAll(async () => {
   await prisma.zona.deleteMany({ where: { id: { in: idsCreados } } }).catch(() => {})
-  if (grupoId) await prisma.grupo.delete({ where: { id: grupoId } }).catch(() => {})
+  if (negocioId) await prisma.negocio.delete({ where: { id: negocioId } }).catch(() => {})
   if (clienteId) await prisma.cliente.delete({ where: { id: clienteId } }).catch(() => {})
   await prisma.$disconnect()
 })
@@ -102,7 +102,7 @@ describe('RN-MAN-04: soft delete bloqueado por operación no cerrada', () => {
       data: {
         numero: 'COT-QA-ZON',
         clienteId,
-        grupoId,
+        negocioId,
         zonaId,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),

@@ -24,7 +24,7 @@ try {
 const prisma = new PrismaClient()
 
 let clienteId: number
-let grupoId: number
+let negocioId: number
 let proveedorId: number
 let cotizacionId: number
 let otId: number
@@ -46,10 +46,10 @@ beforeAll(async () => {
   })
   clienteId = cliente.id
 
-  const grupo = await prisma.grupo.create({
+  const negocio = await prisma.negocio.create({
     data: { codigo: 'GQA-ADAP', apellido: 'QA', clienteId, cantidadPax: 2, creadoPor: 'test' },
   })
-  grupoId = grupo.id
+  negocioId = negocio.id
 
   const tipoServicio = await prisma.tipoServicio.findFirstOrThrow()
   const proveedor = await prisma.proveedor.create({
@@ -68,7 +68,7 @@ beforeAll(async () => {
     data: {
       numero: 'COT-QA-ADAP',
       clienteId,
-      grupoId,
+      negocioId,
       areaNegocio: 'RECEPTIVO',
       fechaOperacion: new Date(),
       cantidadPax: 2,
@@ -85,7 +85,7 @@ beforeAll(async () => {
       numero: 'OT-QA-ADAP',
       cotizacionId,
       clienteId,
-      grupoId,
+      negocioId,
       apellido: 'QA',
       areaNegocio: 'RECEPTIVO',
       fechaOperacion: new Date(),
@@ -152,7 +152,7 @@ afterAll(async () => {
     await prisma.cotizacion.delete({ where: { id: cotizacionId } }).catch(() => {})
   }
   if (proveedorId) await prisma.proveedor.delete({ where: { id: proveedorId } }).catch(() => {})
-  if (grupoId) await prisma.grupo.delete({ where: { id: grupoId } }).catch(() => {})
+  if (negocioId) await prisma.negocio.delete({ where: { id: negocioId } }).catch(() => {})
   if (clienteId) await prisma.cliente.delete({ where: { id: clienteId } }).catch(() => {})
   await prisma.$disconnect()
 })
@@ -293,7 +293,7 @@ describe('versionado OC — RN-VER-13: la versión de OC referencia la versión 
       data: {
         numero: 'COT-QA-ADAP-B',
         clienteId,
-        grupoId,
+        negocioId,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
         cantidadPax: 2,
@@ -308,7 +308,7 @@ describe('versionado OC — RN-VER-13: la versión de OC referencia la versión 
         numero: 'OT-QA-ADAP-B',
         cotizacionId: cotB.id,
         clienteId,
-        grupoId,
+        negocioId,
         apellido: 'QA',
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
@@ -351,14 +351,14 @@ describe('versionado OT/OC — RN-VER-04/07: concurrencia con namespaces propios
   it('OT: dos creaciones concurrentes producen versiones 2 y 3 sin duplicados', async () => {
     const cot = await prisma.cotizacion.create({
       data: {
-        numero: 'COT-QA-ADAP-OTC', clienteId, grupoId, areaNegocio: 'RECEPTIVO',
+        numero: 'COT-QA-ADAP-OTC', clienteId, negocioId, areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(), cantidadPax: 2, moneda: 'USD', tipoCambio: '1',
         estado: 'APROBADA', creadoPor: 'test',
       },
     })
     const ot = await prisma.ordenTrabajo.create({
       data: {
-        numero: 'OT-QA-ADAP-OTC', cotizacionId: cot.id, clienteId, grupoId, apellido: 'QA',
+        numero: 'OT-QA-ADAP-OTC', cotizacionId: cot.id, clienteId, negocioId, apellido: 'QA',
         areaNegocio: 'RECEPTIVO', fechaOperacion: new Date(), cantidadPax: 2, moneda: 'USD',
         tipoCambioCotizacion: '1', creadoPor: 'test',
       },
@@ -395,14 +395,14 @@ describe('versionado OT/OC — RN-VER-04/07: concurrencia con namespaces propios
   it('OC: dos creaciones concurrentes producen versiones 2 y 3 sin duplicados', async () => {
     const cot = await prisma.cotizacion.create({
       data: {
-        numero: 'COT-QA-ADAP-OCC', clienteId, grupoId, areaNegocio: 'RECEPTIVO',
+        numero: 'COT-QA-ADAP-OCC', clienteId, negocioId, areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(), cantidadPax: 2, moneda: 'USD', tipoCambio: '1',
         estado: 'APROBADA', creadoPor: 'test',
       },
     })
     const ot = await prisma.ordenTrabajo.create({
       data: {
-        numero: 'OT-QA-ADAP-OCC', cotizacionId: cot.id, clienteId, grupoId, apellido: 'QA',
+        numero: 'OT-QA-ADAP-OCC', cotizacionId: cot.id, clienteId, negocioId, apellido: 'QA',
         areaNegocio: 'RECEPTIVO', fechaOperacion: new Date(), cantidadPax: 2, moneda: 'USD',
         tipoCambioCotizacion: '1', creadoPor: 'test',
       },

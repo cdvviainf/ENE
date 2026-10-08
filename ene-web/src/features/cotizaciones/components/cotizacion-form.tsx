@@ -15,9 +15,10 @@ import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { SoloLectura } from '@/components/shared/solo-lectura';
 import { clientesListOptions, clienteDetailOptions } from '@/features/clientes/queries';
-import { gruposListOptions, gruposKeys } from '@/features/grupos/queries';
-import { GrupoQuickCreate } from '@/features/grupos/components/grupo-quick-create';
+import { negociosListOptions, negociosKeys } from '@/features/negocios/queries';
+import { NegocioQuickCreate } from '@/features/negocios/components/negocio-quick-create';
 import { zonasListOptions } from '@/features/zonas/queries';
+import { MultiCombobox } from '@/components/ui/multi-combobox';
 import { cotizacionesService } from '../service';
 import { cotizacionesKeys } from '../queries';
 import { AREA_LABELS, type AreaNegocio, type Moneda } from '../types';
@@ -25,9 +26,9 @@ import { AREA_LABELS, type AreaNegocio, type Moneda } from '../types';
 const schema = z.object({
   clienteId: z.number().int().positive({ message: 'Selecciona un cliente' }),
   ejecutivoId: z.number().int().positive().nullable(),
-  grupoId: z.number().int().positive({ message: 'Selecciona un grupo' }),
+  negocioId: z.number().int().positive({ message: 'Selecciona un negocio' }),
   areaNegocio: z.enum(['RECEPTIVO', 'EVENTOS']),
-  zonaId: z.number().int().positive().nullable(),
+  zonaIds: z.array(z.number().int().positive()).default([]),
   fechaOperacion: z.string().min(1, 'La fecha es requerida'),
   cantidadPax: z.coerce.number().int().min(1),
   idiomaDocumento: z.enum(['es', 'en']),
@@ -43,10 +44,10 @@ export function CotizacionForm() {
   const puedeEscribir = usePuedeEscribir('COTIZACIONES');
 
   const { data: clientesData } = useQuery(clientesListOptions({ limit: 200 }));
-  const { data: gruposData } = useQuery(gruposListOptions({ limit: 200 }));
+  const { data: negociosData } = useQuery(negociosListOptions({ limit: 200 }));
   const { data: zonasData } = useQuery(zonasListOptions({ limit: 200 }));
   const clientes = clientesData?.data ?? [];
-  const grupos = gruposData?.data ?? [];
+  const negocios = negociosData?.data ?? [];
   const zonas = zonasData?.data ?? [];
 
   const mutation = useMutation({
@@ -54,9 +55,9 @@ export function CotizacionForm() {
       cotizacionesService.create({
         clienteId: values.clienteId,
         ejecutivoId: values.ejecutivoId ?? undefined,
-        grupoId: values.grupoId,
+        negocioId: values.negocioId,
         areaNegocio: values.areaNegocio,
-        zonaId: values.zonaId ?? undefined,
+        zonaIds: values.zonaIds,
         fechaOperacion: values.fechaOperacion,
         cantidadPax: values.cantidadPax,
         idiomaDocumento: values.idiomaDocumento,
@@ -75,9 +76,9 @@ export function CotizacionForm() {
     defaultValues: {
       clienteId: 0 as number,
       ejecutivoId: null as number | null,
-      grupoId: 0 as number,
+      negocioId: 0 as number,
       areaNegocio: 'RECEPTIVO' as AreaNegocio,
-      zonaId: null as number | null,
+      zonaIds: [] as number[],
       fechaOperacion: '',
       cantidadPax: 1,
       idiomaDocumento: 'es' as 'es' | 'en',
@@ -194,11 +195,11 @@ export function CotizacionForm() {
               )}
             </form.Field>
 
-            {/* Grupo */}
-            <form.Field name='grupoId'>
+            {/* Negocio */}
+            <form.Field name='negocioId'>
               {(field) => (
                 <div className='space-y-1.5'>
-                  <Label>Grupo *</Label>
+                  <Label>Negocio *</Label>
                   <div className='flex items-center gap-2'>
                     <Select
                       value={field.state.value ? String(field.state.value) : ''}
@@ -208,10 +209,10 @@ export function CotizacionForm() {
                       }}
                     >
                       <SelectTrigger className='flex-1'>
-                        <SelectValue placeholder='Selecciona un grupo...' />
+                        <SelectValue placeholder='Selecciona un negocio...' />
                       </SelectTrigger>
                       <SelectContent>
-                        {grupos.map((g) => (
+                        {negocios.map((g) => (
                           <SelectItem key={g.id} value={String(g.id)}>
                             {g.apellido}
                             <span className='text-muted-foreground ml-1.5 text-xs'>({g.codigo})</span>
@@ -219,10 +220,10 @@ export function CotizacionForm() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <GrupoQuickCreate
+                    <NegocioQuickCreate
                       clienteId={clienteIdSel > 0 ? clienteIdSel : null}
                       onCreated={(nuevo) => {
-                        queryClient.invalidateQueries({ queryKey: gruposKeys.all });
+                        queryClient.invalidateQueries({ queryKey: negociosKeys.all });
                         field.handleChange(nuevo.id);
                       }}
                     />
@@ -234,36 +235,18 @@ export function CotizacionForm() {
               )}
             </form.Field>
 
-            {/* Zona */}
-            <form.Field name='zonaId'>
+            {/* Zonas (RN-COT-08: múltiples) */}
+            <form.Field name='zonaIds'>
               {(field) => (
                 <div className='space-y-1.5'>
-                  <Label>Zona</Label>
-                  <Select
-                    value={field.state.value ? String(field.state.value) : ''}
-                    onValueChange={(v) => {
-                      if (v === '__none__') {
-                        field.handleChange(null);
-                        return;
-                      }
-                      const id = Number.parseInt(v, 10);
-                      if (Number.isFinite(id)) field.handleChange(id);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Sin zona...' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='__none__'>
-                        <span className='text-muted-foreground'>Sin zona</span>
-                      </SelectItem>
-                      {zonas.map((z) => (
-                        <SelectItem key={z.id} value={String(z.id)}>
-                          {z.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Zonas</Label>
+                  <MultiCombobox
+                    options={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                    values={(field.state.value ?? []).map((id) => String(id))}
+                    onChange={(vals) => field.handleChange(vals.map((v) => Number.parseInt(v, 10)).filter(Number.isFinite))}
+                    placeholder='Sin zonas...'
+                    searchPlaceholder='Buscar zona...'
+                  />
                 </div>
               )}
             </form.Field>

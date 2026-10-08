@@ -313,7 +313,7 @@ model Cliente {
 
   ejecutivos   ClienteEjecutivo[]
   direcciones  ClienteDireccion[]
-  grupos       Grupo[]
+  negocios     Negocio[]
   cotizaciones Cotizacion[]
   ordenes      OrdenTrabajo[]
   movimientos  MovimientoCuenta[]
@@ -327,21 +327,21 @@ model Cliente {
 /// esRepresentanteLegal=true — índice único parcial, ver comentario en
 /// ClienteDireccion (RN-GEO-03) y migración `contactos_representante_legal`.
 model ClienteEjecutivo {
-  id                  Int       @id @default(autoincrement())
-  clienteId           Int
-  nombre              String
-  email               String?
-  telefono            String?
-  cargo               String?
-  descripcion         String?
-  esRepresentanteLegal Boolean  @default(false)
-  activo              Boolean   @default(true)
-  creadoEn            DateTime  @default(now())
-  creadoPor           String
-  actualizadoEn       DateTime? @updatedAt
-  actualizadoPor      String?
-  eliminadoEn         DateTime?
-  eliminadoPor        String?
+  id                   Int       @id @default(autoincrement())
+  clienteId            Int
+  nombre               String
+  email                String?
+  telefono             String?
+  cargo                String?
+  descripcion          String?
+  esRepresentanteLegal Boolean   @default(false)
+  activo               Boolean   @default(true)
+  creadoEn             DateTime  @default(now())
+  creadoPor            String
+  actualizadoEn        DateTime? @updatedAt
+  actualizadoPor       String?
+  eliminadoEn          DateTime?
+  eliminadoPor         String?
 
   cliente      Cliente        @relation(fields: [clienteId], references: [id])
   cotizaciones Cotizacion[]
@@ -381,13 +381,15 @@ model ClienteDireccion {
   @@map("cliente_direccion")
 }
 
-/// Grupo o pasajero individual. `apellido` es el identificador operativo de la
-/// reserva y es obligatorio en la OT (CLAUDE.md §7).
-model Grupo {
+/// Negocio (antes "Grupo"): los pasajeros que viajan. `apellido` es el
+/// identificador operativo de la reserva y es obligatorio en la OT (CLAUDE.md
+/// §7). No confundir con `areaNegocio` (RECEPTIVO/EVENTOS), que es otro atributo.
+model Negocio {
   id             Int       @id @default(autoincrement())
   codigo         String    @unique
   apellido       String
-  // RN-GRP-05: el cliente es opcional — solo código y apellido son obligatorios.
+  // RN-NEG-05 (ex RN-GRP-05): el cliente es opcional — solo código y apellido
+  // son obligatorios.
   clienteId      Int?
   nacionalidad   String?
   paisOrigen     String?
@@ -408,12 +410,12 @@ model Grupo {
 
   @@index([apellido])
   @@index([clienteId])
-  @@map("grupo")
+  @@map("negocio")
 }
 
 model Pasajero {
   id             Int       @id @default(autoincrement())
-  grupoId        Int
+  negocioId      Int
   nombre         String
   edad           Int?
   nacionalidad   String?
@@ -426,9 +428,9 @@ model Pasajero {
   eliminadoEn    DateTime?
   eliminadoPor   String?
 
-  grupo Grupo @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
 
-  @@index([grupoId])
+  @@index([negocioId])
   @@map("pasajero")
 }
 
@@ -446,8 +448,8 @@ model Zona {
 
   servicios    Servicio[]
   proveedores  ProveedorZona[]
-  cotizaciones Cotizacion[]
-  ordenes      OrdenTrabajo[]
+  cotizaciones CotizacionZona[]
+  ordenes      OrdenTrabajoZona[]
 
   @@map("zona")
 }
@@ -474,18 +476,22 @@ model TipoServicio {
 /// Forma de pago (Efectivo USD, Transferencia CLP, Tarjeta de crédito...).
 /// Catálogo único compartido entre Cliente y Proveedor (RN-PAG-01).
 model FormaPago {
-  id             Int       @id @default(autoincrement())
-  codigo         String    @unique
-  nombre         String
-  creadoEn       DateTime  @default(now())
-  creadoPor      String
-  actualizadoEn  DateTime? @updatedAt
-  actualizadoPor String?
-  eliminadoEn    DateTime?
-  eliminadoPor   String?
+  id                  Int       @id @default(autoincrement())
+  codigo              String    @unique
+  nombre              String
+  // RN-COS-08: recargo operacional de la forma de pago (0.03 = 3% tarjeta de
+  // crédito). Se suma a la propuesta como pass-through sobre la venta.
+  porcentajeAdicional Decimal   @default(0) @db.Decimal(7, 4)
+  creadoEn            DateTime  @default(now())
+  creadoPor           String
+  actualizadoEn       DateTime? @updatedAt
+  actualizadoPor      String?
+  eliminadoEn         DateTime?
+  eliminadoPor        String?
 
-  clientes    Cliente[]
-  proveedores Proveedor[]
+  clientes            Cliente[]
+  proveedores         Proveedor[]
+  versionesCotizacion CotizacionVersion[]
 
   @@map("forma_pago")
 }
@@ -524,6 +530,49 @@ model CondicionPagoCuota {
   @@map("condicion_pago_cuota")
 }
 
+/// RN-PRV-11: mantenedor de tipos de documento que un proveedor emite a ENE.
+/// Reemplaza el enum `TipoDocProveedor`. Incluye "A nada" (NINGUNO) y "Boleta de
+/// honorarios a tercero" (RETENCION). `porcentaje` + `formaCalculo` dan la
+/// retención/IVA referencial (interno, no afecta el presupuesto ni el PDF).
+model TipoDocumento {
+  id             Int                  @id @default(autoincrement())
+  codigo         String               @unique
+  nombre         String
+  formaCalculo   FormaCalculoImpuesto @default(NINGUNO)
+  porcentaje     Decimal              @default(0) @db.Decimal(7, 4)
+  creadoEn       DateTime             @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime?            @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  proveedores Proveedor[]
+
+  @@map("tipo_documento")
+}
+
+/// RN-EMP-01: datos de la empresa emisora (ENE). Singleton (una sola fila,
+/// id=1). El logo se guarda en el filesystem (`logoStorageKey`) y el PDF lo
+/// incrusta como data URI. Reemplaza el `EMISOR` hardcodeado del resolver.
+model Empresa {
+  id             Int       @id @default(autoincrement())
+  nombre         String
+  rut            String?
+  direccion      String?
+  email          String?
+  web            String?
+  telefono       String?
+  logoStorageKey String?
+  logoMimeType   String?
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+
+  @@map("empresa")
+}
+
 /// Jerarquía geográfica para Direcciones (RN-GEO-01). `Region` no lleva FK a
 /// `Pais`: la cadena Region→Provincia→Comuna es implícitamente solo de Chile
 /// (mismo modelo que FAS, que solo siembra geografía chilena); `Pais` es una
@@ -540,9 +589,9 @@ model Pais {
   eliminadoEn    DateTime?
   eliminadoPor   String?
 
-  clientes              Cliente[]
-  direccionesCliente    ClienteDireccion[]
-  direccionesProveedor  ProveedorDireccion[]
+  clientes             Cliente[]
+  direccionesCliente   ClienteDireccion[]
+  direccionesProveedor ProveedorDireccion[]
 
   @@map("pais")
 }
@@ -609,24 +658,24 @@ model Comuna {
 /// entre proveedores distintos, la unicidad real NO se declara acá con
 /// `@unique`: se aplica con un índice único parcial en la migración SQL
 /// (`WHERE rut <> '55.555.555-5'`), documentado en CLAUDE.md §7.
-/// RN-PRV-09: documento tributario que el proveedor emite a ENE. Condiciona el
-/// pago —una boleta de honorarios lleva retención (Etapa 10)—, por eso es un
-/// enum y no texto libre. FACTURA_EXENTA/AFECTA distinguen si el servicio paga
-/// IVA. Distinto de `TipoDTE`, que es lo que ENE emite a sus clientes.
-enum TipoDocProveedor {
-  FACTURA_AFECTA
-  FACTURA_EXENTA
-  BOLETA_HONORARIOS
+/// RN-PRV-11: forma de cálculo del impuesto/retención referencial asociado al
+/// tipo de documento que el proveedor emite a ENE. IVA se suma sobre el costo,
+/// RETENCION se descuenta, NINGUNO no aplica. Es referencial (no afecta el
+/// presupuesto); el monto efectivo es Etapa 10.
+enum FormaCalculoImpuesto {
+  NINGUNO
+  IVA
+  RETENCION
 }
 
 model Proveedor {
-  id                  Int              @id @default(autoincrement())
-  codigo              String           @unique
+  id                  Int       @id @default(autoincrement())
+  codigo              String    @unique
   razonSocial         String
   rut                 String
   nombreComercial     String?
-  // RN-PRV-09: tipo de documento que emite (factura afecta/exenta u honorarios).
-  tipoDocumento       TipoDocProveedor @default(FACTURA_AFECTA)
+  // RN-PRV-09/11: tipo de documento que emite (ahora mantenedor, no enum).
+  tipoDocumentoId     Int?
   // RN-PRV-10: link de pago del proveedor (URL a portal de pago o transferencia).
   urlPago             String?
   formaPagoId         Int?
@@ -643,6 +692,7 @@ model Proveedor {
 
   formaPago     FormaPago?     @relation(fields: [formaPagoId], references: [id])
   condicionPago CondicionPago? @relation(fields: [condicionPagoId], references: [id])
+  tipoDocumento TipoDocumento? @relation(fields: [tipoDocumentoId], references: [id])
 
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio a la
   // vez (mismo criterio que zonas, RN-PRV-05) — N:N en vez de FK único.
@@ -864,9 +914,8 @@ model Cotizacion {
   numero           String           @unique
   clienteId        Int
   ejecutivoId      Int?
-  grupoId          Int
+  negocioId        Int
   areaNegocio      AreaNegocio
-  zonaId           Int?
   fechaOperacion   DateTime
   cantidadPax      Int
   idiomaDocumento  String           @default("es")
@@ -883,8 +932,8 @@ model Cotizacion {
 
   cliente   Cliente           @relation(fields: [clienteId], references: [id])
   ejecutivo ClienteEjecutivo? @relation(fields: [ejecutivoId], references: [id])
-  grupo     Grupo             @relation(fields: [grupoId], references: [id])
-  zona      Zona?             @relation(fields: [zonaId], references: [id])
+  negocio   Negocio           @relation(fields: [negocioId], references: [id])
+  zonas     CotizacionZona[]
 
   versiones      CotizacionVersion[] @relation("CotizacionVersiones")
   // RN-VER-05: la vigente se referencia por [versionVigenteId, id] contra
@@ -901,23 +950,54 @@ model Cotizacion {
 }
 
 model CotizacionVersion {
-  id           Int      @id @default(autoincrement())
-  cotizacionId Int
-  version      Int
-  motivo       String?
-  costoTotal   Decimal  @db.Decimal(18, 4)
-  margenTotal  Decimal  @db.Decimal(18, 4)
-  ventaTotal   Decimal  @db.Decimal(18, 4)
-  creadoEn     DateTime @default(now())
-  creadoPor    String
+  id                 Int       @id @default(autoincrement())
+  cotizacionId       Int
+  version            Int
+  motivo             String?
+  costoTotal         Decimal   @db.Decimal(18, 4)
+  margenTotal        Decimal   @db.Decimal(18, 4)
+  // RN-COS-04: suma de las líneas valorizadas, SIN el recargo de forma de pago.
+  ventaTotal         Decimal   @db.Decimal(18, 4)
+  // RN-COT-09: vigencia de la oferta (hasta cuándo es válida esta versión).
+  fechaVigencia      DateTime?
+  // RN-COT-10: comentarios de encabezado del documento (bilingües).
+  incluidos          String?
+  incluidosEn        String?
+  noIncluidos        String?
+  noIncluidosEn      String?
+  notasImportantes   String?
+  notasImportantesEn String?
+  // RN-COS-08: forma de pago elegida + recargo pass-through congelado. El % se
+  // snapshotea desde FormaPago.porcentajeAdicional al guardar; recargoTotal =
+  // ventaTotal × recargoPct. El total con recargo se deriva (ventaTotal+recargo).
+  formaPagoId        Int?
+  recargoPct         Decimal   @default(0) @db.Decimal(7, 4)
+  recargoTotal       Decimal   @default(0) @db.Decimal(18, 4)
+  creadoEn           DateTime  @default(now())
+  creadoPor          String
 
   cotizacion Cotizacion        @relation("CotizacionVersiones", fields: [cotizacionId], references: [id], onDelete: Restrict)
   vigenteDe  Cotizacion?       @relation("CotizacionVigente")
+  formaPago  FormaPago?        @relation(fields: [formaPagoId], references: [id])
   lineas     CotizacionLinea[]
 
   @@unique([cotizacionId, version])
   @@unique([id, cotizacionId])
   @@map("cotizacion_version")
+}
+
+/// RN-COT-08: una cotización puede abarcar varias zonas (N:N). Tabla puente pura
+/// con PK compuesta (mismo criterio que ProveedorZona).
+model CotizacionZona {
+  cotizacionId Int
+  zonaId       Int
+
+  cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  zona       Zona       @relation(fields: [zonaId], references: [id])
+
+  @@id([cotizacionId, zonaId])
+  @@index([zonaId])
+  @@map("cotizacion_zona")
 }
 
 model CotizacionLinea {
@@ -932,6 +1012,9 @@ model CotizacionLinea {
   tarifarioValorId    Int?
   descripcion         String
   descripcionEn       String?
+  // RN-COT-10: observación libre por línea (bilingüe), sale en el PDF.
+  observacion         String?
+  observacionEn       String?
   cantidadPax         Int
   acomodacion         Acomodacion?
   costoUnitario       Decimal      @db.Decimal(18, 4)
@@ -964,10 +1047,9 @@ model OrdenTrabajo {
   cotizacionId         Int         @unique
   clienteId            Int
   ejecutivoId          Int?
-  grupoId              Int
+  negocioId            Int
   apellido             String
   areaNegocio          AreaNegocio
-  zonaId               Int?
   fechaOperacion       DateTime
   cantidadPax          Int
   moneda               Moneda
@@ -981,12 +1063,12 @@ model OrdenTrabajo {
   eliminadoEn          DateTime?
   eliminadoPor         String?
 
-  cliente    Cliente           @relation(fields: [clienteId], references: [id])
-  ejecutivo  ClienteEjecutivo? @relation(fields: [ejecutivoId], references: [id])
-  grupo      Grupo             @relation(fields: [grupoId], references: [id])
-  zona       Zona?             @relation(fields: [zonaId], references: [id])
+  cliente    Cliente            @relation(fields: [clienteId], references: [id])
+  ejecutivo  ClienteEjecutivo?  @relation(fields: [ejecutivoId], references: [id])
+  negocio    Negocio            @relation(fields: [negocioId], references: [id])
+  zonas      OrdenTrabajoZona[]
   // RN-OT-01: la OT nace de una cotización aprobada; cotizacionId es obligatorio.
-  cotizacion Cotizacion        @relation(fields: [cotizacionId], references: [id])
+  cotizacion Cotizacion         @relation(fields: [cotizacionId], references: [id])
 
   versiones      OrdenTrabajoVersion[] @relation("OTVersiones")
   // RN-VER-05: la vigente pertenece a esta OT (par [versionVigenteId, id]).
@@ -1000,6 +1082,19 @@ model OrdenTrabajo {
   @@index([estado, fechaOperacion])
   @@index([apellido])
   @@map("orden_trabajo")
+}
+
+/// RN-COT-08: la OT hereda las zonas de su cotización (N:N). Tabla puente pura.
+model OrdenTrabajoZona {
+  ordenTrabajoId Int
+  zonaId         Int
+
+  ordenTrabajo OrdenTrabajo @relation(fields: [ordenTrabajoId], references: [id], onDelete: Cascade)
+  zona         Zona         @relation(fields: [zonaId], references: [id])
+
+  @@id([ordenTrabajoId, zonaId])
+  @@index([zonaId])
+  @@map("orden_trabajo_zona")
 }
 
 model OrdenTrabajoVersion {

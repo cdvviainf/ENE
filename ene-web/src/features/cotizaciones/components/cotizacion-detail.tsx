@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatFechaCorta } from '@/lib/format';
-import { formatMonto } from '@/lib/dinero';
+import { formatMonto, sumarMontos } from '@/lib/dinero';
 import { fraccionAPorcentaje } from '@/lib/porcentaje';
 import { cotizacionDetailOptions } from '../queries';
 import { AREA_LABELS, type EstadoCotizacion } from '../types';
@@ -51,12 +51,20 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
   // con el recálculo por pax, RN-COS-07). Si cambia, se remonta el iframe para que
   // el documento no quede desfasado —antes solo se recargaba al cambiar idioma o
   // modalidad—.
+  const v = cot.versionVigente;
   const pdfSig = [
     `pax${cot.cantidadPax}`,
-    `v${cot.versionVigente?.version ?? 0}`,
-    `vt${cot.versionVigente?.ventaTotal ?? ''}`,
-    ...(cot.versionVigente?.lineas ?? []).map(
-      (l) => `${l.id}:${l.dia}:${l.bloque}:${l.orden}:${l.cantidadPax}:${l.ventaTotal}:${l.descripcion}:${l.descripcionEn ?? ''}`
+    `v${v?.version ?? 0}`,
+    `vt${v?.ventaTotal ?? ''}`,
+    // RN-COT-09/10/COS-08: el PDF también refleja vigencia, comentarios, recargo
+    // y zonas; si cambian, se remonta el iframe.
+    `fv${v?.fechaVigencia ?? ''}`,
+    `rt${v?.recargoTotal ?? ''}`,
+    `fp${v?.formaPagoId ?? ''}`,
+    `inc${v?.incluidos ?? ''}:${v?.noIncluidos ?? ''}:${v?.notasImportantes ?? ''}`,
+    `z${(cot.zonas ?? []).map((z) => z.zonaId).join(',')}`,
+    ...(v?.lineas ?? []).map(
+      (l) => `${l.id}:${l.dia}:${l.bloque}:${l.orden}:${l.cantidadPax}:${l.ventaTotal}:${l.descripcion}:${l.descripcionEn ?? ''}:${l.observacion ?? ''}`
     )
   ].join('|');
 
@@ -75,14 +83,16 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
           </div>
           <div className='grid gap-4 sm:grid-cols-3 lg:grid-cols-4'>
             <Dato etiqueta='Cliente' valor={cot.cliente?.razonSocial ?? '—'} />
-            <Dato etiqueta='Grupo' valor={cot.grupo?.apellido ?? '—'} />
+            <Dato etiqueta='Negocio' valor={cot.negocio?.apellido ?? '—'} />
             <Dato etiqueta='Ejecutivo' valor={cot.ejecutivo?.nombre ?? 'Sin ejecutivo'} />
             <Dato etiqueta='Área' valor={AREA_LABELS[cot.areaNegocio]} />
             <Dato etiqueta='Fecha de operación' valor={formatFechaCorta(cot.fechaOperacion)} />
             <Dato etiqueta='Pasajeros' valor={String(cot.cantidadPax)} />
             <Dato etiqueta='Moneda' valor={cot.moneda} />
             <Dato etiqueta='Tipo de cambio' valor={cot.tipoCambio} />
-            {cot.zona && <Dato etiqueta='Zona' valor={cot.zona.nombre} />}
+            {(cot.zonas?.length ?? 0) > 0 && (
+              <Dato etiqueta='Zonas' valor={cot.zonas!.map((z) => z.zona?.nombre ?? '—').join(', ')} />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -93,6 +103,13 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
         moneda={cot.moneda}
         modo={modo}
         cantidadPaxDefault={cot.cantidadPax}
+        contenidoInicial={{
+          fechaVigencia: cot.versionVigente?.fechaVigencia ?? null,
+          incluidos: cot.versionVigente?.incluidos ?? null,
+          noIncluidos: cot.versionVigente?.noIncluidos ?? null,
+          notasImportantes: cot.versionVigente?.notasImportantes ?? null,
+          formaPagoId: cot.versionVigente?.formaPagoId ?? null
+        }}
       />
 
       <Card>
@@ -109,6 +126,16 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
             valor={cot.versionVigente?.margenTotal != null ? `${fraccionAPorcentaje(cot.versionVigente.margenTotal)}%` : '—'}
           />
           <Dato etiqueta='Venta total' valor={formatMonto(cot.versionVigente?.ventaTotal, cot.moneda)} />
+          {/* RN-COS-08: recargo pass-through de la forma de pago (si hay). */}
+          {v?.recargoTotal && v.recargoTotal !== '0.0000' && v.recargoTotal !== '0' && (
+            <>
+              <Dato
+                etiqueta={`Recargo${v.formaPago ? ` (${v.formaPago.nombre})` : ''}`}
+                valor={formatMonto(v.recargoTotal, cot.moneda)}
+              />
+              <Dato etiqueta='Total con recargo' valor={formatMonto(sumarMontos(v.ventaTotal, v.recargoTotal), cot.moneda)} />
+            </>
+          )}
         </CardContent>
       </Card>
 

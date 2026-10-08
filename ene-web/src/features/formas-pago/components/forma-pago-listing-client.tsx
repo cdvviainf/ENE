@@ -35,7 +35,7 @@ export function FormaPagoListingClient() {
   });
 
   if (isPending) {
-    return <DataTableSkeleton columnCount={3} rowCount={6} />;
+    return <DataTableSkeleton columnCount={4} rowCount={6} />;
   }
 
   return (

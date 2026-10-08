@@ -10,7 +10,8 @@ import type {
   PreviewLineaInput,
   PreviewLineaResponse,
   IdiomaDocumento,
-  ModalidadDocumento
+  ModalidadDocumento,
+  ContenidoVersionInput
 } from './types';
 
 export const cotizacionesService = {
@@ -34,13 +35,15 @@ export const cotizacionesService = {
     return api.post('cotizaciones', { json: data }).json();
   },
 
-  // RN-VER-08: en BORRADOR el itinerario se escribe directo sobre la versión vigente.
-  async guardarItinerario(id: number, lineas: LineaInput[]): Promise<Cotizacion> {
-    return api.put(`cotizaciones/${id}/itinerario`, { json: { lineas } }).json();
+  // RN-VER-08: en BORRADOR el itinerario se escribe directo sobre la versión
+  // vigente, junto con el contenido de encabezado (vigencia, comentarios, forma
+  // de pago — RN-COT-09/10/COS-08).
+  async guardarItinerario(id: number, lineas: LineaInput[], contenido?: ContenidoVersionInput): Promise<Cotizacion> {
+    return api.put(`cotizaciones/${id}/itinerario`, { json: { lineas, ...(contenido ?? {}) } }).json();
   },
 
   // RN-VER-02: nueva versión de negociación tras el envío; motivo obligatorio.
-  async nuevaVersion(id: number, data: { motivo: string; lineas: LineaInput[] }): Promise<Cotizacion> {
+  async nuevaVersion(id: number, data: { motivo: string; lineas: LineaInput[] } & ContenidoVersionInput): Promise<Cotizacion> {
     return api.post(`cotizaciones/${id}/versiones`, { json: data }).json();
   },
 

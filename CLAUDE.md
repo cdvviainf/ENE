@@ -806,6 +806,44 @@ revisión estática + `tsc`/`eslint`/`build` + Vitest; falta un recorrido real
 (crear cotización, itinerario de cada modelo, versionar, recalcular pax, emitir
 el PDF en ambos idiomas y modalidades) con Chromium conectado.
 
+**Anexo cotizador + maestros + PDF (oct-2026).** Ronda de cambios de negocio
+pedida por el usuario, transversal a Etapas 4/5/7 (no es etapa nueva). Reglas en
+`Docs/reglas-negocio.md` (RN-COT-08..12, RN-COS-08, RN-PRV-11, RN-EMP-01,
+RN-MON-01 enmendada). Decisiones:
+
+- **Grupo → Negocio: renombre completo** (modelo Prisma `Negocio` + tabla
+  `negocio`, `grupoId`→`negocioId` en Pasajero/Cotizacion/OrdenTrabajo, módulo
+  `src/modules/negocios/`, feature `features/negocios/`, ItemMenu `NEGOCIOS`,
+  correlativo `NEGOCIO`/prefijo `NE`). `areaNegocio` (RECEPTIVO/EVENTOS) no
+  cambia y convive con Negocio. Migración destructiva (sin datos reales).
+- **Moneda libre** (RN-MON-01 enmendada): se quitó `validarMonedaArea`; el área
+  solo sugiere default en el frontend.
+- **Múltiples zonas**: `Cotizacion.zonaId` → `CotizacionZona` (N:N); parigual
+  `OrdenTrabajoZona` en el schema (OT es Etapa 8, aún sin código).
+- **CotizacionVersion** suma `fechaVigencia`, `incluidos/noIncluidos/
+  notasImportantes` (+`*En`), `formaPagoId`, `recargoPct`, `recargoTotal`.
+  **CotizacionLinea** suma `observacion`/`observacionEn`. El recargo
+  (RN-COS-08) se congela por versión y se recalcula si cambia la venta (pax).
+- **OTRO con venta editable** (RN-COT-11): `preview-linea` se extendió para OTRO
+  (deriva margen desde `ventaObjetivo` con decimal.js, igual que ESTANDAR).
+- **TipoDocumento** mantenedor (`src/modules/config/tipos-documento/` +
+  `features/tipos-documento/`) reemplaza el enum `TipoDocProveedor`;
+  `Proveedor.tipoDocumento` → `tipoDocumentoId` (FK). Retención/IVA referencial
+  interna, nunca en el PDF (RN-PRV-11). Carga masiva: nueva hoja `TiposDocumento`.
+- **FormaPago** suma `porcentajeAdicional` (RN-COS-08).
+- **Empresa** mantenedor singleton + logo (`src/modules/config/empresa/` +
+  `features/empresa/`, storage en `shared/storage/archivos.ts` bajo
+  `ADJUNTOS_PATH/empresa/`). El resolver del PDF lee de `Empresa` e incrusta el
+  logo como data URI; el payload se amplió con versión, ejecutivo, fechas,
+  comentarios, recargo, zonas y observación por línea; nueva modalidad PDF
+  `desglosado_pax` (RN-COT-12).
+- ItemMenus nuevos `TIPOS_DOCUMENTO` y `EMPRESA` en `MANTENEDORES_SEPARADOS`.
+
+**Pendiente:** aplicar las migraciones Prisma (la BD `ene_postgres` no estaba
+levantable en la sesión — puerto 5434 ocupado por otro proyecto), correr `vitest`
+y los tests nuevos (recargo, venta-objetivo OTRO, retención/IVA, multi-zona,
+`desglosado_pax`), y la verificación en navegador. `tsc` de API y web limpios.
+
 ---
 
 ## 8. Motor de documentos

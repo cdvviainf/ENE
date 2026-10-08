@@ -8,7 +8,6 @@ import {
   REGISTRO_MAESTROS,
   ENUM_TIPO_CLIENTE,
   ENUM_MONEDA,
-  ENUM_TIPO_DOC_PROVEEDOR,
   ENUM_MODELO_TARIFA,
 } from './registro.js'
 
@@ -19,7 +18,6 @@ function usuarioSesion(req: FastifyRequest): string {
 const LISTAS_ENUM = {
   TipoCliente: ENUM_TIPO_CLIENTE,
   Moneda: ENUM_MONEDA,
-  TipoDocProveedor: ENUM_TIPO_DOC_PROVEEDOR,
   ModeloTarifa: ENUM_MODELO_TARIFA,
 }
 

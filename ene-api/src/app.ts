@@ -19,10 +19,12 @@ import { tiposServicioRoutes } from './modules/config/tipos-servicio/tipos-servi
 import { clientesRoutes } from './modules/clientes/clientes.routes.js'
 import { serviciosRoutes } from './modules/servicios/servicios.routes.js'
 import { tarifasRoutes } from './modules/tarifas/tarifas.routes.js'
-import { gruposRoutes } from './modules/grupos/grupos.routes.js'
+import { negociosRoutes } from './modules/negocios/negocios.routes.js'
 import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
 import { formasPagoRoutes } from './modules/config/formas-pago/formas-pago.routes.js'
 import { condicionesPagoRoutes } from './modules/config/condiciones-pago/condiciones-pago.routes.js'
+import { tiposDocumentoRoutes } from './modules/config/tipos-documento/tipos-documento.routes.js'
+import { empresaRoutes } from './modules/config/empresa/empresa.routes.js'
 import { paisesRoutes } from './modules/config/paises/paises.routes.js'
 import { regionesRoutes } from './modules/config/regiones/regiones.routes.js'
 import { provinciasRoutes } from './modules/config/provincias/provincias.routes.js'
@@ -158,10 +160,12 @@ export async function construirApp() {
   await app.register(clientesRoutes, { prefix: '/api' })
   await app.register(serviciosRoutes, { prefix: '/api' })
   await app.register(tarifasRoutes, { prefix: '/api' })
-  await app.register(gruposRoutes, { prefix: '/api' })
+  await app.register(negociosRoutes, { prefix: '/api' })
   await app.register(proveedoresRoutes, { prefix: '/api' })
   await app.register(formasPagoRoutes, { prefix: '/api/config' })
   await app.register(condicionesPagoRoutes, { prefix: '/api/config' })
+  await app.register(tiposDocumentoRoutes, { prefix: '/api/config' })
+  await app.register(empresaRoutes, { prefix: '/api/config' })
   await app.register(paisesRoutes, { prefix: '/api/config' })
   await app.register(regionesRoutes, { prefix: '/api/config' })
   await app.register(provinciasRoutes, { prefix: '/api/config' })

@@ -804,3 +804,32 @@ desempeño, calificaciones. Carga masiva por planilla. Adjuntos en la ficha de
 proveedor (contratos, políticas) — los adjuntos son de la OT en fase 1.
 Duplicación o fusión de maestros. (La creación al vuelo con `+` **sí** entra: es §8.) Auditoría visual de cambios campo por campo —
 queda el registro de `actualizadoPor`, no un historial navegable.
+
+---
+
+## Anexo cotizador + maestros (oct-2026)
+
+Cambios de mantenedores de esta ronda (detalle de reglas en
+`Docs/reglas-negocio.md`, RN-COT-08..12 / RN-COS-08 / RN-PRV-11 / RN-EMP-01):
+
+- **Negocio** (antes "Grupo"): mismo mantenedor, renombrado. `apellido` sigue
+  siendo el identificador. Ruta `/config/negocios`, ItemMenu `NEGOCIOS`.
+- **Tipos de documento** (nuevo, `/config/tipos-documento`, ItemMenu
+  `TIPOS_DOCUMENTO`): código, nombre, forma de cálculo (Ninguno/IVA/Retención),
+  porcentaje. Reemplaza el enum de "tipo de documento que emite" del proveedor
+  (`Proveedor.tipoDocumento` → FK `tipoDocumentoId`). Patrón QuickCreate anidado
+  en el formulario de Proveedor. Sembrado: Factura afecta (IVA 19%), Factura
+  exenta, Boleta de honorarios (ret. 14,75%), Boleta de honorarios a tercero, A
+  nada. Es borrable solo si no hay proveedores vigentes que lo usen.
+- **Forma de pago**: suma campo **% adicional** (recargo operacional; tarjeta de
+  crédito sembrada con 3%). Entra como pass-through sobre la venta de la
+  cotización (RN-COS-08).
+- **Datos de empresa** (nuevo singleton, `/config/empresa`, ItemMenu `EMPRESA`):
+  nombre, RUT, dirección, email, web, teléfono + **logo** subible. No es lista:
+  es un único formulario de edición. El logo se guarda en el filesystem y lo usa
+  el PDF. Endpoints `GET/PUT /api/config/empresa`, `POST/GET
+  /api/config/empresa/logo`.
+- **Cotización**: múltiples zonas (multi-select), fecha de vigencia, forma de
+  pago, comentarios de encabezado (incluidos/no incluidos/notas), observación
+  por línea, y líneas OTRO con venta editable. La retención/IVA del proveedor se
+  muestra como referencia interna en el editor (no en el PDF).

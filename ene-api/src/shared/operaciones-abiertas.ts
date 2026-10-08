@@ -15,11 +15,11 @@ export interface ReferenciaAbierta {
 type FiltroOperacionesAbiertas =
   | { clienteId: number }
   | { proveedorId: number }
-  | { grupoId: number }
+  | { negocioId: number }
   | { servicioId: number }
   | { zonaId: number }
 
-// clienteId/grupoId/zonaId están en la cabecera de Cotizacion/OrdenTrabajo;
+// clienteId/negocioId/zonaId están en la cabecera de Cotizacion/OrdenTrabajo;
 // proveedorId/servicioId solo en las líneas de su versión vigente — de ahí el
 // `some.lineas.some` en vez del filtro plano de cabecera.
 function condicionLinea(filtro: FiltroOperacionesAbiertas): { proveedorId: number } | { servicioId: number } | null {
@@ -28,9 +28,9 @@ function condicionLinea(filtro: FiltroOperacionesAbiertas): { proveedorId: numbe
   return null
 }
 
-function condicionCabecera(filtro: FiltroOperacionesAbiertas): { clienteId?: number; grupoId?: number; zonaId?: number } {
+function condicionCabecera(filtro: FiltroOperacionesAbiertas): { clienteId?: number; negocioId?: number; zonaId?: number } {
   if ('clienteId' in filtro) return { clienteId: filtro.clienteId }
-  if ('grupoId' in filtro) return { grupoId: filtro.grupoId }
+  if ('negocioId' in filtro) return { negocioId: filtro.negocioId }
   if ('zonaId' in filtro) return { zonaId: filtro.zonaId }
   return {}
 }
@@ -39,7 +39,7 @@ function condicionCabecera(filtro: FiltroOperacionesAbiertas): { clienteId?: num
  * Resuelve las operaciones "no cerradas" que referencian al maestro dado
  * (RN-MAN-04): cotización no cerrada, OT en cualquier estado salvo CERRADA,
  * u OC vigente (no ANULADA). Usado por el guard de soft delete de
- * Cliente/Proveedor/Grupo/Servicio/Zona y por RN-CLI-04 (último ejecutivo
+ * Cliente/Proveedor/Negocio/Servicio/Zona y por RN-CLI-04 (último ejecutivo
  * activo del cliente).
  */
 export async function operacionesAbiertas(filtro: FiltroOperacionesAbiertas): Promise<ReferenciaAbierta> {

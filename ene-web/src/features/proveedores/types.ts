@@ -56,7 +56,16 @@ export interface DireccionInput {
   esPorDefecto?: boolean;
 }
 
-export type TipoDocProveedor = 'FACTURA_AFECTA' | 'FACTURA_EXENTA' | 'BOLETA_HONORARIOS';
+// Documento tributario que emite el proveedor: ahora es FK a TipoDocumento
+// (catálogo config/tipos-documento), ya no un enum fijo. En lectura viaja
+// embebido; en escritura solo su id.
+export interface ProveedorTipoDocumento {
+  id: number;
+  codigo: string;
+  nombre: string;
+  formaCalculo: 'NINGUNO' | 'IVA' | 'RETENCION';
+  porcentaje: number;
+}
 
 export interface Proveedor {
   id: number;
@@ -64,7 +73,8 @@ export interface Proveedor {
   razonSocial: string;
   rut: string;
   nombreComercial: string | null;
-  tipoDocumento: TipoDocProveedor;
+  tipoDocumentoId: number | null;
+  tipoDocumento: ProveedorTipoDocumento | null;
   urlPago: string | null;
   formaPagoId: number | null;
   condicionPagoId: number | null;
@@ -114,7 +124,8 @@ export interface ProveedorCreateInput {
   razonSocial: string;
   rut: string;
   nombreComercial?: string;
-  tipoDocumento?: TipoDocProveedor;
+  // null solo es válido en edición (desasignar); en creación se omite.
+  tipoDocumentoId?: number | null;
   // null solo es válido en edición (vaciar el campo); en creación se omite.
   urlPago?: string | null;
   tiposServicio: number[];

@@ -1,9 +1,9 @@
-import type { Acomodacion, Cotizacion, CotizacionLinea, Moneda, Prisma } from '@prisma/client'
+import type { Acomodacion, Cotizacion, CotizacionLinea, CotizacionVersion, Moneda, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
 import { tomarLock, LOCK_COTIZACION_CORRELATIVO, LOCK_COTIZACION_VERSION } from '../../shared/advisory-locks.js'
 import { generarNumeroAnual } from '../../shared/correlativos.js'
-import { aClp, aplicarMargen, aString, desdeClp, dividir, margenDesdeVenta, monto, type Decimal, type Montoish } from '../../shared/dinero/index.js'
+import { aClp, aplicarMargen, aString, desdeClp, dividir, margenDesdeVenta, monto, multiplicar, type Decimal, type Montoish } from '../../shared/dinero/index.js'
 import { crearSiguienteVersion, exigirVersionEditable } from '../../shared/versionado/index.js'
 import { cotizacionVersionable } from '../../shared/versionado/adaptadores/cotizacion.js'
 import { resolverCosto, valorizar } from '../costeo/costeo.service.js'
@@ -34,15 +34,6 @@ function contextoDe(cot: Pick<Cotizacion, 'fechaOperacion' | 'cantidadPax' | 'mo
     cantidadPax: cot.cantidadPax,
     moneda: cot.moneda,
     tipoCambio: cot.tipoCambio.toString(),
-  }
-}
-
-/** RN-MON-01 [BLOQUEA]: receptivo se cotiza en USD y eventos en CLP. La
- * correspondencia se valida en el servidor, no solo en la UI. */
-function validarMonedaArea(areaNegocio: 'RECEPTIVO' | 'EVENTOS', moneda: Moneda): void {
-  const esperada: Moneda = areaNegocio === 'RECEPTIVO' ? 'USD' : 'CLP'
-  if (moneda !== esperada) {
-    throw validacion(`El área ${areaNegocio} debe cotizarse en ${esperada}, no en ${moneda} (RN-MON-01)`)
   }
 }
 
@@ -109,6 +100,8 @@ async function armarLineaCosteo(input: LineaInput, ctx: ContextoCosteo): Promise
       tarifarioValorId: null,
       descripcion: input.descripcion!,
       descripcionEn: input.descripcionEn ?? null,
+      observacion: input.observacion ?? null,
+      observacionEn: input.observacionEn ?? null,
       acomodacion: null,
       costoUnitario: aString(costoTotal),
       costoTotal: aString(costoTotal),
@@ -150,6 +143,8 @@ async function armarLineaCosteo(input: LineaInput, ctx: ContextoCosteo): Promise
     proveedorId: input.proveedorId!,
     descripcion: input.descripcion ?? servicio.nombre,
     descripcionEn: input.descripcionEn ?? servicio.nombreEn,
+    observacion: input.observacion ?? null,
+    observacionEn: input.observacionEn ?? null,
     acomodacion,
     advertenciaVigencia: tarifario.advertenciaVigencia,
   }
@@ -210,6 +205,10 @@ function valorizarEstandar(
     tarifarioValorId: null,
     descripcion: '',
     descripcionEn: null,
+    // Placeholder: el llamador (armarLineaCosteo/recalcular) sobrescribe la
+    // observación desde el input o la línea persistida.
+    observacion: null,
+    observacionEn: null,
     acomodacion: null,
     costoUnitario: aString(costoUnitarioDe(snapshot.modelo, costoTotal, pax)),
     costoTotal: aString(costoTotal),
@@ -243,6 +242,8 @@ function conservarLineaEstandar(existing: VigenteLinea, input: LineaInput): Line
     tarifarioValorId: null,
     descripcion: input.descripcion ?? existing.descripcion,
     descripcionEn: input.descripcionEn ?? existing.descripcionEn,
+    observacion: input.observacion ?? existing.observacion,
+    observacionEn: input.observacionEn ?? existing.observacionEn,
     // El costo está congelado para esta cantidad de pasajeros (RN-COS-06); no
     // se toca acá. Cambiar el pax pasa por el recálculo explícito (RN-COS-07).
     cantidadPax: existing.cantidadPax,
@@ -304,6 +305,48 @@ function totalesDeLineas(lineas: LineaResuelta[]): TotalesVersion {
   return { costoTotal: aString(costoTotal), margenTotal: margenTotal.toString(), ventaTotal: aString(ventaTotal) }
 }
 
+/** Contenido de encabezado que viaja en el guardado de itinerario / versión
+ * (RN-COT-09/10). */
+type ContenidoVersionInput = {
+  fechaVigencia?: Date | null
+  incluidos?: string | null
+  incluidosEn?: string | null
+  noIncluidos?: string | null
+  noIncluidosEn?: string | null
+  notasImportantes?: string | null
+  notasImportantesEn?: string | null
+  formaPagoId?: number | null
+}
+
+/** Arma el contenido persistible de la versión: comentarios + vigencia + forma
+ * de pago, y el recargo pass-through (RN-COS-08: recargoTotal = ventaTotal ×
+ * porcentajeAdicional de la forma de pago, congelado como recargoPct). */
+async function armarContenidoVersion(
+  tx: Prisma.TransactionClient,
+  input: ContenidoVersionInput,
+  ventaTotal: string,
+): Promise<Prisma.CotizacionVersionUncheckedUpdateInput> {
+  let recargoPct = '0'
+  if (input.formaPagoId != null) {
+    const fp = await tx.formaPago.findFirst({ where: { id: input.formaPagoId, eliminadoEn: null } })
+    if (!fp) throw noEncontrado('Forma de pago', input.formaPagoId)
+    recargoPct = fp.porcentajeAdicional.toString()
+  }
+  const recargoTotal = aString(multiplicar(monto(ventaTotal), monto(recargoPct)))
+  return {
+    fechaVigencia: input.fechaVigencia ?? null,
+    incluidos: input.incluidos ?? null,
+    incluidosEn: input.incluidosEn ?? null,
+    noIncluidos: input.noIncluidos ?? null,
+    noIncluidosEn: input.noIncluidosEn ?? null,
+    notasImportantes: input.notasImportantes ?? null,
+    notasImportantesEn: input.notasImportantesEn ?? null,
+    formaPagoId: input.formaPagoId ?? null,
+    recargoPct,
+    recargoTotal,
+  }
+}
+
 // ─── Casos de uso ───────────────────────────────────────────────────────────
 
 export async function listarCotizaciones(
@@ -322,19 +365,22 @@ export async function obtenerCotizacion(id: number) {
 }
 
 export async function crearCotizacion(input: CotizacionCreateInput, usuario: string) {
-  validarMonedaArea(input.areaNegocio, input.moneda)
+  // RN-MON-01 (enmendada): la moneda de la cotización es libre (USD/CLP),
+  // independiente del área. El frontend sugiere un default por área.
+  const zonaIds = [...new Set(input.zonaIds ?? [])]
   const id = await prisma.$transaction(async (tx) => {
     const cliente = await tx.cliente.findFirst({ where: { id: input.clienteId, eliminadoEn: null } })
     if (!cliente) throw noEncontrado('Cliente', input.clienteId)
-    const grupo = await tx.grupo.findFirst({ where: { id: input.grupoId, eliminadoEn: null } })
-    if (!grupo) throw noEncontrado('Grupo', input.grupoId)
+    const negocio = await tx.negocio.findFirst({ where: { id: input.negocioId, eliminadoEn: null } })
+    if (!negocio) throw noEncontrado('Negocio', input.negocioId)
     if (input.ejecutivoId != null) {
       const ej = await tx.clienteEjecutivo.findFirst({ where: { id: input.ejecutivoId, clienteId: input.clienteId, eliminadoEn: null } })
       if (!ej) throw noEncontrado('Ejecutivo del cliente', input.ejecutivoId)
     }
-    if (input.zonaId != null) {
-      const zona = await tx.zona.findFirst({ where: { id: input.zonaId, eliminadoEn: null } })
-      if (!zona) throw noEncontrado('Zona', input.zonaId)
+    // RN-COT-08: múltiples zonas — todas deben estar vigentes.
+    for (const zonaId of zonaIds) {
+      const zona = await tx.zona.findFirst({ where: { id: zonaId, eliminadoEn: null } })
+      if (!zona) throw noEncontrado('Zona', zonaId)
     }
 
     // Correlativo anual COT-{YYYY}-{NNNN} por año de creación (CLAUDE.md §7).
@@ -347,9 +393,8 @@ export async function crearCotizacion(input: CotizacionCreateInput, usuario: str
       {
         clienteId: input.clienteId,
         ejecutivoId: input.ejecutivoId ?? null,
-        grupoId: input.grupoId,
+        negocioId: input.negocioId,
         areaNegocio: input.areaNegocio,
-        zonaId: input.zonaId ?? null,
         fechaOperacion: input.fechaOperacion,
         cantidadPax: input.cantidadPax,
         idiomaDocumento: input.idiomaDocumento,
@@ -360,6 +405,11 @@ export async function crearCotizacion(input: CotizacionCreateInput, usuario: str
       numero,
       usuario,
     )
+
+    // RN-COT-08: zonas N:N (tabla puente), creadas tras la cabecera.
+    if (zonaIds.length) {
+      await tx.cotizacionZona.createMany({ data: zonaIds.map((zonaId) => ({ cotizacionId: cabecera.id, zonaId })) })
+    }
 
     // Versión 1 vacía (la línea base se llena con PUT /itinerario). Reusa el
     // mecanismo de versionado compartido en vez de crear la versión a mano.
@@ -377,7 +427,7 @@ export async function crearCotizacion(input: CotizacionCreateInput, usuario: str
 
 /** Cotización con su versión vigente y las líneas de esa versión — la forma
  * mínima que necesitan el armado y el recálculo. */
-type CotizacionConLineas = Cotizacion & { versionVigente: { lineas: CotizacionLinea[] } | null }
+type CotizacionConLineas = Cotizacion & { versionVigente: (CotizacionVersion & { lineas: CotizacionLinea[] }) | null }
 
 /** Relee la cotización con las líneas de su versión vigente DENTRO de una
  * transacción (RN-COT-02 [BLOQUEA], concurrencia): tomar el lock y releer acá
@@ -408,8 +458,9 @@ export async function guardarItinerario(id: number, input: ItinerarioInput, usua
 
     const lineas = await armarLineasConservando(input.lineas, contextoDe(cot), cot.versionVigente.lineas)
     const totales = totalesDeLineas(lineas)
+    const contenido = await armarContenidoVersion(tx, input, totales.ventaTotal)
     await exigirVersionEditable(tx, cotizacionVersionable, id, cot.versionVigenteId)
-    await repo.reemplazarLineasTx(tx, cot.versionVigenteId, lineas, totales)
+    await repo.reemplazarLineasTx(tx, cot.versionVigenteId, lineas, totales, contenido)
     await tx.cotizacion.update({ where: { id }, data: { actualizadoPor: usuario } })
   })
 
@@ -442,7 +493,8 @@ export async function crearNuevaVersion(id: number, input: NuevaVersionInput, us
     })
     // crearSiguienteVersion copió las líneas de la versión anterior; las
     // reemplazamos por las nuevas (preservando el costo de las conservadas).
-    await repo.reemplazarLineasTx(tx, nueva.id, lineas, totales)
+    const contenido = await armarContenidoVersion(tx, input, totales.ventaTotal)
+    await repo.reemplazarLineasTx(tx, nueva.id, lineas, totales, contenido)
     // Crear una versión nueva es renegociar: vuelve a EN_NEGOCIACION.
     await tx.cotizacion.update({ where: { id }, data: { estado: 'EN_NEGOCIACION', actualizadoPor: usuario } })
   })
@@ -475,6 +527,8 @@ function recalcularLineas(cot: CotizacionConLineas, nuevoPax: number): LineaResu
         tarifarioValorId: null,
         descripcion: l.descripcion,
         descripcionEn: l.descripcionEn,
+        observacion: l.observacion,
+        observacionEn: l.observacionEn,
         cantidadPax: nuevoPax,
         acomodacion: null,
         costoUnitario: l.costoUnitario.toString(),
@@ -501,6 +555,8 @@ function recalcularLineas(cot: CotizacionConLineas, nuevoPax: number): LineaResu
       proveedorId: l.proveedorId,
       descripcion: l.descripcion,
       descripcionEn: l.descripcionEn,
+      observacion: l.observacion,
+      observacionEn: l.observacionEn,
       acomodacion: l.acomodacion,
     }
   })
@@ -529,6 +585,23 @@ export async function previewLinea(id: number, input: PreviewLineaInput) {
   const cot = await repo.findCotizacionById(id)
   if (!cot) throw noEncontrado('Cotización', id)
   const ctx = contextoDe(cot)
+
+  // RN-COT-11: OTRO usa el costo digitado; su venta/margen se derivan igual que
+  // ESTANDAR (misma resolverMargenYVenta), para que el "total editable" funcione
+  // como en los servicios.
+  if (input.tipoLinea === 'OTRO') {
+    const costoTotal = aString(monto(input.costoTotal!))
+    const { margenPct, ventaTotal } = resolverMargenYVenta(costoTotal, input.margenPct ?? '0', input.ventaObjetivo)
+    return {
+      disponible: true as const,
+      moneda: ctx.moneda,
+      costoUnitario: costoTotal,
+      costoTotal,
+      margenPct,
+      ventaTotal,
+      advertenciaVigencia: false,
+    }
+  }
 
   // RN-COS-06: si es una línea YA PERSISTIDA de la versión vigente que conserva
   // su base (servicio/proveedor/acomodación), el costo está congelado y NO se
@@ -563,7 +636,7 @@ export async function previewLinea(id: number, input: PreviewLineaInput) {
   // es respuesta normal, no error (RN-TAR-07: la vigencia se resuelve en el
   // servidor con la fecha).
   const fecha = fechaDelDia(ctx.fechaOperacion, input.dia)
-  const tarifario = await resolverTarifarioVigente(input.proveedorId, input.servicioId, fecha)
+  const tarifario = await resolverTarifarioVigente(input.proveedorId!, input.servicioId!, fecha)
   if (!tarifario) {
     return {
       disponible: false as const,
@@ -580,8 +653,8 @@ export async function previewLinea(id: number, input: PreviewLineaInput) {
       bloque: 'AM',
       orden: 0,
       tipoLinea: 'ESTANDAR',
-      servicioId: input.servicioId,
-      proveedorId: input.proveedorId,
+      servicioId: input.servicioId!,
+      proveedorId: input.proveedorId!,
       acomodacion: input.acomodacion,
       cantidadPax: input.cantidadPax,
       margenPct: input.margenPct,
@@ -629,17 +702,30 @@ export async function aplicarRecalculoPax(id: number, nuevoPax: number, motivo: 
 
     const lineas = recalcularLineas(cot, nuevoPax)
     const totales = totalesDeLineas(lineas)
+    // RN-COS-08: la venta cambió, así que el recargo pass-through se recalcula
+    // sobre la nueva venta con el recargoPct congelado de la versión vigente.
+    const recargoPct = cot.versionVigente?.recargoPct?.toString() ?? '0'
+    const recargo: Prisma.CotizacionVersionUncheckedUpdateInput = {
+      recargoTotal: aString(multiplicar(monto(totales.ventaTotal), monto(recargoPct))),
+    }
 
     if (cot.estado === 'BORRADOR') {
       await exigirVersionEditable(tx, cotizacionVersionable, id, cot.versionVigenteId)
-      await repo.reemplazarLineasTx(tx, cot.versionVigenteId, lineas, totales)
+      await repo.reemplazarLineasTx(tx, cot.versionVigenteId, lineas, totales, recargo)
       await tx.cotizacion.update({ where: { id }, data: { cantidadPax: nuevoPax, actualizadoPor: usuario } })
       return
     }
     if (cot.estado === 'ENVIADA' || cot.estado === 'EN_NEGOCIACION') {
       if (!motivo?.trim()) throw validacion('El motivo es obligatorio para cambiar la cantidad de pasajeros tras el envío (RN-VER-06)')
       const nueva = await crearSiguienteVersion(tx, cotizacionVersionable, { cabeceraId: id, datos: totales, usuario, motivo })
-      await repo.reemplazarLineasTx(tx, nueva.id, lineas, totales)
+      // La versión nueva copia el recargoPct/formaPago de la anterior y recalcula
+      // su recargoTotal sobre la venta nueva.
+      const recargoNueva: Prisma.CotizacionVersionUncheckedUpdateInput = {
+        formaPagoId: cot.versionVigente?.formaPagoId ?? null,
+        recargoPct,
+        recargoTotal: aString(multiplicar(monto(totales.ventaTotal), monto(recargoPct))),
+      }
+      await repo.reemplazarLineasTx(tx, nueva.id, lineas, totales, recargoNueva)
       await tx.cotizacion.update({ where: { id }, data: { cantidadPax: nuevoPax, estado: 'EN_NEGOCIACION', actualizadoPor: usuario } })
       return
     }

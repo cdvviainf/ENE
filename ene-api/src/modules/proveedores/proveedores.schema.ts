@@ -24,9 +24,6 @@ const urlPagoUpdateSchema = z
   .optional()
   .transform((v) => (v === '' ? null : v))
 
-// RN-PRV-09: documento tributario que emite el proveedor.
-export const tipoDocProveedorSchema = z.enum(['FACTURA_AFECTA', 'FACTURA_EXENTA', 'BOLETA_HONORARIOS'])
-
 export const aliasInputSchema = z.object({
   alias: z.string().min(1, 'El alias es requerido').max(150).trim(),
 })
@@ -73,8 +70,8 @@ export const proveedorCreateSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  // RN-PRV-09: por defecto factura afecta (el caso más común).
-  tipoDocumento: tipoDocProveedorSchema.default('FACTURA_AFECTA'),
+  // RN-PRV-09/11: tipo de documento que emite (FK al mantenedor, opcional).
+  tipoDocumentoId: z.coerce.number().int().positive().optional(),
   // RN-PRV-10: link de pago opcional.
   urlPago: z.string().url('URL inválida').max(500).trim().optional(),
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).

@@ -12,11 +12,12 @@ import type { ZodType } from 'zod'
 
 export type IdiomaDocumento = 'es' | 'en'
 
-/** RN-COT-06: el documento al cliente se emite en dos modalidades. `total`
- * muestra solo el gran total; `desglosado` muestra la venta por ítem, nunca
- * costo ni margen (RN-COT-07). La modalidad se elige al generar, sin rehacer
- * el costeo. */
-export type ModalidadDocumento = 'total' | 'desglosado'
+/** RN-COT-06/12: el documento al cliente se emite en tres modalidades. `total`
+ * muestra solo el gran total; `desglosado` muestra la venta por ítem;
+ * `desglosado_pax` muestra servicio, valor por pasajero, pasajeros y total por
+ * ítem. Ninguna muestra costo ni margen (RN-COT-07). La modalidad se elige al
+ * generar, sin rehacer el costeo. */
+export type ModalidadDocumento = 'total' | 'desglosado' | 'desglosado_pax'
 
 export interface OpcionesDocumento {
   idioma: IdiomaDocumento

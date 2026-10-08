@@ -8,7 +8,7 @@ import type { HojaSpec } from '../../../shared/carga-masiva/tipos.js'
 //
 // Alcance (decisión de usuario, 2026-09-17, amplía RN-CAR-02): réplica
 // completa del motor de FAS para los maestros de negocio de ENE. Quedan
-// FUERA: Grupo/Pasajero (RN-CAR-01: "los grupos no se precargan, nacen de la
+// FUERA: Negocio/Pasajero (RN-CAR-01: "los negocios no se precargan, nacen de la
 // operación") y Tarifario/TarifarioValor (su CRUD de Etapa 5 todavía no
 // existe en `ene-api`; se agrega en una iteración posterior).
 //
@@ -29,7 +29,6 @@ import type { HojaSpec } from '../../../shared/carga-masiva/tipos.js'
 
 export const ENUM_TIPO_CLIENTE = ['AGENCIA', 'EMPRESA']
 export const ENUM_MONEDA = ['CLP', 'USD']
-export const ENUM_TIPO_DOC_PROVEEDOR = ['FACTURA_AFECTA', 'FACTURA_EXENTA', 'BOLETA_HONORARIOS']
 export const ENUM_MODELO_TARIFA = ['TRAMO_PAX', 'ACOMODACION', 'UNITARIO_PAX']
 
 // Columnas comunes reutilizadas.
@@ -81,6 +80,19 @@ export const REGISTRO_MAESTROS: HojaSpec[] = [
     columnas: [
       { encabezado: 'Código', campo: 'codigo', tipo: 'texto', requerido: true, ayuda: 'Manual, sin espacios.' },
       COL_NOMBRE,
+    ],
+  },
+  {
+    hoja: 'TiposDocumento',
+    modelo: 'tipoDocumento',
+    titulo: 'Tipos de Documento',
+    descripcion: 'Documento tributario que el proveedor emite a ENE (RN-PRV-11). Ya vienen sembrados — usa esta hoja solo para agregar nuevos.',
+    dependeDe: [],
+    columnas: [
+      { encabezado: 'Código', campo: 'codigo', tipo: 'texto', requerido: true, ayuda: 'Manual, sin espacios.' },
+      COL_NOMBRE,
+      { encabezado: 'Forma de Cálculo', campo: 'formaCalculo', tipo: 'enum', requerido: true, enumValores: ['NINGUNO', 'IVA', 'RETENCION'], ayuda: 'Retención/IVA referencial.' },
+      { encabezado: 'Porcentaje (0-1)', campo: 'porcentaje', tipo: 'decimal', ayuda: 'Ej. 0.19 = 19%. Vacío = 0.' },
     ],
   },
   {
@@ -221,7 +233,7 @@ export const REGISTRO_MAESTROS: HojaSpec[] = [
       { encabezado: 'Razón Social', campo: 'razonSocial', tipo: 'texto', requerido: true },
       { encabezado: 'RUT', campo: 'rut', tipo: 'texto', requerido: true, ayuda: 'Extranjero sin RUT real: usar 55.555.555-5 (RN-PRV-01).' },
       { encabezado: 'Nombre Comercial', campo: 'nombreComercial', tipo: 'texto' },
-      { encabezado: 'Tipo de Documento', campo: 'tipoDocumento', tipo: 'enum', enumValores: ENUM_TIPO_DOC_PROVEEDOR, ayuda: 'Vacío = FACTURA_AFECTA.' },
+      { encabezado: 'Tipo de Documento (código)', campo: 'tipoDocumentoId', tipo: 'fk', fk: { hoja: 'TiposDocumento', externo: true, modelo: 'tipoDocumento' }, ayuda: 'Código del tipo de documento (RN-PRV-11). Vacío = sin documento.' },
       { encabezado: 'Link de Pago', campo: 'urlPago', tipo: 'texto', ayuda: 'URL válida si viene.' },
       {
         encabezado: 'Tipos de Servicio (códigos separados por coma)',

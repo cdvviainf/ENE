@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Mantenedores | Extremo Norte Expediciones' };
 
-// Clientes, ejecutivos, grupos, proveedores, servicios, zonas — Etapa 4.
+// Clientes, ejecutivos, negocios, proveedores, servicios, zonas — Etapa 4.
 export default function ConfigPage() {
   return (
     <Proximamente

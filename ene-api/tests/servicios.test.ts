@@ -132,12 +132,12 @@ describe('RN-MAN-04/05: soft delete de servicio', () => {
     const cliente = await prisma.cliente.create({
       data: { codigo: 'QAS-06-CLI', tipo: 'AGENCIA', razonSocial: 'QA', paisId, creadoPor: 'test' },
     })
-    const grupo = await prisma.grupo.create({
+    const negocio = await prisma.negocio.create({
       data: { codigo: 'QAS-06-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },
     })
     const cot = await prisma.cotizacion.create({
       data: {
-        numero: 'COT-QAS-06', clienteId: cliente.id, grupoId: grupo.id, areaNegocio: 'RECEPTIVO',
+        numero: 'COT-QAS-06', clienteId: cliente.id, negocioId: negocio.id, areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(), cantidadPax: 1, moneda: 'USD', tipoCambio: '1',
         estado: 'ENVIADA', creadoPor: 'test',
       },
@@ -166,7 +166,7 @@ describe('RN-MAN-04/05: soft delete de servicio', () => {
     await prisma.cotizacionLinea.delete({ where: { id: linea.id } }).catch(() => {})
     await prisma.cotizacionVersion.delete({ where: { id: version.id } }).catch(() => {})
     await prisma.cotizacion.delete({ where: { id: cot.id } }).catch(() => {})
-    await prisma.grupo.delete({ where: { id: grupo.id } }).catch(() => {})
+    await prisma.negocio.delete({ where: { id: negocio.id } }).catch(() => {})
     await prisma.cliente.delete({ where: { id: cliente.id } }).catch(() => {})
   })
 })

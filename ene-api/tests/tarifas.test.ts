@@ -29,7 +29,7 @@ const serviciosCreados: number[] = []
 const cotizacionLineasCreadas: number[] = []
 const cotizacionVersionesCreadas: number[] = []
 const cotizacionesCreadas: number[] = []
-const gruposCreados: number[] = []
+const negociosCreados: number[] = []
 const clientesCreados: number[] = []
 let tipoServicioId: number
 let proveedorId: number
@@ -54,7 +54,7 @@ afterAll(async () => {
   await prisma.cotizacionLinea.deleteMany({ where: { id: { in: cotizacionLineasCreadas } } }).catch(() => {})
   await prisma.cotizacionVersion.deleteMany({ where: { id: { in: cotizacionVersionesCreadas } } }).catch(() => {})
   await prisma.cotizacion.deleteMany({ where: { id: { in: cotizacionesCreadas } } }).catch(() => {})
-  await prisma.grupo.deleteMany({ where: { id: { in: gruposCreados } } }).catch(() => {})
+  await prisma.negocio.deleteMany({ where: { id: { in: negociosCreados } } }).catch(() => {})
   await prisma.cliente.deleteMany({ where: { id: { in: clientesCreados } } }).catch(() => {})
   await prisma.tarifario.deleteMany({ where: { servicioId: { in: serviciosCreados } } }).catch(() => {}) // cascadea TarifarioValor
   await prisma.servicio.deleteMany({ where: { id: { in: serviciosCreados } } }).catch(() => {})
@@ -340,11 +340,11 @@ describe('RN-TAR-06: una nueva versión no reemplaza, versiona', () => {
     const { id: paisId } = await prisma.pais.findUniqueOrThrow({ where: { codigo: 'CHL' } })
     const cliente = await prisma.cliente.create({ data: { codigo: 'QAT-CLI', tipo: 'AGENCIA', razonSocial: 'QA', paisId, creadoPor: 'test' } })
     clientesCreados.push(cliente.id)
-    const grupo = await prisma.grupo.create({ data: { codigo: 'QAT-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' } })
-    gruposCreados.push(grupo.id)
+    const negocio = await prisma.negocio.create({ data: { codigo: 'QAT-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' } })
+    negociosCreados.push(negocio.id)
     const cot = await prisma.cotizacion.create({
       data: {
-        numero: 'COT-QAT-01', clienteId: cliente.id, grupoId: grupo.id, areaNegocio: 'RECEPTIVO',
+        numero: 'COT-QAT-01', clienteId: cliente.id, negocioId: negocio.id, areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(), cantidadPax: 1, moneda: 'USD', tipoCambio: '1', estado: 'ENVIADA', creadoPor: 'test',
       },
     })

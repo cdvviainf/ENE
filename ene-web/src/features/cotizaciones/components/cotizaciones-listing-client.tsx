@@ -48,7 +48,7 @@ export function CotizacionesListingClient() {
     <DataTable table={table}>
       <div className='flex flex-wrap items-center gap-2'>
         <Input
-          placeholder='Buscar por número, cliente o grupo...'
+          placeholder='Buscar por número, cliente o negocio...'
           defaultValue={params.q}
           onChange={(e) => setParams({ q: e.target.value, page: 1 })}
           className='max-w-xs'

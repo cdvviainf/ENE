@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Icons } from '@/components/icons';
 import { cotizacionesService, previewUrl } from '../service';
-import type { IdiomaDocumento, ModalidadDocumento } from '../types';
+import { MODALIDAD_LABELS, type IdiomaDocumento, type ModalidadDocumento } from '../types';
 
 // RN-COT-06: idioma (es/en) y modalidad (total/desglosado). RN-COT-07: la
 // modalidad desglosada muestra la venta por ítem, nunca costo ni margen.
@@ -60,12 +60,13 @@ export function PdfPreview({
           <div className='flex items-center gap-1.5'>
             <Label className='text-xs'>Modalidad</Label>
             <Select value={modalidad} onValueChange={(v) => setModalidad(v as ModalidadDocumento)}>
-              <SelectTrigger className='h-8 w-36'>
+              <SelectTrigger className='h-8 w-44'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='total'>Valor total</SelectItem>
-                <SelectItem value='desglosado'>Desglosado</SelectItem>
+                <SelectItem value='total'>{MODALIDAD_LABELS.total}</SelectItem>
+                <SelectItem value='desglosado'>{MODALIDAD_LABELS.desglosado}</SelectItem>
+                <SelectItem value='desglosado_pax'>{MODALIDAD_LABELS.desglosado_pax}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -32,9 +32,9 @@ export const cotizacionColumns: ColumnDef<CotizacionListItem>[] = [
     cell: ({ row }) => row.original.cliente?.razonSocial ?? '—'
   },
   {
-    id: 'grupo',
-    header: 'Grupo',
-    cell: ({ row }) => row.original.grupo?.apellido ?? '—'
+    id: 'negocio',
+    header: 'Negocio',
+    cell: ({ row }) => row.original.negocio?.apellido ?? '—'
   },
   {
     accessorKey: 'areaNegocio',

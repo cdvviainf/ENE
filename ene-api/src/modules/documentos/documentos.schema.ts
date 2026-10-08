@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const idiomaEnum = z.enum(['es', 'en'])
-const modalidadEnum = z.enum(['total', 'desglosado'])
+const modalidadEnum = z.enum(['total', 'desglosado', 'desglosado_pax'])
 
 // GET /api/documentos/preview?tipo=cotizacion&id=&idioma=es&modalidad=total
 export const previewQuerySchema = z.object({

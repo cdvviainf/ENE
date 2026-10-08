@@ -180,19 +180,19 @@ describe('RN-MAN-04/05: soft delete de proveedor', () => {
     const cliente = await prisma.cliente.create({
       data: { codigo: 'QAP-13-CLI', tipo: 'AGENCIA', razonSocial: 'QA', paisId, creadoPor: 'test' },
     })
-    const grupo = await prisma.grupo.create({
+    const negocio = await prisma.negocio.create({
       data: { codigo: 'QAP-13-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },
     })
     const cot = await prisma.cotizacion.create({
       data: {
-        numero: 'COT-QAP-13', clienteId: cliente.id, grupoId: grupo.id, areaNegocio: 'RECEPTIVO',
+        numero: 'COT-QAP-13', clienteId: cliente.id, negocioId: negocio.id, areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(), cantidadPax: 1, moneda: 'USD', tipoCambio: '1',
         estado: 'APROBADA', creadoPor: 'test',
       },
     })
     const ot = await prisma.ordenTrabajo.create({
       data: {
-        numero: 'OT-QAP-13', cotizacionId: cot.id, clienteId: cliente.id, grupoId: grupo.id, apellido: 'QA',
+        numero: 'OT-QAP-13', cotizacionId: cot.id, clienteId: cliente.id, negocioId: negocio.id, apellido: 'QA',
         areaNegocio: 'RECEPTIVO', fechaOperacion: new Date(), cantidadPax: 1, moneda: 'USD',
         tipoCambioCotizacion: '1', creadoPor: 'test',
       },
@@ -209,7 +209,7 @@ describe('RN-MAN-04/05: soft delete de proveedor', () => {
     await prisma.ordenCompra.delete({ where: { id: oc.id } }).catch(() => {})
     await prisma.ordenTrabajo.delete({ where: { id: ot.id } }).catch(() => {})
     await prisma.cotizacion.delete({ where: { id: cot.id } }).catch(() => {})
-    await prisma.grupo.delete({ where: { id: grupo.id } }).catch(() => {})
+    await prisma.negocio.delete({ where: { id: negocio.id } }).catch(() => {})
     await prisma.cliente.delete({ where: { id: cliente.id } }).catch(() => {})
   })
 })

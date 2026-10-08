@@ -6,7 +6,7 @@ import { crearProveedor } from '../src/modules/proveedores/proveedores.service.j
 
 // ============================================================================
 // shared/correlativos.ts — RN-COR-01 (advisory lock transaccional) + RN-MAN-02
-// (código sugerido y editable) para CLIENTE/PROVEEDOR/GRUPO/SERVICIO.
+// (código sugerido y editable) para CLIENTE/PROVEEDOR/NEGOCIO/SERVICIO.
 //
 // A diferencia del correlativo puro de COT/OT/OC (siempre generado por el
 // sistema, sin input del usuario), el código de maestro es editable: si el
@@ -20,7 +20,7 @@ import { crearProveedor } from '../src/modules/proveedores/proveedores.service.j
 //
 // Esto concentra en un único archivo todo lo que consume de verdad el
 // contador compartido (namespace 491009, clave por entidad) para no competir
-// por el mismo mostrador con los tests de clientes/proveedores/grupos/
+// por el mismo mostrador con los tests de clientes/proveedores/negocios/
 // servicios, que solo usan códigos explícitos que nunca calzan con la
 // sugerencia viva.
 // ============================================================================

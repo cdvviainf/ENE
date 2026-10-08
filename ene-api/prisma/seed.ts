@@ -28,7 +28,7 @@ const ITEMS_MENU = [
   // así que no hay ambigüedad con MAESTROS (ruta '/config').
   { codigo: 'MAESTROS', nombre: 'Mantenedores', modulo: 'config', ruta: '/config', orden: 70 },
   { codigo: 'CLIENTES', nombre: 'Clientes', modulo: 'config', ruta: '/config/clientes', orden: 71 },
-  { codigo: 'GRUPOS', nombre: 'Grupos', modulo: 'config', ruta: '/config/grupos', orden: 72 },
+  { codigo: 'NEGOCIOS', nombre: 'Negocios', modulo: 'config', ruta: '/config/negocios', orden: 72 },
   { codigo: 'PROVEEDORES', nombre: 'Proveedores', modulo: 'config', ruta: '/config/proveedores', orden: 73 },
   { codigo: 'SERVICIOS', nombre: 'Servicios', modulo: 'config', ruta: '/config/servicios', orden: 74 },
   { codigo: 'ZONAS', nombre: 'Zonas', modulo: 'config', ruta: '/config/zonas', orden: 75 },
@@ -49,6 +49,10 @@ const ITEMS_MENU = [
   // Etapa 5: mantenedor de Tarifario — mismo criterio de mantenedor propio
   // que el resto, entra en MANTENEDORES_SEPARADOS más abajo.
   { codigo: 'TARIFAS', nombre: 'Tarifas', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
+  // RN-PRV-11 / RN-EMP-01: tipos de documento (reemplaza el enum) y datos de
+  // la empresa emisora + logo. Mismo criterio de mantenedor propio.
+  { codigo: 'TIPOS_DOCUMENTO', nombre: 'Tipos de documento', modulo: 'config', ruta: '/config/tipos-documento', orden: 85 },
+  { codigo: 'EMPRESA', nombre: 'Datos de empresa', modulo: 'config', ruta: '/config/empresa', orden: 86 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
@@ -59,7 +63,7 @@ const ITEMS_MENU = [
 // Cliente/Proveedor (que dependen de leerlos) quedarían sin permiso.
 const MANTENEDORES_SEPARADOS = [
   'CLIENTES',
-  'GRUPOS',
+  'NEGOCIOS',
   'PROVEEDORES',
   'SERVICIOS',
   'TARIFAS',
@@ -71,6 +75,8 @@ const MANTENEDORES_SEPARADOS = [
   'REGIONES',
   'PROVINCIAS',
   'COMUNAS',
+  'TIPOS_DOCUMENTO',
+  'EMPRESA',
 ]
 
 // Zonas de operación (levantamiento: Arica a Santiago)
@@ -125,8 +131,31 @@ const FORMAS_PAGO = [
   { codigo: 'EFECTIVO_USD', nombre: 'Efectivo USD' },
   { codigo: 'TRANSFERENCIA_CLP', nombre: 'Transferencia CLP' },
   { codigo: 'TRANSFERENCIA_USD', nombre: 'Transferencia USD' },
-  { codigo: 'TARJETA_CREDITO', nombre: 'Tarjeta de crédito' },
+  // RN-COS-08: la tarjeta de crédito suma 3% operacional a la propuesta.
+  { codigo: 'TARJETA_CREDITO', nombre: 'Tarjeta de crédito', porcentajeAdicional: 0.03 },
 ]
+
+// RN-PRV-11: tipos de documento que un proveedor emite a ENE (mantenedor que
+// reemplaza el enum TipoDocProveedor). `porcentaje` + `formaCalculo` son la
+// retención/IVA referencial interna. Incluye "A nada" y "Boleta a tercero".
+const TIPOS_DOCUMENTO = [
+  { codigo: 'FACTURA_AFECTA', nombre: 'Factura afecta', formaCalculo: 'IVA', porcentaje: 0.19 },
+  { codigo: 'FACTURA_EXENTA', nombre: 'Factura exenta', formaCalculo: 'NINGUNO', porcentaje: 0 },
+  { codigo: 'BOLETA_HONORARIOS', nombre: 'Boleta de honorarios', formaCalculo: 'RETENCION', porcentaje: 0.1475 },
+  { codigo: 'BOLETA_HONORARIOS_TERCERO', nombre: 'Boleta de honorarios a tercero', formaCalculo: 'RETENCION', porcentaje: 0.1475 },
+  { codigo: 'NINGUNO', nombre: 'A nada (sin documento)', formaCalculo: 'NINGUNO', porcentaje: 0 },
+] as const
+
+// RN-EMP-01: datos de la empresa emisora (singleton). Reemplaza el EMISOR
+// hardcodeado del resolver de documentos.
+const EMPRESA = {
+  nombre: 'Extremo Norte Expediciones',
+  rut: null as string | null,
+  direccion: null as string | null,
+  email: 'no-reply@extremonorte.com',
+  web: 'www.extremonorte.com',
+  telefono: null as string | null,
+}
 
 // Condiciones de pago iniciales (RN-PAG-01/RN-PAG-02) — cada una con sus
 // cuotas (porcentaje + plazo en días); la suma de porcentajes es siempre 100%.
@@ -149,7 +178,7 @@ const PREFIJOS = [
   { entidad: 'ORDEN_COMPRA', prefijo: 'OC', digitos: 4, incluyeAnio: true },
   { entidad: 'CLIENTE', prefijo: 'CL', digitos: 4, incluyeAnio: false },
   { entidad: 'PROVEEDOR', prefijo: 'PR', digitos: 4, incluyeAnio: false },
-  { entidad: 'GRUPO', prefijo: 'GR', digitos: 5, incluyeAnio: false },
+  { entidad: 'NEGOCIO', prefijo: 'NE', digitos: 5, incluyeAnio: false },
   { entidad: 'SERVICIO', prefijo: 'SV', digitos: 4, incluyeAnio: false },
   // PERFIL/USUARIO no usan el correlativo con lock (ultimoValor): son códigos
   // legibles curados a mano (ver ejemplo ADMIN/ADMINISTRADOR ya sembrados),
@@ -233,6 +262,20 @@ async function main() {
     await prisma.formaPago.upsert({ where: { codigo: f.codigo }, update: {}, create: { ...f, creadoPor: SISTEMA } })
   }
 
+  for (const t of TIPOS_DOCUMENTO) {
+    await prisma.tipoDocumento.upsert({
+      where: { codigo: t.codigo },
+      update: {},
+      create: { codigo: t.codigo, nombre: t.nombre, formaCalculo: t.formaCalculo, porcentaje: t.porcentaje, creadoPor: SISTEMA },
+    })
+  }
+
+  // RN-EMP-01: singleton de empresa (fila id=1). Idempotente: solo si no existe.
+  const empresaExistente = await prisma.empresa.findFirst()
+  if (!empresaExistente) {
+    await prisma.empresa.create({ data: { ...EMPRESA, creadoPor: SISTEMA } })
+  }
+
   // CondicionPago no tiene upsert simple (las cuotas son una subtabla): se
   // crea solo si el código no existe todavía, igual que el resto del seed es
   // idempotente por `codigo`.
@@ -250,7 +293,7 @@ async function main() {
     }
   }
 
-  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio, prefijos, geografía y formas/condiciones de pago.')
+  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio, prefijos, geografía, formas/condiciones de pago, tipos de documento y empresa.')
 }
 
 main()

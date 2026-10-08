@@ -5,7 +5,8 @@ export type Bloque = 'AM' | 'PM';
 export type TipoLinea = 'ESTANDAR' | 'OTRO';
 export type Acomodacion = 'SINGLE' | 'DOBLE' | 'TWIN' | 'TRIPLE';
 export type IdiomaDocumento = 'es' | 'en';
-export type ModalidadDocumento = 'total' | 'desglosado';
+export type ModalidadDocumento = 'total' | 'desglosado' | 'desglosado_pax';
+export type FormaCalculoImpuesto = 'NINGUNO' | 'IVA' | 'RETENCION';
 
 export const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
   BORRADOR: 'Borrador',
@@ -28,6 +29,18 @@ export const ACOMODACION_LABELS: Record<Acomodacion, string> = {
   TRIPLE: 'Triple'
 };
 
+export const MODALIDAD_LABELS: Record<ModalidadDocumento, string> = {
+  total: 'Valor total',
+  desglosado: 'Desglosado por ítem',
+  desglosado_pax: 'Detallado por pasajero'
+};
+
+export const FORMA_CALCULO_LABELS: Record<FormaCalculoImpuesto, string> = {
+  NINGUNO: 'Sin impuesto',
+  IVA: 'IVA',
+  RETENCION: 'Retención'
+};
+
 export interface CotizacionLinea {
   id: number;
   dia: number;
@@ -38,6 +51,9 @@ export interface CotizacionLinea {
   proveedorId: number | null;
   descripcion: string;
   descripcionEn: string | null;
+  // RN-COT-10: observación libre por línea (bilingüe).
+  observacion: string | null;
+  observacionEn: string | null;
   cantidadPax: number;
   acomodacion: Acomodacion | null;
   costoUnitario: string;
@@ -45,7 +61,13 @@ export interface CotizacionLinea {
   margenPct: string;
   ventaTotal: string;
   servicio?: { id: number; codigo: string; nombre: string; nombreEn: string | null };
-  proveedor?: { id: number; codigo: string; razonSocial: string };
+  // RN-PRV-11: el tipo de documento del proveedor da la retención/IVA referencial interna.
+  proveedor?: {
+    id: number;
+    codigo: string;
+    razonSocial: string;
+    tipoDocumento?: { id: number; codigo: string; nombre: string; formaCalculo: FormaCalculoImpuesto; porcentaje: string } | null;
+  };
 }
 
 export interface CotizacionVersion {
@@ -55,9 +77,27 @@ export interface CotizacionVersion {
   costoTotal: string;
   margenTotal: string;
   ventaTotal: string;
+  // RN-COT-09/10: vigencia y comentarios de encabezado (bilingües).
+  fechaVigencia: string | null;
+  incluidos: string | null;
+  incluidosEn: string | null;
+  noIncluidos: string | null;
+  noIncluidosEn: string | null;
+  notasImportantes: string | null;
+  notasImportantesEn: string | null;
+  // RN-COS-08: forma de pago + recargo pass-through congelado.
+  formaPagoId: number | null;
+  recargoPct: string;
+  recargoTotal: string;
+  formaPago?: { id: number; codigo: string; nombre: string; porcentajeAdicional: string } | null;
   creadoEn: string;
   creadoPor: string;
   lineas?: CotizacionLinea[];
+}
+
+export interface CotizacionZonaRef {
+  zonaId: number;
+  zona?: { id: number; codigo: string; nombre: string; nombreEn: string | null };
 }
 
 export interface Cotizacion {
@@ -65,9 +105,8 @@ export interface Cotizacion {
   numero: string;
   clienteId: number;
   ejecutivoId: number | null;
-  grupoId: number;
+  negocioId: number;
   areaNegocio: AreaNegocio;
-  zonaId: number | null;
   fechaOperacion: string;
   cantidadPax: number;
   idiomaDocumento: string;
@@ -77,9 +116,10 @@ export interface Cotizacion {
   versionVigenteId: number | null;
   creadoEn: string;
   cliente?: { id: number; codigo: string; razonSocial: string; rut: string | null };
-  grupo?: { id: number; codigo: string; apellido: string; cantidadPax: number };
+  negocio?: { id: number; codigo: string; apellido: string; cantidadPax: number };
   ejecutivo?: { id: number; nombre: string; email: string | null } | null;
-  zona?: { id: number; codigo: string; nombre: string; nombreEn: string | null } | null;
+  // RN-COT-08: múltiples zonas (N:N).
+  zonas?: CotizacionZonaRef[];
   versionVigente?: CotizacionVersion | null;
 }
 
@@ -93,7 +133,7 @@ export interface CotizacionListItem {
   cantidadPax: number;
   creadoEn: string;
   cliente?: { id: number; codigo: string; razonSocial: string };
-  grupo?: { id: number; codigo: string; apellido: string };
+  negocio?: { id: number; codigo: string; apellido: string };
   versionVigente?: { version: number; costoTotal: string; margenTotal: string; ventaTotal: string } | null;
 }
 
@@ -105,14 +145,28 @@ export interface CotizacionListResponse {
 export interface CotizacionCreateInput {
   clienteId: number;
   ejecutivoId?: number;
-  grupoId: number;
+  negocioId: number;
   areaNegocio: AreaNegocio;
-  zonaId?: number;
+  // RN-COT-08: múltiples zonas.
+  zonaIds?: number[];
   fechaOperacion: string;
   cantidadPax: number;
   idiomaDocumento: IdiomaDocumento;
   moneda: Moneda;
   tipoCambio: string;
+}
+
+// RN-COT-09/10/COS-08: contenido de encabezado que viaja con el guardado de
+// itinerario y con la creación de versión.
+export interface ContenidoVersionInput {
+  fechaVigencia?: string | null;
+  incluidos?: string | null;
+  incluidosEn?: string | null;
+  noIncluidos?: string | null;
+  noIncluidosEn?: string | null;
+  notasImportantes?: string | null;
+  notasImportantesEn?: string | null;
+  formaPagoId?: number | null;
 }
 
 // RN-COS-05: ESTANDAR trae su costo del tarifario (no se digita); OTRO lleva
@@ -132,6 +186,8 @@ export interface LineaInput {
   cantidadPax?: number;
   descripcion?: string;
   descripcionEn?: string;
+  observacion?: string;
+  observacionEn?: string;
   costoTotal?: string;
   margenPct?: string;
 }
@@ -143,11 +199,14 @@ export type PreviewLineaInput = {
   // Identidad de una línea ya persistida (RN-COS-06): si conserva su base, el
   // backend valoriza desde su costo/snapshot congelados, no desde el maestro.
   lineaId?: number;
+  // RN-COT-11: ESTANDAR (default) resuelve el tarifario; OTRO usa costoTotal.
+  tipoLinea?: TipoLinea;
   dia: number;
   cantidadPax?: number;
-  servicioId: number;
-  proveedorId: number;
+  servicioId?: number;
+  proveedorId?: number;
   acomodacion?: Acomodacion;
+  costoTotal?: string;
   margenPct?: string;
   // Si viene, el margen se deriva de esta venta en el servidor (RN-COS-04).
   ventaObjetivo?: string;

@@ -28,6 +28,8 @@ const includeListado = {
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio.
   tiposServicio: { include: { tipoServicio: { select: { id: true, codigo: true, nombre: true } } } },
   zonas: { include: { zona: { select: { id: true, codigo: true, nombre: true } } } },
+  // RN-PRV-11: tipo de documento que emite (FK al mantenedor).
+  tipoDocumento: { select: { id: true, codigo: true, nombre: true, formaCalculo: true, porcentaje: true } },
 } as const
 
 // RN-PRV-02: la búsqueda debe encontrar por razón social, nombre comercial Y

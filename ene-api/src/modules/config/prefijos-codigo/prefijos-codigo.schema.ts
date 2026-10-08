@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Lista cerrada de entidades con prefijo configurado. COTIZACION/ORDEN_TRABAJO/
-// ORDEN_COMPRA/CLIENTE/PROVEEDOR/GRUPO/SERVICIO se sembraron en Etapa 1 para el
+// ORDEN_COMPRA/CLIENTE/PROVEEDOR/NEGOCIO/SERVICIO se sembraron en Etapa 1 para el
 // correlativo transaccional (RN-COR-01, con `ultimoValor` + advisory lock — se
 // implementa recién en la etapa de cada módulo). PERFIL/USUARIO se suman acá:
 // son códigos legibles curados a mano, el "siguiente código" es solo una
@@ -12,7 +12,7 @@ export const ENTIDADES_PREFIJO = [
   'ORDEN_COMPRA',
   'CLIENTE',
   'PROVEEDOR',
-  'GRUPO',
+  'NEGOCIO',
   'SERVICIO',
   'PERFIL',
   'USUARIO',

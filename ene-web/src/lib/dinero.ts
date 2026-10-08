@@ -6,6 +6,37 @@
 
 export type Moneda = 'CLP' | 'USD';
 
+// Suma dos strings de dígitos no negativos (sin usar number, para no perder
+// precisión en montos grandes — RN-DIN-01).
+function sumarDigitos(a: string, b: string): string {
+  const max = Math.max(a.length, b.length);
+  const x = a.padStart(max, '0');
+  const y = b.padStart(max, '0');
+  let carry = 0;
+  let out = '';
+  for (let i = max - 1; i >= 0; i--) {
+    const s = (x.charCodeAt(i) - 48) + (y.charCodeAt(i) - 48) + carry;
+    out = String(s % 10) + out;
+    carry = s >= 10 ? 1 : 0;
+  }
+  return carry ? '1' + out : out;
+}
+
+/** Suma dos montos (strings decimales de hasta 4 posiciones) sin pasar por
+ * number (RN-DIN-01). Solo para montos no negativos (ventas, recargos).
+ * Devuelve un string con 4 decimales. */
+export function sumarMontos(a: string | null | undefined, b: string | null | undefined): string {
+  const escalar = (s: string | null | undefined): string => {
+    const limpio = (s ?? '0').trim();
+    if (!/^\d+(\.\d+)?$/.test(limpio)) return '0';
+    const [ent = '0', frac = ''] = limpio.split('.');
+    return (ent + frac.padEnd(4, '0').slice(0, 4)).replace(/^0+(?=\d)/, '');
+  };
+  const total = sumarDigitos(escalar(a), escalar(b)).padStart(5, '0');
+  const corte = total.length - 4;
+  return `${total.slice(0, corte)}.${total.slice(corte)}`;
+}
+
 function incrementarDigitos(s: string): string {
   const arr = s.split('');
   let i = arr.length - 1;

@@ -35,7 +35,7 @@ export const LOCK_COTIZACION_VERSION = 491007
 /// de OC (491003).
 export const LOCK_ORDEN_COMPRA_VERSION = 491008
 
-/// Correlativo de código de maestro (Cliente/Proveedor/Grupo/Servicio,
+/// Correlativo de código de maestro (Cliente/Proveedor/Negocio/Servicio,
 /// RN-COR-01 + RN-MAN-02). Namespace COMPARTIDO entre las cuatro entidades,
 /// igual que 491005 — la clave distingue: `hashtext(entidad)`, así que dos
 /// entidades distintas nunca se serializan entre sí por error.

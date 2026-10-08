@@ -11,12 +11,15 @@ import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { SoloLectura } from '@/components/shared/solo-lectura';
+import { fraccionAPorcentaje, porcentajeAFraccion } from '@/lib/porcentaje';
 import { formaPagoDetailOptions, formasPagoKeys } from '../queries';
 import { formasPagoService } from '../service';
 
 const formaPagoSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim().toUpperCase(),
-  nombre: z.string().min(1, 'El nombre es requerido').max(80).trim()
+  nombre: z.string().min(1, 'El nombre es requerido').max(80).trim(),
+  // El % se edita como número en la UI y se persiste como fracción 0..1.
+  porcentajeAdicionalPct: z.coerce.number().min(0).max(100).default(0)
 });
 
 type FormaPagoFormValues = z.infer<typeof formaPagoSchema>;
@@ -34,8 +37,15 @@ export function FormaPagoForm({ formaPagoId }: FormaPagoFormProps) {
   const { data: formaPago, isLoading } = useQuery(formaPagoDetailOptions(formaPagoId ?? 0));
 
   const mutation = useMutation({
-    mutationFn: (values: FormaPagoFormValues) =>
-      isEdit ? formasPagoService.update(formaPagoId!, values) : formasPagoService.create(values),
+    mutationFn: (values: FormaPagoFormValues) => {
+      const { porcentajeAdicionalPct, ...resto } = values;
+      // RN-DIN-01: el recargo viaja como fracción (0.03), nunca como "%".
+      const payload = {
+        ...resto,
+        porcentajeAdicional: Number(porcentajeAFraccion(String(porcentajeAdicionalPct)) || '0')
+      };
+      return isEdit ? formasPagoService.update(formaPagoId!, payload) : formasPagoService.create(payload);
+    },
     onSuccess: () => {
       toast.success(isEdit ? 'Forma de pago actualizada correctamente' : 'Forma de pago creada correctamente');
       queryClient.invalidateQueries({ queryKey: formasPagoKeys.all });
@@ -45,7 +55,7 @@ export function FormaPagoForm({ formaPagoId }: FormaPagoFormProps) {
   });
 
   const form = useAppForm({
-    defaultValues: { codigo: '', nombre: '' } as FormaPagoFormValues,
+    defaultValues: { codigo: '', nombre: '', porcentajeAdicionalPct: 0 } as FormaPagoFormValues,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validators: { onSubmit: formaPagoSchema as any },
     onSubmit: async ({ value }) => {
@@ -57,6 +67,10 @@ export function FormaPagoForm({ formaPagoId }: FormaPagoFormProps) {
     if (formaPago) {
       form.setFieldValue('codigo', formaPago.codigo);
       form.setFieldValue('nombre', formaPago.nombre);
+      form.setFieldValue(
+        'porcentajeAdicionalPct',
+        Number(fraccionAPorcentaje(String(formaPago.porcentajeAdicional ?? 0)) || '0')
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formaPago]);
@@ -87,6 +101,13 @@ export function FormaPagoForm({ formaPagoId }: FormaPagoFormProps) {
             <div className='grid gap-4 sm:grid-cols-2'>
               <FormTextField name='codigo' label='Código' required placeholder='Ej: TRANSFERENCIA_CLP' disabled={isEdit} />
               <FormTextField name='nombre' label='Nombre' required placeholder='Ej: Transferencia bancaria CLP' />
+              <FormTextField
+                name='porcentajeAdicionalPct'
+                label='Recargo (%)'
+                type='number'
+                placeholder='0'
+                description='Recargo que suma esta forma de pago. Ej: 3 para 3%. Se guarda como fracción (0,03).'
+              />
             </div>
           </CardContent>
         </Card>

@@ -12,16 +12,29 @@ import type { LineaResuelta, TotalesVersion } from './cotizaciones.types.js'
 
 const lineaOrderBy: Prisma.CotizacionLineaOrderByWithRelationInput[] = [{ dia: 'asc' }, { bloque: 'asc' }, { orden: 'asc' }]
 
+// RN-COT-10/RN-PRV-11: la línea incluye el tipo de documento de su proveedor
+// para mostrar la retención/IVA referencial interna; la versión incluye su
+// forma de pago (recargo RN-COS-08).
+const lineaInclude = {
+  orderBy: lineaOrderBy,
+  include: {
+    servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true } },
+    proveedor: {
+      select: {
+        id: true,
+        codigo: true,
+        razonSocial: true,
+        tipoDocumento: { select: { id: true, codigo: true, nombre: true, formaCalculo: true, porcentaje: true } },
+      },
+    },
+  },
+} satisfies Prisma.CotizacionVersion$lineasArgs
+
 const versionVigenteInclude = {
   versionVigente: {
     include: {
-      lineas: {
-        orderBy: lineaOrderBy,
-        include: {
-          servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true } },
-          proveedor: { select: { id: true, codigo: true, razonSocial: true } },
-        },
-      },
+      lineas: lineaInclude,
+      formaPago: { select: { id: true, codigo: true, nombre: true, porcentajeAdicional: true } },
     },
   },
 } satisfies Prisma.CotizacionInclude
@@ -39,7 +52,7 @@ export async function findAllCotizaciones(
       ? {
           OR: [
             { numero: { contains: filtros.q, mode: 'insensitive' } },
-            { grupo: { apellido: { contains: filtros.q, mode: 'insensitive' } } },
+            { negocio: { apellido: { contains: filtros.q, mode: 'insensitive' } } },
             { cliente: { razonSocial: { contains: filtros.q, mode: 'insensitive' } } },
           ],
         }
@@ -54,7 +67,7 @@ export async function findAllCotizaciones(
       orderBy: { creadoEn: 'desc' },
       include: {
         cliente: { select: { id: true, codigo: true, razonSocial: true } },
-        grupo: { select: { id: true, codigo: true, apellido: true } },
+        negocio: { select: { id: true, codigo: true, apellido: true } },
         versionVigente: { select: { version: true, costoTotal: true, margenTotal: true, ventaTotal: true } },
       },
     }),
@@ -69,9 +82,10 @@ export function findCotizacionById(id: number) {
     where: { id },
     include: {
       cliente: { select: { id: true, codigo: true, razonSocial: true, rut: true } },
-      grupo: { select: { id: true, codigo: true, apellido: true, cantidadPax: true } },
+      negocio: { select: { id: true, codigo: true, apellido: true, cantidadPax: true } },
       ejecutivo: { select: { id: true, nombre: true, email: true } },
-      zona: { select: { id: true, codigo: true, nombre: true, nombreEn: true } },
+      // RN-COT-08: la cotización puede abarcar varias zonas.
+      zonas: { include: { zona: { select: { id: true, codigo: true, nombre: true, nombreEn: true } } } },
       ...versionVigenteInclude,
     },
   })
@@ -98,6 +112,10 @@ export async function reemplazarLineasTx(
   versionId: number,
   lineas: LineaResuelta[],
   totales: TotalesVersion,
+  // RN-COT-09/10/COS-08: contenido de encabezado + recargo de la versión. Se
+  // escribe junto a los totales cuando el guardado lo trae (itinerario/versión);
+  // ausente en recálculo por pax, que no toca el encabezado.
+  contenido?: Prisma.CotizacionVersionUncheckedUpdateInput,
 ) {
   const existentes = await tx.cotizacionLinea.findMany({ where: { cotizacionVersionId: versionId }, select: { id: true } })
   const existentesIds = new Set(existentes.map((e) => e.id))
@@ -118,6 +136,8 @@ export async function reemplazarLineasTx(
     tarifarioValorId: l.tarifarioValorId,
     descripcion: l.descripcion,
     descripcionEn: l.descripcionEn,
+    observacion: l.observacion,
+    observacionEn: l.observacionEn,
     cantidadPax: l.cantidadPax,
     acomodacion: l.acomodacion,
     costoUnitario: l.costoUnitario,
@@ -138,7 +158,7 @@ export async function reemplazarLineasTx(
 
   await tx.cotizacionVersion.update({
     where: { id: versionId },
-    data: { costoTotal: totales.costoTotal, margenTotal: totales.margenTotal, ventaTotal: totales.ventaTotal },
+    data: { costoTotal: totales.costoTotal, margenTotal: totales.margenTotal, ventaTotal: totales.ventaTotal, ...(contenido ?? {}) },
   })
 }
 

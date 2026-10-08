@@ -27,7 +27,7 @@ try {
 const prisma = new PrismaClient()
 const idsCreados: number[] = []
 const cotizacionesCreadas: number[] = []
-const gruposCreados: number[] = []
+const negociosCreados: number[] = []
 
 // RN-GEO-01: Cliente.paisId es FK al catálogo Pais sembrado — se resuelve una
 // vez por código en vez de asumir un id fijo (autoincrement no es estable).
@@ -39,13 +39,13 @@ beforeAll(async () => {
   peruId = (await prisma.pais.findUniqueOrThrow({ where: { codigo: 'PER' } })).id
 })
 
-// Orden de borrado por dependencias de FK: cotización (referencia grupo y
-// cliente) → grupo → ejecutivos → cliente. Un grupo borrado antes que la
+// Orden de borrado por dependencias de FK: cotización (referencia negocio y
+// cliente) → negocio → ejecutivos → cliente. Un negocio borrado antes que la
 // cotización que lo referencia falla en silencio (índice RESTRICT) y deja el
 // cliente huérfano-bloqueado entre corridas.
 afterAll(async () => {
   await prisma.cotizacion.deleteMany({ where: { id: { in: cotizacionesCreadas } } }).catch(() => {})
-  await prisma.grupo.deleteMany({ where: { id: { in: gruposCreados } } }).catch(() => {})
+  await prisma.negocio.deleteMany({ where: { id: { in: negociosCreados } } }).catch(() => {})
   await prisma.clienteEjecutivo.deleteMany({ where: { clienteId: { in: idsCreados } } }).catch(() => {})
   await prisma.cliente.deleteMany({ where: { id: { in: idsCreados } } }).catch(() => {})
   await prisma.$disconnect()
@@ -122,16 +122,16 @@ describe('RN-CLI-02: tieneOperaciones expone cualquier cotización u OT, sin fil
   it('es true aunque la única cotización esté PERDIDA', async () => {
     const cliente = await crearCliente(agencia('QAC-OP2'), 'test')
     idsCreados.push(cliente.id)
-    const grupo = await prisma.grupo.create({
+    const negocio = await prisma.negocio.create({
       data: { codigo: 'QAC-OP2-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },
     })
-    gruposCreados.push(grupo.id)
+    negociosCreados.push(negocio.id)
 
     const cot = await prisma.cotizacion.create({
       data: {
         numero: 'COT-QAC-OP2',
         clienteId: cliente.id,
-        grupoId: grupo.id,
+        negocioId: negocio.id,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
         cantidadPax: 1,
@@ -166,15 +166,15 @@ describe('Ejecutivos — RN-CLI-03/RN-CLI-04', () => {
   it('RN-CLI-04: no se puede desactivar el último ejecutivo activo de un cliente con operaciones abiertas', async () => {
     const cliente = await crearCliente(agencia('QAC-EJ2'), 'test')
     idsCreados.push(cliente.id)
-    const grupo = await prisma.grupo.create({
+    const negocio = await prisma.negocio.create({
       data: { codigo: 'QAC-EJ2-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },
     })
-    gruposCreados.push(grupo.id)
+    negociosCreados.push(negocio.id)
     const cot = await prisma.cotizacion.create({
       data: {
         numero: 'COT-QAC-EJ2',
         clienteId: cliente.id,
-        grupoId: grupo.id,
+        negocioId: negocio.id,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
         cantidadPax: 1,
@@ -223,15 +223,15 @@ describe('RN-MAN-04/05: soft delete de cliente', () => {
   it('RN-MAN-04: rechaza el borrado si el cliente tiene una cotización no cerrada', async () => {
     const cliente = await crearCliente(agencia('QAC-DEL2'), 'test')
     idsCreados.push(cliente.id)
-    const grupo = await prisma.grupo.create({
+    const negocio = await prisma.negocio.create({
       data: { codigo: 'QAC-DEL2-GR', apellido: 'QA', clienteId: cliente.id, cantidadPax: 1, creadoPor: 'test' },
     })
-    gruposCreados.push(grupo.id)
+    negociosCreados.push(negocio.id)
     const cot = await prisma.cotizacion.create({
       data: {
         numero: 'COT-QAC-DEL2',
         clienteId: cliente.id,
-        grupoId: grupo.id,
+        negocioId: negocio.id,
         areaNegocio: 'RECEPTIVO',
         fechaOperacion: new Date(),
         cantidadPax: 1,

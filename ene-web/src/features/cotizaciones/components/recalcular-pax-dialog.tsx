@@ -127,7 +127,7 @@ export function RecalcularPaxDialog({
             {modo === 'version' && (
               <div className='space-y-1.5'>
                 <Label>Motivo (obligatorio)</Label>
-                <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder='Ej: el cliente cambió el grupo a 3 pax' />
+                <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder='Ej: el cliente cambió el negocio a 3 pax' />
               </div>
             )}
             <ul className='max-h-64 space-y-1 overflow-auto'>

@@ -209,7 +209,7 @@ export async function generarTemplate(hojas: HojaSpec[], opciones: OpcionesGener
     wb,
     hojas,
     opciones.titulo ?? 'CARGA MASIVA DE MAESTROS — EXTREMO NORTE EXPEDICIONES',
-    opciones.fueraDeAlcance ?? ['Grupos y Pasajeros (nacen de la operación)', 'Tarifarios'],
+    opciones.fueraDeAlcance ?? ['Negocios y Pasajeros (nacen de la operación)', 'Tarifarios'],
   )
   const rangos = construirListasFijas(wb, listas)
 

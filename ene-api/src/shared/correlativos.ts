@@ -6,7 +6,7 @@ import { conflicto } from './errors.js'
 // Entidades con correlativo real (RN-COR-01): a diferencia de PERFIL/USUARIO
 // (sugerencia en vivo sin lock, ver config/prefijos-codigo), estas cuatro
 // consumen `PrefijoCodigo.ultimoValor` dentro de un advisory lock al crear.
-export const ENTIDADES_CORRELATIVO_MAESTRO = ['CLIENTE', 'PROVEEDOR', 'GRUPO', 'SERVICIO'] as const
+export const ENTIDADES_CORRELATIVO_MAESTRO = ['CLIENTE', 'PROVEEDOR', 'NEGOCIO', 'SERVICIO'] as const
 export type EntidadCorrelativoMaestro = (typeof ENTIDADES_CORRELATIVO_MAESTRO)[number]
 
 // Sin guión: Docs/mantenedores.md §1-6 muestra los ejemplos así (CL0001,

@@ -29,7 +29,7 @@ reproduce esos números exactos, está mal.
 |---|---|
 | **Cliente** | Agencia de viajes (receptivo) o Empresa (eventos). **No existe cliente persona natural.** |
 | **Ejecutivo** | Persona de contacto dentro del cliente que solicita y aprueba. |
-| **Grupo** | Los pasajeros que viajan. Se identifica por **apellido**. No es el cliente. |
+| **Negocio** | Los pasajeros que viajan (antes "Grupo"; renombrado oct-2026). Se identifica por **apellido**. No es el cliente. No confundir con "área de negocio". |
 | **Cotización** | Presupuesto en negociación. Puede tener varias versiones. |
 | **OT** | Orden de Trabajo. Nace de una cotización aprobada y es el documento central del sistema. |
 | **OC** | Orden de Compra a un proveedor. Cuelga de una OT. |
@@ -328,6 +328,48 @@ generar el PDF, sin rehacer el costeo.
 desglosada el cliente ve el valor de venta de cada ítem, nunca el costo ni el
 margen.
 
+> **Anexo cotizador (oct-2026): nuevas reglas de cotización.**
+>
+> **RN-COT-08** Una cotización puede abarcar **varias zonas** (N:N, antes era una
+> sola). La OT hereda las zonas de su cotización.
+>
+> **RN-COT-09** La cotización lleva **fecha de vigencia** (hasta cuándo es válida
+> la oferta), por versión. Sale en el PDF.
+>
+> **RN-COT-10** Comentarios de texto libre, bilingües, que salen en el PDF: a
+> nivel de **encabezado** (Servicios incluidos, Servicios no incluidos, Notas
+> importantes) y una **observación por línea**. Viven en la versión.
+>
+> **RN-COT-11** Una línea `OTRO` se costea **igual que una ESTANDAR**: el usuario
+> digita el costo y puede **editar el total de venta**, del que se **deriva el
+> margen** (venta/costo − 1, RN-COS-04), en el servidor con decimal.js. Antes
+> OTRO solo permitía digitar costo + margen.
+>
+> **RN-COT-12** El PDF al cliente suma una tercera modalidad a RN-COT-06:
+> **detallado por pasajero** (Servicio · Valor por pasajero · Pasajeros · Total),
+> además de `total` y `desglosado`.
+>
+> **RN-COS-08** Cada forma de pago tiene un **porcentaje adicional** (recargo
+> operacional, ej. tarjeta de crédito 3%). Al elegir una forma de pago en la
+> cotización, el recargo se suma a la propuesta como **pass-through sobre la
+> venta** (`recargoTotal = ventaTotal × %`): lo paga el cliente, margen 0 sobre
+> ese tramo, no reduce la utilidad. El `%` se congela en la versión
+> (`recargoPct`), igual que el tipo de cambio.
+>
+> **RN-PRV-11** El tipo de documento que emite el proveedor pasa de enum a
+> **mantenedor** (`TipoDocumento`: código, nombre, `formaCalculo`
+> ∈ {NINGUNO, IVA, RETENCION}, `porcentaje`). Incluye "A nada" (sin documento) y
+> "Boleta de honorarios a tercero". La retención/IVA resultante
+> (`costo × porcentaje`) es **referencial e interna**: se muestra en la pantalla
+> de cotización pero **no** afecta el presupuesto ni aparece en el PDF al cliente.
+>
+> **RN-EMP-01** Los **datos de la empresa emisora** (ENE) son un mantenedor
+> singleton editable (nombre, RUT, dirección, email, web, teléfono) con **logo**
+> subible. El PDF lee de ahí (antes el emisor estaba hardcodeado) e incrusta el
+> logo como data URI. El PDF además muestra: versión, ejecutivo del cliente
+> (nombre y mail), logo, fecha de cotización, vigencia, incluidos/no
+> incluidos/notas y la observación de cada línea.
+
 ---
 
 ## 7. Orden de Trabajo
@@ -382,8 +424,12 @@ porque existe: importa el estado individual de cada servicio.
 
 ## 9. Moneda y tipo de cambio
 
-**RN-MON-01** Receptivo se cotiza y cobra en **USD**; eventos en **CLP**. La OT
-se denomina en la moneda de su cotización.
+**RN-MON-01** (enmendada, oct-2026) La moneda de la cotización es **libre**:
+puede ser **USD o CLP indistintamente del área de negocio**. Históricamente
+receptivo se cotizaba en USD y eventos en CLP; eso pasa a ser solo el **default
+sugerido** por el frontend al elegir el área, pero el usuario puede cambiarlo y
+el servidor ya **no** fuerza la correspondencia área↔moneda. La OT se denomina
+en la moneda de su cotización.
 
 **RN-MON-02** Se guardan **dos tipos de cambio distintos**, y ninguno se
 recalcula nunca:
