@@ -100,13 +100,19 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
   const [servicioIds, setServicioIds] = useState<number[]>([]);
 
   // El modelo de tarifa activo (y por lo tanto el editor de valores) lo fija
-  // el primer servicio elegido; si la lista queda vacía o vuelve a un solo
-  // servicio, se reinicia la tabla de valores.
+  // el primer servicio elegido. La tabla de valores SOLO se reinicia cuando el
+  // modelo cambia realmente (p. ej. de TRAMO_PAX a ACOMODACION, o al quedar sin
+  // servicio): reiniciarla en cada selección con ≤1 servicio borraba en silencio
+  // los tramos ya cargados si el combo re-emitía o el usuario re-tocaba el
+  // servicio (bug: "guarda solo el último tramo").
   function aplicarServicioIds(nuevos: number[]) {
     setServicioIds(nuevos);
     const primero = nuevos[0] != null ? servicios.find((x) => x.id === nuevos[0]) : undefined;
-    setModeloTarifaActual(primero?.modeloTarifa ?? null);
-    if (nuevos.length <= 1) setValores([{ ...FILA_VACIA }]);
+    const nuevoModelo = primero?.modeloTarifa ?? null;
+    if (nuevoModelo !== modeloTarifaActual) {
+      setModeloTarifaActual(nuevoModelo);
+      setValores([{ ...FILA_VACIA }]);
+    }
   }
 
   const form = useAppForm({
