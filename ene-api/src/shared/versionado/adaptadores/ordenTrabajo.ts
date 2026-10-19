@@ -17,6 +17,10 @@ import type { Cabecera, Versionable } from '../index.js'
 export interface DatosOTVersion {
   tipoCambio?: TipoCambioVersion
   aprobadoPorCliente?: boolean
+  /// Evidencia persistente de la aprobación del ALCANCE (RN-VER-10 / QA-VER-001).
+  /// Solo se guardan cuando `aprobadoPorCliente` es true; el módulo de OT las fija.
+  aprobacionReferencia?: string | null
+  aprobacionEn?: Date | null
   costoTeoricoTotal: string
   margenTotal: string
   ventaTotal: string
@@ -95,6 +99,9 @@ export const ordenTrabajoVersionable: Versionable<
         costoTeoricoTotal: datos.costoTeoricoTotal,
         margenTotal: datos.margenTotal,
         ventaTotal: datos.ventaTotal,
+        aprobadoPorCliente: datos.aprobadoPorCliente ?? false,
+        aprobacionReferencia: datos.aprobacionReferencia ?? null,
+        aprobacionEn: datos.aprobacionEn ?? null,
         creadoPor: usuario,
       },
     }),

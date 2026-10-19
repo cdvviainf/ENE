@@ -29,8 +29,9 @@ node_modules/
 dist/
 dist-scripts/
 
-# Adjuntos locales
+# Adjuntos locales (storage en filesystem; ADJUNTOS_PATH)
 data/adjuntos/
+ene-api/data/
 
 # Duplicado en la raíz de docker/pgadmin-servers.json (el original en docker/ SÍ se versiona)
 /pgadmin-servers.json

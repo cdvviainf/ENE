@@ -7,7 +7,7 @@ import { Icons } from '@/components/icons';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { cotizacionesService } from '../service';
 import { cotizacionesKeys } from '../queries';
-import { ESTADO_LABELS, type EstadoCotizacion } from '../types';
+import { ESTADO_LABELS, type Cotizacion, type EstadoCotizacion } from '../types';
 
 // Transiciones válidas (RN-COT-01), espejo del backend. APROBADA va por su
 // propia acción (valida RN-COT-04).
@@ -42,9 +42,16 @@ export function EstadoActions({ cotizacionId, estado }: { cotizacionId: number; 
 
   const aprobarMutation = useMutation({
     mutationFn: () => cotizacionesService.aprobar(cotizacionId),
-    onSuccess: () => {
-      toast.success('Cotización aprobada');
-      invalidate();
+    onSuccess: (cot) => {
+      toast.success(cot.ordenTrabajo ? `Cotización aprobada · se generó la OT ${cot.ordenTrabajo.numero}` : 'Cotización aprobada');
+      // POST /aprobar devuelve la OT generada ({ ...cotizacion, ordenTrabajo }).
+      // El detalle (GET /:id) NO la trae, así que la sembramos en la caché del
+      // detalle para que el enlace a la OT aparezca de inmediato; invalidamos
+      // solo los listados (no el detalle) para no perder ese dato con un refetch.
+      queryClient.setQueryData(cotizacionesKeys.detail(cotizacionId), (old: Cotizacion | undefined) =>
+        old ? { ...old, estado: cot.estado, ordenTrabajo: cot.ordenTrabajo ?? null } : old
+      );
+      queryClient.invalidateQueries({ queryKey: [...cotizacionesKeys.all, 'list'] });
     },
     onError: (e: Error) => toast.error(e.message || 'No se pudo aprobar la cotización')
   });

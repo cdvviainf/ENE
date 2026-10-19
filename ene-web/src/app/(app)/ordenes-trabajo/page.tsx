@@ -1,16 +1,16 @@
-import { Proximamente } from '@/components/shared/proximamente';
-import { Icons } from '@/components/icons';
+import PageContainer from '@/components/layout/page-container';
+import { OrdenesTrabajoListingClient } from '@/features/ordenes-trabajo/components/ordenes-trabajo-listing-client';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Órdenes de Trabajo | Extremo Norte Expediciones' };
 
-// Conversión desde cotización, línea base y adjuntos — Etapa 8.
 export default function OrdenesTrabajoPage() {
   return (
-    <Proximamente
-      titulo='Órdenes de Trabajo'
-      descripcion='El módulo de Órdenes de Trabajo se construye en la etapa 8.'
-      icon={Icons.ordenesTrabajo}
-    />
+    <PageContainer
+      pageTitle='Órdenes de Trabajo'
+      pageDescription='OT generadas desde cotizaciones aprobadas: itinerario, versiones y adjuntos.'
+    >
+      <OrdenesTrabajoListingClient />
+    </PageContainer>
   );
 }

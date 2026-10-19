@@ -31,6 +31,8 @@ import { provinciasRoutes } from './modules/config/provincias/provincias.routes.
 import { comunasRoutes } from './modules/config/comunas/comunas.routes.js'
 import { cargaMasivaRoutes } from './modules/config/carga-masiva/carga-masiva.routes.js'
 import { cotizacionesRoutes } from './modules/cotizaciones/cotizaciones.routes.js'
+import { ordenesTrabajoRoutes } from './modules/ordenes-trabajo/ordenes-trabajo.routes.js'
+import { adjuntosRoutes } from './modules/adjuntos/adjuntos.routes.js'
 import { documentosRoutes } from './modules/documentos/documentos.routes.js'
 import { closeBrowser } from './shared/pdf/browser.js'
 
@@ -172,6 +174,8 @@ export async function construirApp() {
   await app.register(comunasRoutes, { prefix: '/api/config' })
   await app.register(cargaMasivaRoutes, { prefix: '/api/config' })
   await app.register(cotizacionesRoutes, { prefix: '/api' })
+  await app.register(ordenesTrabajoRoutes, { prefix: '/api' })
+  await app.register(adjuntosRoutes, { prefix: '/api' })
   await app.register(documentosRoutes, { prefix: '/api/documentos' })
 
   // Cierre ordenado del Chromium del motor de documentos (CLAUDE.md §8).

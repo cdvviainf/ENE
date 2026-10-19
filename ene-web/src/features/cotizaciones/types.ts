@@ -121,6 +121,10 @@ export interface Cotizacion {
   // RN-COT-08: múltiples zonas (N:N).
   zonas?: CotizacionZonaRef[];
   versionVigente?: CotizacionVersion | null;
+  // RN-COT-02/OT-01: la OT generada al aprobar. El detalle (GET /:id) hoy no la
+  // incluye; sí viaja en la respuesta de POST /aprobar. Cuando está presente, el
+  // detalle muestra el enlace a la OT (no se inventa si el backend no la entrega).
+  ordenTrabajo?: { id: number; numero: string } | null;
 }
 
 export interface CotizacionListItem {

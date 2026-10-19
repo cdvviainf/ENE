@@ -844,6 +844,66 @@ levantable en la sesión — puerto 5434 ocupado por otro proyecto), correr `vit
 y los tests nuevos (recargo, venta-objetivo OTRO, retención/IVA, multi-zona,
 `desglosado_pax`), y la verificación en navegador. `tsc` de API y web limpios.
 
+**Etapa 8: Orden de Trabajo (19-oct-2026).** Ciclo QA-Codex cerrado
+`APROBADO_CON_OBSERVACIONES` (ronda 4) + `TESTS_OK` (50/50 en la suite focal;
+las 6 fallas de la regresión completa son deuda previa del anexo —
+`zonas.test.ts`/`operaciones-abiertas.ts` con el viejo `Cotizacion.zonaId`, y
+`negocios.test.ts` sin el prefijo `NEGOCIO` sembrado—, ajenas a este alcance).
+`src/modules/ordenes-trabajo/` + `src/modules/adjuntos/` + feature
+`features/ordenes-trabajo/` y páginas `app/(app)/ordenes-trabajo/`.
+
+- **Conversión (RN-OT-01/02):** `POST /api/cotizaciones/:id/aprobar` ahora genera
+  la OT en la MISMA transacción (`generarDesdeCotizacion`, en el módulo de OT,
+  invocado desde `cotizaciones.aprobar`): correlativo `OT-{YYYY}-{NNNN}` (lock
+  491002), cabecera congelada, **versión 1 = línea base** (RN-VER-12) vía el
+  orquestador `crearSiguienteVersion` (numero=1 omite motivo/validación/copia y
+  fija vigente), líneas copiadas de la versión vigente de la cotización con
+  `costoTeorico ← CotizacionLinea.costoTotal`, `ventaLinea ← ventaTotal`,
+  `estadoServicio = PENDIENTE` y `fechaServicio = fechaOperación + (día−1)`
+  (decisión de usuario). `aprobar` devuelve `{...cotizacion, ordenTrabajo:{id,numero}}`.
+  El estado inicial de la OT es `CONFIRMADA` (default schema, decisión de usuario).
+- **Estados (RN-OT-04/06):** `PATCH /:id/estado` con máquina de transiciones;
+  `CANCELADA` terminal (no pasa a `CERRADA`), `NO_SHOW→CERRADA` sí. Escritura
+  CONDICIONAL al estado leído (`updateMany WHERE estado=leído` + `count===1` →
+  `CONFLICT`) para cerrar la carrera entre dos transiciones concurrentes
+  (QA-IMP-016). `PATCH /:id/lineas/:lid/estado-servicio` toma
+  `LOCK_ORDEN_TRABAJO_VERSION` y re-lee la vigente antes de escribir, para no
+  editar una versión que quedó histórica entremedio (QA-IMP-018, RN-VER-08); y
+  persiste `actualizadoPor` (RN-PER-03, QA-IMP-019 — `OrdenTrabajoLinea` sumó
+  `actualizadoEn @updatedAt`/`actualizadoPor`, migración
+  `20261019130000_ot_linea_auditoria_estado_servicio`).
+- **Versiones (RN-VER-02/09/10):** `POST /:id/versiones` reusa el adaptador de
+  Etapa 2 (valida RN-VER-10/11: `ALCANCE` exige aprobación, `CORRECCION` no
+  cambia venta/costo). Las líneas llegan **ya valorizadas en el payload**
+  (decisión de usuario): el costo se digita, la venta se deriva de
+  `ventaObjetivo` (RN-COT-11) o `margenPct` (RN-COS-02) con decimal.js — la OT
+  NO re-cotiza del tarifario. La **aprobación del ALCANCE se persiste**
+  (`aprobadoPorCliente`/`aprobacionReferencia`/`aprobacionEn` en
+  `OrdenTrabajoVersion`, migración `20261019120000_ot_version_aprobacion_cliente`)
+  — cierra QA-VER-001, diferido desde Etapa 2. **Decisiones de usuario:**
+  `aprobacionReferencia` es opcional (el checkbox basta) y `aprobacionEn` es el
+  momento del servidor. `GET /:id/versiones/:version` devuelve la versión
+  histórica con líneas + evidencia (RN-VER-09, QA-IMP-017).
+- **Adjuntos (RN-OT-08/RN-ADJ-02):** `src/modules/adjuntos/` polimórfico sobre
+  cualquier `EntidadAdjunto`. `POST /adjuntos` (multipart, campos `entidad`+
+  `entidadId` ANTES del archivo), `GET /adjuntos?entidad=&entidadId=`,
+  `GET /:id/descargar`, `DELETE /:id` (soft delete). Permiso DINÁMICO por la
+  entidad dueña (mapa `EntidadAdjunto→ItemMenu`, resuelto en el service contra
+  `eneAccesos`, no en la ruta): LECTURA para ver/descargar, TOTAL para subir/
+  borrar. Nunca se expone `storageKey`. Reusa `shared/storage/archivos.ts`;
+  nombre en disco = UUID + extensión del original (evita traversal).
+- **Frontend:** lista con filtros + búsqueda por apellido, detalle (cabecera +
+  itinerario por día/bloque con `estadoServicio` editable, estados, versiones con
+  diálogo de versión histórica, adjuntos), y banner "la cotización se convirtió
+  en la OT OT-…" sembrado desde la respuesta de `/aprobar`.
+- **Infra de esta sesión:** el puerto 5434 lo ocupa `alcop_postgres`; se
+  **remapeó `ene_postgres` a 5435** (`docker-compose.yml` + `DATABASE_URL` de
+  `ene-api/.env`, decisión de usuario) para poder migrar y correr los tests.
+- **Pendiente:** verificación interactiva en navegador (recorrido real
+  aprobar→OT→estados→adjuntos); y el banner cotización→OT desaparece al recargar
+  porque `GET /cotizaciones/:id` no incluye la relación `ordenTrabajo`
+  (observación no bloqueante de Codex, fácil de cerrar agregándola al include).
+
 ---
 
 ## 8. Motor de documentos

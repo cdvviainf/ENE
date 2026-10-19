@@ -1106,6 +1106,12 @@ model OrdenTrabajoVersion {
   costoTeoricoTotal Decimal           @db.Decimal(18, 4)
   margenTotal       Decimal           @db.Decimal(18, 4)
   ventaTotal        Decimal           @db.Decimal(18, 4)
+  // RN-VER-10 / QA-VER-001 (diferido a Etapa 8): evidencia persistente y
+  // verificable de que el cliente aprobó un cambio de ALCANCE. En la v1 (línea
+  // base) y en una CORRECCION queda en false/null.
+  aprobadoPorCliente   Boolean  @default(false)
+  aprobacionReferencia String?
+  aprobacionEn         DateTime?
   creadoEn          DateTime          @default(now())
   creadoPor         String
 
@@ -1139,6 +1145,9 @@ model OrdenTrabajoLinea {
   ventaLinea            Decimal        @db.Decimal(18, 4)
   estadoServicio        EstadoServicio @default(PENDIENTE)
   fechaServicio         DateTime?
+  // RN-PER-03: auditoría de la mutación operativa (cambio de estadoServicio).
+  actualizadoEn         DateTime?      @updatedAt
+  actualizadoPor        String?
 
   // RN-VER-03: las líneas de una versión son historial; no se cascadean.
   version   OrdenTrabajoVersion @relation(fields: [ordenTrabajoVersionId], references: [id], onDelete: Restrict)

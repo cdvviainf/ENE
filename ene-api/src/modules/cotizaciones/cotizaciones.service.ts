@@ -6,6 +6,7 @@ import { generarNumeroAnual } from '../../shared/correlativos.js'
 import { aClp, aplicarMargen, aString, desdeClp, dividir, margenDesdeVenta, monto, multiplicar, type Decimal, type Montoish } from '../../shared/dinero/index.js'
 import { crearSiguienteVersion, exigirVersionEditable } from '../../shared/versionado/index.js'
 import { cotizacionVersionable } from '../../shared/versionado/adaptadores/cotizacion.js'
+import { generarDesdeCotizacion } from '../ordenes-trabajo/ordenes-trabajo.service.js'
 import { resolverCosto, valorizar } from '../costeo/costeo.service.js'
 import { resolverTarifarioVigente, type TarifarioVigente } from '../costeo/costeo.repository.js'
 import type { LineaCosteo, LineaEstandar } from '../costeo/costeo.types.js'
@@ -751,9 +752,9 @@ export async function cambiarEstado(id: number, nuevoEstado: (typeof TRANSICIONE
   })
 }
 
-/** POST /aprobar — valida RN-COT-04 y marca APROBADA. La generación de la OT es
- * el punto de entrada de la Etapa 8 (decisión de usuario 24-sep-2026): acá la
- * cotización queda lista e inmutable (RN-COT-02), sin crear OT todavía.
+/** POST /aprobar — valida RN-COT-04, genera la OT (RN-OT-01/02) y marca APROBADA,
+ * todo en una sola transacción. La cotización queda inmutable (RN-COT-02) y su
+ * programa se congela en la versión 1 de la OT (línea base, RN-VER-12).
  * Serializada por cotización con la validación dentro de la transacción para que
  * una operación concurrente no reabra una cotización terminal (RN-COT-02). */
 export async function aprobar(id: number, usuario: string) {
@@ -778,7 +779,15 @@ export async function aprobar(id: number, usuario: string) {
       throw validacion(`No se puede aprobar la cotización sin: ${faltantes.join(', ')} (RN-COT-04)`)
     }
 
-    return tx.cotizacion.update({ where: { id }, data: { estado: 'APROBADA', actualizadoPor: usuario } })
+    // RN-OT-01/02: la cotización aprobada genera la OT en la misma transacción,
+    // copiando y congelando su programa en la versión 1 (línea base). Todo o nada.
+    const ot = await generarDesdeCotizacion(tx, id, usuario)
+
+    const cotAprobada = await tx.cotizacion.update({
+      where: { id },
+      data: { estado: 'APROBADA', actualizadoPor: usuario },
+    })
+    return { ...cotAprobada, ordenTrabajo: { id: ot.id, numero: ot.numero } }
   })
 }
 

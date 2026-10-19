@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { Icons } from '@/components/icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatFechaCorta } from '@/lib/format';
@@ -81,6 +83,18 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
               <EstadoActions cotizacionId={cot.id} estado={cot.estado} />
             </div>
           </div>
+          {/* RN-COT-02: una cotización aprobada se convirtió en su OT. El enlace
+              aparece solo cuando el dato de la OT está disponible (p. ej. recién
+              aprobada en esta sesión); el detalle del backend no lo persiste. */}
+          {cot.estado === 'APROBADA' && cot.ordenTrabajo && (
+            <div className='flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200'>
+              <Icons.check className='h-4 w-4 shrink-0' />
+              <span>La cotización se convirtió en la OT</span>
+              <Link href={`/ordenes-trabajo/${cot.ordenTrabajo.id}`} className='font-semibold hover:underline'>
+                {cot.ordenTrabajo.numero}
+              </Link>
+            </div>
+          )}
           <div className='grid gap-4 sm:grid-cols-3 lg:grid-cols-4'>
             <Dato etiqueta='Cliente' valor={cot.cliente?.razonSocial ?? '—'} />
             <Dato etiqueta='Negocio' valor={cot.negocio?.apellido ?? '—'} />
