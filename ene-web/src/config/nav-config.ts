@@ -117,13 +117,8 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
-            title: 'Indicadores',
-            url: '/config/indicadores',
-            items: []
-          },
-          {
-            title: 'Datos de empresa',
-            url: '/config/empresa',
+            title: 'Configuración general',
+            url: '/config/general',
             items: []
           },
           {

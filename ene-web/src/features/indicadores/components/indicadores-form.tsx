@@ -19,7 +19,7 @@ const PCT_RE = /^\d{1,2}(\.\d{1,2})?$/;
 
 export function IndicadoresForm() {
   const queryClient = useQueryClient();
-  const puedeEscribir = usePuedeEscribir('INDICADORES');
+  const puedeEscribir = usePuedeEscribir('CONFIGURACION_GENERAL');
   const { data: indicadores, isLoading } = useQuery(indicadoresDetailOptions());
 
   const [iva, setIva] = useState('');
@@ -129,7 +129,7 @@ export function IndicadoresForm() {
           </Button>
         </div>
       ) : (
-        <p className='text-muted-foreground text-sm'>Tu perfil solo tiene acceso de lectura a Indicadores.</p>
+        <p className='text-muted-foreground text-sm'>Tu perfil solo tiene acceso de lectura a Configuración general.</p>
       )}
     </form>
   );

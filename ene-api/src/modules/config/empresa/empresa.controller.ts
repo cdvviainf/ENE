@@ -20,11 +20,21 @@ export async function uploadLogo(req: FastifyRequest, reply: FastifyReply) {
   const archivo = await req.file()
   if (!archivo) throw validacion('No se recibió ningún archivo')
   const buffer = await archivo.toBuffer()
-  const empresa = await service.guardarLogo(buffer, archivo.mimetype, usuarioSesion(req))
+  const empresa = await service.guardarLogo(buffer, usuarioSesion(req))
   return reply.send(empresa)
+}
+
+export async function deleteLogo(req: FastifyRequest, reply: FastifyReply) {
+  return reply.send(await service.eliminarLogo(usuarioSesion(req)))
 }
 
 export async function getLogo(_req: FastifyRequest, reply: FastifyReply) {
   const { buffer, mimeType } = await service.obtenerLogo()
-  return reply.header('Content-Type', mimeType).header('Cache-Control', 'no-cache').send(buffer)
+  // nosniff + CSP sandbox: un SVG servido directo no puede ejecutar scripts.
+  return reply
+    .header('Content-Type', mimeType)
+    .header('Cache-Control', 'no-cache')
+    .header('X-Content-Type-Options', 'nosniff')
+    .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+    .send(buffer)
 }

@@ -421,7 +421,8 @@ margen.
 >
 > **RN-IMP-01** Las tasas tributarias (`tasaIva`, por defecto 0,19, y
 > `tasaRetencion`, por defecto 0,1475) son un mantenedor singleton
-> (`Indicadores`), editable con nivel `TOTAL` sobre `INDICADORES` y legible por
+> (`Indicadores`), editable con nivel `TOTAL` sobre `CONFIGURACION_GENERAL`
+> (viñeta Indicadores de Configuración general, RN-CFG-01) y legible por
 > cualquier usuario autenticado. Se guardan como fracción en el rango [0, 1).
 >
 > **RN-IMP-02** Cálculo por línea (decimal.js, RN-DIN-01). Las líneas `OTRO`, sin
@@ -440,6 +441,22 @@ margen.
 > logo como data URI. El PDF además muestra: versión, ejecutivo del cliente
 > (nombre y mail), logo, fecha de cotización, vigencia, incluidos/no
 > incluidos/notas y la observación de cada línea.
+>
+> **RN-CFG-01** (nov-2026) **Configuración general**: los parámetros únicos del
+> sistema se administran en una sola página (`/config/general`) con viñetas
+> **Empresa** (datos del emisor), **Logo** e **Indicadores** (RN-IMP-01),
+> gobernada por un único ítem de menú `CONFIGURACION_GENERAL` (reemplaza a
+> `EMPRESA` e `INDICADORES`; cada perfil hereda **solo** el mayor nivel que tenía
+> en ellos, nunca el de `MAESTROS`. En una instalación nueva solo `GERENCIA`
+> (`LECTURA`) y `ADMINISTRADOR` (`TOTAL`) la reciben por defecto). Con `LECTURA` se ven los datos sin poder editarlos. Las integraciones
+> con API se sumarán como otra viñeta en su etapa.
+> El **logo** (RN-EMP-01) se guarda como binario en la BD (`EmpresaLogo`, uno
+> solo; subir otro lo reemplaza, se puede quitar), en PNG, JPG o WEBP de hasta
+> 2 MB. El formato se verifica por la firma binaria del archivo, no por el tipo
+> que declara el navegador, y no se acepta SVG (puede llevar scripts). El logo
+> encabeza **todos** los PDF a través de la cabecera compartida: cada
+> emisión lo lee de nuevo, de modo que cambiarlo no requiere tocar plantillas.
+> Sin logo, el documento sale solo con el nombre de la empresa.
 
 ---
 

@@ -17,6 +17,10 @@ export const empresaService = {
     return api.post('config/empresa/logo', { body: formData }).json();
   },
 
+  async deleteLogo(): Promise<Empresa> {
+    return api.delete('config/empresa/logo').json();
+  },
+
   async getLogoBlob(): Promise<Blob> {
     // Blob vía la instancia `api` para que viajen las cookies de sesión — un
     // <img src='/api/config/empresa/logo'> directo también las enviaría, pero

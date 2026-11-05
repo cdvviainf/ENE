@@ -6,8 +6,8 @@ export interface Empresa {
   email: string | null;
   web: string | null;
   telefono: string | null;
-  logoStorageKey: string | null;
-  logoMimeType: string | null;
+  // RN-EMP-01: metadatos del logo (guardado en la BD); el binario se pide aparte.
+  logo: { mime: string; subidoEn: string; subidoPor: string } | null;
 }
 
 export interface EmpresaUpdateInput {

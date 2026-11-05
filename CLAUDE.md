@@ -984,7 +984,31 @@ web 12 errores + 5 warnings idénticos a `main`.
 > `ui/encabezado.tsx` (`<Encabezado emisor titulo referencias>` +
 > `encabezadoCss(colores)` en el `<style>` de la plantilla). La cotización ya lo
 > usa; `orden-compra` y `comprobante-pago` deben usarlo al construirse. El logo
-> se cambia solo desde `/config/empresa` (RN-EMP-01), sin tocar plantillas.
+> se cambia solo desde Configuración general → Logo (RN-EMP-01/RN-CFG-01), sin
+> tocar plantillas.
+>
+> **Configuración general (5-nov-2026, QA-Codex 4 rondas, APROBADO + TESTS_OK).**
+> Página única `/config/general` (`features/configuracion-general/`) con viñetas
+> **Empresa**, **Logo** e **Indicadores**, gobernada por el ItemMenu
+> `CONFIGURACION_GENERAL`, que reemplaza a `EMPRESA` e `INDICADORES`
+> (desactivados). Las integraciones con API se sumarán como viñeta en su etapa,
+> portando `Integracion`/`IntegracionParametro` de FAS. A diferencia de FAS
+> (multiempresa, logo en cada empresa), ENE es una sola empresa.
+> - **Logo en BD:** tabla `empresa_logo` (`EmpresaLogo`: `id` propio,
+>   `empresaId @unique`, `mime`, `datos Bytes`), igual que FAS. Migración
+>   `20261105135358_configuracion_general_logo_en_bd`, destructiva y sin
+>   backfill: el usuario garantiza que ningún ambiente desplegado tenía logo
+>   (QA-CFG-001). Solo PNG, JPEG o WEBP, detectados por firma binaria y no por el
+>   Content-Type; sin SVG; máximo 2 MB; `DELETE /api/config/empresa/logo` lo
+>   quita. La API nunca devuelve el binario, solo `logo: {mime, subidoEn,
+>   subidoPor} | null`.
+> - **Permisos (seed):** `CONFIGURACION_GENERAL` hereda **solo** el mayor nivel
+>   de `EMPRESA`/`INDICADORES`, calculado ANTES del alta por defecto de
+>   GERENCIA/ADMINISTRADOR (QA-CFG-005). Está fuera de `MANTENEDORES_SEPARADOS`,
+>   así que nunca hereda de `MAESTROS` (QA-CFG-006). Con `LECTURA` la página se ve
+>   con los campos deshabilitados.
+> - **Pendiente:** no hay tests automatizados del ciclo del logo, de la detección
+>   por firma binaria ni de la herencia de permisos del seed.
 
 ### Catálogo de documentos de ENE
 

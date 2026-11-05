@@ -49,10 +49,10 @@ const ITEMS_MENU = [
   // Etapa 5: mantenedor de Tarifario — mismo criterio de mantenedor propio
   // que el resto, entra en MANTENEDORES_SEPARADOS más abajo.
   { codigo: 'TARIFAS', nombre: 'Tarifas', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
-  // RN-IMP-01 / RN-EMP-01: indicadores tributarios (tasas IVA/retención, que
-  // reemplazan al mantenedor TipoDocumento) y datos de la empresa emisora + logo.
-  { codigo: 'INDICADORES', nombre: 'Indicadores', modulo: 'config', ruta: '/config/indicadores', orden: 85 },
-  { codigo: 'EMPRESA', nombre: 'Datos de empresa', modulo: 'config', ruta: '/config/empresa', orden: 86 },
+  // Configuración general (nov-2026): una sola página con viñetas Empresa,
+  // Logo e Indicadores (RN-EMP-01, RN-IMP-01). Reemplaza a los ítems EMPRESA e
+  // INDICADORES, que se desactivan más abajo heredando su nivel a este ítem.
+  { codigo: 'CONFIGURACION_GENERAL', nombre: 'Configuración general', modulo: 'config', ruta: '/config/general', orden: 85 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
@@ -61,6 +61,10 @@ const ITEMS_MENU = [
 // pago entran al mismo backfill — sin esto, un perfil con nivel ya ajustado
 // en MAESTROS no heredaría acceso a PAISES/COMUNAS/etc., y los selectores de
 // Cliente/Proveedor (que dependen de leerlos) quedarían sin permiso.
+// CONFIGURACION_GENERAL NO entra acá a propósito (QA-CFG-006): hereda solo el
+// mayor nivel de EMPRESA/INDICADORES (RN-CFG-01), nunca el de MAESTROS. Es
+// configuración sensible: en una instalación nueva solo GERENCIA/ADMINISTRADOR
+// la tienen por defecto y el resto se asigna a mano en Perfiles.
 const MANTENEDORES_SEPARADOS = [
   'CLIENTES',
   'NEGOCIOS',
@@ -75,8 +79,6 @@ const MANTENEDORES_SEPARADOS = [
   'REGIONES',
   'PROVINCIAS',
   'COMUNAS',
-  'INDICADORES',
-  'EMPRESA',
 ]
 
 // Zonas de operación (levantamiento: Arica a Santiago)
@@ -190,6 +192,32 @@ async function main() {
     })
   }
 
+  // Configuración general reemplaza a EMPRESA e INDICADORES: cada perfil que
+  // ya tenía nivel en alguno de ellos lo hereda (el mayor de los dos). Corre
+  // ANTES del alta por defecto de GERENCIA/ADMINISTRADOR y del backfill desde
+  // MAESTROS (QA-CFG-005): ambos usan `update: {}`, así que si corrieran
+  // primero fijarían su nivel y la herencia ya no podría aplicarse. Idempotente: no
+  // toca un nivel ya ajustado a mano en CONFIGURACION_GENERAL.
+  const itemConfigGeneral = await prisma.itemMenu.findUnique({ where: { codigo: 'CONFIGURACION_GENERAL' } })
+  const itemsReemplazados = await prisma.itemMenu.findMany({ where: { codigo: { in: ['EMPRESA', 'INDICADORES'] } } })
+  if (itemConfigGeneral && itemsReemplazados.length > 0) {
+    const rango: Record<NivelAcceso, number> = { SIN_ACCESO: 0, LECTURA: 1, TOTAL: 2 }
+    const niveles = await prisma.perfilItemMenu.findMany({ where: { itemMenuId: { in: itemsReemplazados.map((i) => i.id) } } })
+    const mayorPorPerfil = new Map<number, NivelAcceso>()
+    for (const n of niveles) {
+      const actual = mayorPorPerfil.get(n.perfilId)
+      if (!actual || rango[n.nivel] > rango[actual]) mayorPorPerfil.set(n.perfilId, n.nivel)
+    }
+    for (const [perfilId, nivel] of mayorPorPerfil) {
+      await prisma.perfilItemMenu.upsert({
+        where: { perfilId_itemMenuId: { perfilId, itemMenuId: itemConfigGeneral.id } },
+        update: {},
+        create: { perfilId, itemMenuId: itemConfigGeneral.id, nivel },
+      })
+    }
+  }
+  await prisma.itemMenu.updateMany({ where: { codigo: { in: ['EMPRESA', 'INDICADORES'] } }, data: { activo: false } })
+
   // Gerencia y Administrador ven todo; el resto se ajusta al configurar.
   const total = await prisma.perfil.findMany({ where: { codigo: { in: ['GERENCIA', 'ADMINISTRADOR'] } } })
   const items = await prisma.itemMenu.findMany()
@@ -213,6 +241,7 @@ async function main() {
   // mantenedor recién separado, para no revocarles acceso en silencio al
   // introducir los ítems nuevos. Idempotente: `update: {}` no pisa un nivel
   // ya ajustado a mano después de la migración.
+
   const itemMaestros = await prisma.itemMenu.findUnique({ where: { codigo: 'MAESTROS' } })
   const itemsSeparados = await prisma.itemMenu.findMany({ where: { codigo: { in: MANTENEDORES_SEPARADOS } } })
   if (itemMaestros) {

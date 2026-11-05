@@ -561,14 +561,31 @@ model Empresa {
   email          String?
   web            String?
   telefono       String?
-  logoStorageKey String?
-  logoMimeType   String?
   creadoEn       DateTime  @default(now())
   creadoPor      String
   actualizadoEn  DateTime? @updatedAt
   actualizadoPor String?
 
+  logo EmpresaLogo?
+
   @@map("empresa")
+}
+
+/// RN-EMP-01 (nov-2026): logo de la empresa emisora, guardado como binario en la
+/// BD (mismo patrón que FAS `EmpresaLogo`): viaja con los respaldos de la base y
+/// no depende de un volumen de archivos. Tabla aparte para que las lecturas
+/// normales de `Empresa` no arrastren el binario. Un solo logo: subir otro lo
+/// reemplaza (sin historial).
+model EmpresaLogo {
+  id        Int      @id @default(autoincrement())
+  empresaId Int      @unique
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  mime      String
+  datos     Bytes
+  subidoEn  DateTime @default(now())
+  subidoPor String
+
+  @@map("empresa_logo")
 }
 
 /// Jerarquía geográfica para Direcciones (RN-GEO-01). `Region` no lleva FK a
