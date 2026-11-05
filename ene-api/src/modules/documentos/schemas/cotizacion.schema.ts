@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emisorPdfSchema } from './emisor.schema.js'
 
 // Payload ya resuelto de la cotización para el PDF. Los montos viajan como
 // string decimal (RN-DIN-01). El resolver ya eligió los textos de dominio
@@ -31,16 +32,8 @@ export const cotizacionDiaPdfSchema = z.object({
 export const cotizacionPdfPayloadSchema = z.object({
   numero: z.string(),
   version: z.number().int().min(1),
-  // RN-EMP-01: datos de la empresa emisora + logo (data URI, opcional).
-  empresa: z.object({
-    nombre: z.string(),
-    rut: z.string().nullable(),
-    direccion: z.string().nullable(),
-    email: z.string().nullable(),
-    web: z.string().nullable(),
-    telefono: z.string().nullable(),
-    logoDataUri: z.string().nullable(),
-  }),
+  // RN-EMP-01: emisor + logo dinámico (cabecera común, schemas/emisor.schema).
+  empresa: emisorPdfSchema,
   cliente: z.object({
     razonSocial: z.string(),
     rut: z.string().nullable(),

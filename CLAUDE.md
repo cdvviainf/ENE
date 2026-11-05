@@ -975,6 +975,17 @@ web 12 errores + 5 warnings idénticos a `main`.
 > OT (RN-COT-02). Hasta entonces `emitir` no persiste ni deduplica: cada llamada
 > re-resuelve el dato vigente y rinde el PDF.
 
+> **Cabecera con logo dinámico, compartida (5-nov-2026, QA-Codex APROBADO +
+> TESTS_OK).** Todo PDF del catálogo arma su cabecera con tres piezas comunes:
+> `resolvers/emisor.resolver.ts` (`resolverEmisor()`: lee el mantenedor Datos de
+> empresa y convierte el logo en data URI en cada emisión; si falta la empresa
+> o el archivo, el documento sale sin logo, sin fallar), `schemas/emisor.schema.ts`
+> (`emisorPdfSchema`, va dentro del payload de cada documento) y
+> `ui/encabezado.tsx` (`<Encabezado emisor titulo referencias>` +
+> `encabezadoCss(colores)` en el `<style>` de la plantilla). La cotización ya lo
+> usa; `orden-compra` y `comprobante-pago` deben usarlo al construirse. El logo
+> se cambia solo desde `/config/empresa` (RN-EMP-01), sin tocar plantillas.
+
 ### Catálogo de documentos de ENE
 
 | Tipo | Origen | Notas |

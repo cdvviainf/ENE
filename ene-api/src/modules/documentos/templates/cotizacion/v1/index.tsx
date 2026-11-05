@@ -1,6 +1,7 @@
 import type { PropsPlantilla } from '../../../documentos.types.js'
 import type { CotizacionPdfPayload } from '../../../schemas/cotizacion.schema.js'
 import { fmt } from '../../../ui/formato.js'
+import { Encabezado, encabezadoCss } from '../../../ui/encabezado.js'
 import { textos } from '../i18n.js'
 
 // Plantilla de Cotización v1 — bilingüe y con tres modalidades (RN-COT-06/12).
@@ -29,22 +30,11 @@ export function CotizacionV1({ d, opciones, marcaAgua }: PropsPlantilla<Cotizaci
       <body>
         {marcaAgua ? <div className='marca-agua'>{marcaAgua}</div> : null}
 
-        <header className='encabezado'>
-          <div className='emisor'>
-            {d.empresa.logoDataUri ? <img className='logo' src={d.empresa.logoDataUri} alt='' /> : null}
-            <div>
-              <div className='emisor-nombre'>{d.empresa.nombre}</div>
-              <div className='emisor-datos'>
-                {[d.empresa.rut, d.empresa.direccion, d.empresa.email, d.empresa.web, d.empresa.telefono].filter(Boolean).join(' · ')}
-              </div>
-            </div>
-          </div>
-          <div className='doc-titulo'>
-            <div className='titulo'>{t.titulo}</div>
-            <div className='numero'>{t.cotizacion} {d.numero}</div>
-            <div className='numero'>{t.version} {d.version}</div>
-          </div>
-        </header>
+        <Encabezado
+          emisor={d.empresa}
+          titulo={t.titulo}
+          referencias={[`${t.cotizacion} ${d.numero}`, `${t.version} ${d.version}`]}
+        />
 
         <section className='ficha'>
           <Campo etiqueta={t.cliente} valor={d.cliente.razonSocial} />
@@ -175,14 +165,7 @@ const css = `
     font-size: 96px; font-weight: 700; color: ${COLORS.marca}; opacity: 0.08;
     transform: rotate(-24deg); letter-spacing: 8px; pointer-events: none; z-index: 0;
   }
-  .encabezado { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid ${COLORS.tinta}; padding-bottom: 10px; gap: 16px; }
-  .emisor { display: flex; gap: 12px; align-items: flex-start; }
-  .logo { max-height: 56px; max-width: 160px; object-fit: contain; }
-  .emisor-nombre { font-size: 18px; font-weight: 700; }
-  .emisor-datos { color: ${COLORS.suave}; margin-top: 3px; max-width: 320px; }
-  .doc-titulo { text-align: right; white-space: nowrap; }
-  .titulo { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-  .numero { color: ${COLORS.suave}; margin-top: 3px; }
+  ${encabezadoCss(COLORS)}
   .ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin: 16px 0; }
   .campo { display: flex; gap: 6px; }
   .campo-etiqueta { color: ${COLORS.suave}; min-width: 120px; }

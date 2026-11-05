@@ -1,8 +1,7 @@
 import { noEncontrado } from '../../../shared/errors.js'
 import { aString, dividir, monto, sumar } from '../../../shared/dinero/index.js'
 import { findCotizacionById } from '../../cotizaciones/cotizaciones.repository.js'
-import { findEmpresa } from '../../config/empresa/empresa.repository.js'
-import { leerComoDataUri } from '../../../shared/storage/archivos.js'
+import { resolverEmisor } from './emisor.resolver.js'
 import type { OpcionesDocumento } from '../documentos.types.js'
 import type { CotizacionPdfPayload } from '../schemas/cotizacion.schema.js'
 
@@ -12,32 +11,6 @@ function fechaDelDia(inicio: Date, dia: number): Date {
   const f = new Date(inicio.getTime())
   f.setUTCDate(f.getUTCDate() + (dia - 1))
   return f
-}
-
-/** Datos de la empresa emisora (RN-EMP-01). El logo se incrusta como data URI
- * para que el PDF sea autocontenido (se renderiza con setContent, sin red). */
-async function resolverEmpresa(): Promise<CotizacionPdfPayload['empresa']> {
-  const empresa = await findEmpresa()
-  if (!empresa) {
-    return { nombre: 'Extremo Norte Expediciones', rut: null, direccion: null, email: null, web: null, telefono: null, logoDataUri: null }
-  }
-  let logoDataUri: string | null = null
-  if (empresa.logoStorageKey && empresa.logoMimeType) {
-    try {
-      logoDataUri = await leerComoDataUri(empresa.logoStorageKey, empresa.logoMimeType)
-    } catch {
-      logoDataUri = null // el archivo del logo no está; el PDF sale sin logo.
-    }
-  }
-  return {
-    nombre: empresa.nombre,
-    rut: empresa.rut,
-    direccion: empresa.direccion,
-    email: empresa.email,
-    web: empresa.web,
-    telefono: empresa.telefono,
-    logoDataUri,
-  }
 }
 
 // Resolver de Cotización — CLAUDE.md §8: consulta la base y arma un payload
@@ -52,7 +25,7 @@ export async function resolverCotizacion(id: number, opciones: OpcionesDocumento
 
   const { idioma } = opciones
   const esEn = idioma === 'en'
-  const empresa = await resolverEmpresa()
+  const empresa = await resolverEmisor()
 
   const zonas = cot.zonas.map((z) => (esEn ? (z.zona.nombreEn ?? z.zona.nombre) : z.zona.nombre))
 
