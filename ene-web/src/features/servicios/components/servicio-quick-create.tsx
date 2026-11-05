@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { QuickCreateTrigger } from '@/components/shared/quick-create-trigger';
@@ -104,30 +104,20 @@ function ServicioQuickForm({ close, onCreated }: { close: () => void; onCreated:
                 Tipo de servicio <span className='text-destructive'>*</span>
               </Label>
               <div className='flex items-center gap-2'>
-                <Select
-                  value={field.state.value ? String(field.state.value) : ''}
-                  onValueChange={(v) => {
-                    // Radix puede disparar onValueChange con un valor no
-                    // parseable al remontar SelectContent — ignorarlo evita
-                    // resetear el campo a NaN.
+                <Combobox
+                  className='flex-1'
+                  options={tipos.map((t) => ({ value: String(t.id), label: t.nombre }))}
+                  value={field.state.value ? String(field.state.value) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (!Number.isFinite(id)) return;
                     field.handleChange(id);
                     const tipo = tipos.find((t) => t.id === id);
                     if (tipo) form.setFieldValue('modeloTarifa', tipo.modeloTarifaDefault);
                   }}
-                >
-                  <SelectTrigger className='flex-1'>
-                    <SelectValue placeholder='Seleccionar tipo de servicio...' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tipos.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>
-                        {t.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder='Seleccionar tipo de servicio...'
+                  searchPlaceholder='Buscar tipo de servicio...'
+                />
                 <TipoServicioQuickCreate
                   onCreated={(nuevo) => {
                     queryClient.invalidateQueries({ queryKey: ['tipos-servicio'] });
@@ -145,24 +135,17 @@ function ServicioQuickForm({ close, onCreated }: { close: () => void; onCreated:
             <div className='space-y-1.5'>
               <Label>Zona</Label>
               <div className='flex items-center gap-2'>
-                <Select
-                  value={field.state.value ? String(field.state.value) : ''}
-                  onValueChange={(v) => {
+                <Combobox
+                  className='flex-1'
+                  options={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                  value={field.state.value ? String(field.state.value) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (Number.isFinite(id)) field.handleChange(id);
                   }}
-                >
-                  <SelectTrigger className='flex-1'>
-                    <SelectValue placeholder='Sin zona específica...' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {zonas.map((z) => (
-                      <SelectItem key={z.id} value={String(z.id)}>
-                        {z.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder='Sin zona específica...'
+                  searchPlaceholder='Buscar zona...'
+                />
                 <ZonaQuickCreate
                   onCreated={(nueva) => {
                     queryClient.invalidateQueries({ queryKey: ['zonas'] });

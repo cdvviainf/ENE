@@ -117,8 +117,8 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
-            title: 'Tipos de documento',
-            url: '/config/tipos-documento',
+            title: 'Indicadores',
+            url: '/config/indicadores',
             items: []
           },
           {

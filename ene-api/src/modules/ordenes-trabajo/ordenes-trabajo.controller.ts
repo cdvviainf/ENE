@@ -8,6 +8,8 @@ import {
   cambioEstadoSchema,
   estadoServicioSchema,
   nuevaVersionSchema,
+  crearOrdenDirectaSchema,
+  previewCostoSchema,
 } from './ordenes-trabajo.schema.js'
 
 function usuarioSesion(req: FastifyRequest): string {
@@ -52,4 +54,14 @@ export async function postVersion(req: FastifyRequest, reply: FastifyReply) {
   const { id } = idParamSchema.parse(req.params)
   const input = nuevaVersionSchema.parse(req.body)
   return reply.send(await service.crearNuevaVersion(id, input, usuarioSesion(req)))
+}
+
+export async function postOrdenDirecta(req: FastifyRequest, reply: FastifyReply) {
+  const input = crearOrdenDirectaSchema.parse(req.body)
+  return reply.status(201).send(await service.crearOrdenDirecta(input, usuarioSesion(req)))
+}
+
+export async function postPreviewCosto(req: FastifyRequest, reply: FastifyReply) {
+  const input = previewCostoSchema.parse(req.body)
+  return reply.send(await service.previewCostoLinea(input))
 }

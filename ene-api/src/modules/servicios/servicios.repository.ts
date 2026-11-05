@@ -11,7 +11,9 @@ interface ServicioFiltros {
 }
 
 export async function findAllServicios(page: number, limit: number, filtros: ServicioFiltros) {
-  const idsTexto = filtros.q ? await idsPorTexto('servicio', ['codigo', 'nombre', 'nombreEn'], filtros.q) : null
+  const idsTexto = filtros.q
+    ? await idsPorTexto('servicio', ['codigo', 'nombre', 'nombreEn', 'descripcion', 'descripcionEn'], filtros.q)
+    : null
 
   const where: Prisma.ServicioWhereInput = {
     eliminadoEn: null,

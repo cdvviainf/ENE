@@ -2,7 +2,9 @@
 
 import type { Column, Table } from '@tanstack/react-table';
 import * as React from 'react';
+import { parseAsInteger, parseAsString, useQueryStates } from 'nuqs';
 
+import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { DataTableDateFilter } from '@/components/ui/table/data-table-date-filter';
 import { DataTableFacetedFilter } from '@/components/ui/table/data-table-faceted-filter';
 import { DataTableSliderFilter } from '@/components/ui/table/data-table-slider-filter';
@@ -14,12 +16,44 @@ import { Cross2Icon } from '@radix-ui/react-icons';
 
 interface DataTableToolbarProps<TData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
+  /** Oculta el buscador libre (`q`). Por defecto el listado lo muestra: todos
+   * los listados de maestros/configuración lo consumen en el backend
+   * (búsqueda por código/nombre/razón social/descripciones, RN-MAN-06). */
+  searchable?: boolean;
+  searchPlaceholder?: string;
+}
+
+// Buscador libre enlazado al query param `q` (lo lee cada listing-client y lo
+// manda al backend). Debounced; cualquier cambio vuelve a la página 1.
+function DataTableSearch({ placeholder = 'Buscar…' }: { placeholder?: string }) {
+  const [{ q }, setParams] = useQueryStates(
+    { q: parseAsString, page: parseAsInteger.withDefault(1) },
+    { shallow: true }
+  );
+  const [value, setValue] = React.useState(q ?? '');
+  const empujar = useDebouncedCallback((v: string) => {
+    const limpio = v.trim();
+    void setParams({ q: limpio === '' ? null : limpio, page: 1 });
+  }, 400);
+  return (
+    <Input
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => {
+        setValue(e.target.value);
+        empujar(e.target.value);
+      }}
+      className='h-8 w-40 lg:w-64'
+    />
+  );
 }
 
 export function DataTableToolbar<TData>({
   table,
   children,
   className,
+  searchable = true,
+  searchPlaceholder,
   ...props
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
@@ -41,6 +75,7 @@ export function DataTableToolbar<TData>({
       {...props}
     >
       <div className='flex flex-1 flex-wrap items-center gap-2'>
+        {searchable && <DataTableSearch placeholder={searchPlaceholder} />}
         {columns.map((column) => (
           <DataTableToolbarFilter key={column.id} column={column} />
         ))}

@@ -114,5 +114,42 @@ export const nuevaVersionSchema = z.object({
   lineas: z.array(lineaVersionSchema).min(1, 'Una versión nueva debe tener al menos una línea'),
 })
 
+// ── POST /ordenes-trabajo (OT directa, RN-OT-01 enmendada) ───────────────────
+/** Crea una OT desde cero (sin cotización), digitando los datos que de otro modo
+ * se importan de la cotización. Las líneas llegan ya valorizadas (mismo
+ * `lineaVersionSchema` de una versión): el costo se digita —o se precarga del
+ * tarifario como ayuda en el frontend— y la venta se deriva de margen/venta
+ * objetivo. `apellido` es opcional: si se omite se toma del negocio (RN-OT-03). */
+export const crearOrdenDirectaSchema = z.object({
+  clienteId: z.coerce.number().int().positive(),
+  ejecutivoId: z.coerce.number().int().positive().optional(),
+  negocioId: z.coerce.number().int().positive(),
+  apellido: z.string().trim().min(1).optional(),
+  areaNegocio: z.enum(['RECEPTIVO', 'EVENTOS']),
+  fechaOperacion: z.coerce.date(),
+  cantidadPax: z.coerce.number().int().positive(),
+  moneda: z.enum(['CLP', 'USD']),
+  tipoCambio: decimalString,
+  zonaIds: z.array(z.coerce.number().int().positive()).optional().default([]),
+  lineas: z.array(lineaVersionSchema).min(1, 'La OT debe tener al menos una línea'),
+})
+
+// ── POST /ordenes-trabajo/preview-costo ──────────────────────────────────────
+/** Resuelve el costo del tarifario vigente para una línea ESTANDAR, SIN persistir
+ * y sin depender de una OT/cotización ya creada (el formulario de OT directa aún
+ * no tiene id). El contexto (fecha, moneda, TC) viaja en el payload. */
+export const previewCostoSchema = z.object({
+  fechaOperacion: z.coerce.date(),
+  moneda: z.enum(['CLP', 'USD']),
+  tipoCambio: decimalString,
+  dia: z.coerce.number().int().min(1),
+  servicioId: z.coerce.number().int().positive(),
+  proveedorId: z.coerce.number().int().positive(),
+  acomodacion: z.enum(['SINGLE', 'DOBLE', 'TWIN', 'TRIPLE']).optional(),
+  cantidadPax: z.coerce.number().int().positive(),
+})
+
+export type CrearOrdenDirectaInput = z.infer<typeof crearOrdenDirectaSchema>
+export type PreviewCostoInput = z.infer<typeof previewCostoSchema>
 export type NuevaVersionOTInput = z.infer<typeof nuevaVersionSchema>
 export type OrdenTrabajoListQuery = z.infer<typeof ordenTrabajoListQuerySchema>

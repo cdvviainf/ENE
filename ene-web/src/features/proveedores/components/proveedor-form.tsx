@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
@@ -28,17 +28,15 @@ import { formasPagoListOptions } from '@/features/formas-pago/queries';
 import { FormaPagoQuickCreate } from '@/features/formas-pago/components/forma-pago-quick-create';
 import { condicionesPagoListOptions } from '@/features/condiciones-pago/queries';
 import { CondicionPagoQuickCreate } from '@/features/condiciones-pago/components/condicion-pago-quick-create';
-import { tiposDocumentoListOptions } from '@/features/tipos-documento/queries';
-import { TipoDocumentoQuickCreate } from '@/features/tipos-documento/components/tipo-documento-quick-create';
+import { TIPO_EMISION_LABELS, type TipoEmisionProveedor } from '../types';
 
 const proveedorSchema = z.object({
   codigo: z.string().min(1, 'El código es requerido').max(20).trim(),
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  // RN-PRV-09: documento tributario que emite el proveedor. Ahora es FK al
-  // catálogo config/tipos-documento (opcional), ya no un enum fijo.
-  tipoDocumentoId: z.coerce.number().int().positive().optional(),
+  // RN-PRV-09 (enmendada): documento que emite el proveedor (valor fijo).
+  tipoEmision: z.enum(['FACTURA', 'BOLETA_HONORARIOS', 'NADA']),
   // RN-PRV-10: link de pago opcional.
   urlPago: z.string().url('URL inválida').max(500).trim().optional().or(z.literal('')),
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
@@ -68,12 +66,10 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
   const { data: tiposData } = useQuery(tiposServicioListOptions({ limit: 200 }));
   const { data: formasPagoData } = useQuery(formasPagoListOptions({ limit: 200 }));
   const { data: condicionesPagoData } = useQuery(condicionesPagoListOptions({ limit: 200 }));
-  const { data: tiposDocumentoData } = useQuery(tiposDocumentoListOptions({ limit: 200 }));
   const zonas = zonasData?.data ?? [];
   const tipos = tiposData?.data ?? [];
   const formasPago = formasPagoData?.data ?? [];
   const condicionesPago = condicionesPagoData?.data ?? [];
-  const tiposDocumento = tiposDocumentoData?.data ?? [];
 
   const mutation = useMutation({
     mutationFn: (values: ProveedorFormValues) => {
@@ -105,7 +101,7 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       razonSocial: '',
       rut: '',
       nombreComercial: '',
-      tipoDocumentoId: undefined,
+      tipoEmision: 'FACTURA' as TipoEmisionProveedor,
       urlPago: '',
       tiposServicio: [],
       zonas: [],
@@ -128,7 +124,7 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
       form.setFieldValue('razonSocial', proveedor.razonSocial);
       form.setFieldValue('rut', proveedor.rut);
       form.setFieldValue('nombreComercial', proveedor.nombreComercial ?? '');
-      form.setFieldValue('tipoDocumentoId', proveedor.tipoDocumentoId ?? undefined);
+      form.setFieldValue('tipoEmision', proveedor.tipoEmision);
       form.setFieldValue('urlPago', proveedor.urlPago ?? '');
       form.setFieldValue('tiposServicio', (proveedor.tiposServicio ?? []).map((t) => t.tipoServicioId));
       form.setFieldValue('zonas', (proveedor.zonas ?? []).map((z) => z.zonaId));
@@ -190,43 +186,25 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                 <FormTextField name='rut' label='RUT' required placeholder='12.345.678-9' />
                 <FormTextField name='nombreComercial' label='Nombre comercial' placeholder='Como lo conoce el equipo' />
 
-                <form.Field name='tipoDocumentoId'>
+                <form.Field name='tipoEmision'>
                   {(field) => (
                     <div className='space-y-1.5'>
                       <Label>Documento que emite</Label>
-                      <div className='flex items-center gap-2'>
-                        <Select
-                          value={field.state.value ? String(field.state.value) : ''}
-                          onValueChange={(v) => {
-                            // Radix puede disparar onValueChange con un valor no
-                            // parseable al remontar SelectContent (p. ej. al
-                            // refrescar la lista tras un QuickCreate) — ignorarlo
-                            // evita resetear el campo a NaN.
-                            const id = Number.parseInt(v, 10);
-                            if (Number.isFinite(id)) field.handleChange(id);
-                          }}
-                        >
-                          <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Sin definir...' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {tiposDocumento.map((td) => (
-                              <SelectItem key={td.id} value={String(td.id)}>
-                                {td.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <TipoDocumentoQuickCreate
-                          onCreated={(nuevo) => {
-                            queryClient.invalidateQueries({ queryKey: ['tipos-documento'] });
-                            // form.setFieldValue (no field.handleChange): el callback corre
-                            // después del ciclo de vida async del diálogo hijo, y solo la
-                            // API del form de nivel superior queda garantizado que siga viva.
-                            form.setFieldValue('tipoDocumentoId', nuevo.id);
-                          }}
-                        />
-                      </div>
+                      <Combobox
+                        options={(Object.keys(TIPO_EMISION_LABELS) as TipoEmisionProveedor[]).map((t) => ({
+                          value: t,
+                          label: TIPO_EMISION_LABELS[t]
+                        }))}
+                        value={field.state.value}
+                        onChange={(v) => {
+                          if (v in TIPO_EMISION_LABELS) field.handleChange(v as TipoEmisionProveedor);
+                        }}
+                        placeholder='Selecciona...'
+                        searchPlaceholder='Buscar...'
+                      />
+                      <p className='text-muted-foreground text-xs'>
+                        Define el IVA o la retención referencial de sus servicios (RN-IMP-02).
+                      </p>
                     </div>
                   )}
                 </form.Field>
@@ -318,24 +296,17 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                     <div className='space-y-1.5'>
                       <Label>Forma de pago</Label>
                       <div className='flex items-center gap-2'>
-                        <Select
-                          value={field.state.value ? String(field.state.value) : ''}
-                          onValueChange={(v) => {
+                        <Combobox
+                          className='flex-1'
+                          options={formasPago.map((f) => ({ value: String(f.id), label: f.nombre }))}
+                          value={field.state.value ? String(field.state.value) : null}
+                          onChange={(v) => {
                             const id = Number.parseInt(v, 10);
                             if (Number.isFinite(id)) field.handleChange(id);
                           }}
-                        >
-                          <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Sin definir...' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {formasPago.map((f) => (
-                              <SelectItem key={f.id} value={String(f.id)}>
-                                {f.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder='Sin definir...'
+                          searchPlaceholder='Buscar forma de pago...'
+                        />
                         <FormaPagoQuickCreate
                           onCreated={(nueva) => {
                             queryClient.invalidateQueries({ queryKey: ['formas-pago'] });
@@ -352,24 +323,17 @@ export function ProveedorForm({ proveedorId }: ProveedorFormProps) {
                     <div className='space-y-1.5'>
                       <Label>Condición de pago</Label>
                       <div className='flex items-center gap-2'>
-                        <Select
-                          value={field.state.value ? String(field.state.value) : ''}
-                          onValueChange={(v) => {
+                        <Combobox
+                          className='flex-1'
+                          options={condicionesPago.map((c) => ({ value: String(c.id), label: c.nombre }))}
+                          value={field.state.value ? String(field.state.value) : null}
+                          onChange={(v) => {
                             const id = Number.parseInt(v, 10);
                             if (Number.isFinite(id)) field.handleChange(id);
                           }}
-                        >
-                          <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Sin definir...' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {condicionesPago.map((c) => (
-                              <SelectItem key={c.id} value={String(c.id)}>
-                                {c.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder='Sin definir...'
+                          searchPlaceholder='Buscar condición de pago...'
+                        />
                         <CondicionPagoQuickCreate
                           onCreated={(nueva) => {
                             queryClient.invalidateQueries({ queryKey: ['condiciones-pago'] });

@@ -14,8 +14,10 @@ services:
       POSTGRES_PASSWORD: ene_pass
       POSTGRES_DB: ene_db
       PGDATA: /var/lib/postgresql/data/pgdata
+    # Host 5435 (no 5434): 5434 lo ocupa alcop_postgres en esta máquina de dev.
+    # El puerto interno de Docker sigue siendo 5432 (la red api→postgres no cambia).
     ports:
-      - "5434:5432"
+      - "5435:5432"
     volumes:
       - ene_postgres_data:/var/lib/postgresql/data
     healthcheck:

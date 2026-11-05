@@ -3,6 +3,9 @@
 // (Decimal(18,4) serializado) y NUNCA se convierten a number: se formatean con
 // los helpers de `@/lib/dinero` / `@/lib/porcentaje` (RN-DIN-01).
 
+import type { ImpuestoLinea, TotalesImpuesto } from '@/lib/impuestos';
+import type { TipoEmisionProveedor } from '@/features/proveedores/types';
+
 export type EstadoOT =
   | 'CONFIRMADA'
   | 'EN_ESPERA'
@@ -86,8 +89,10 @@ export interface OrdenTrabajoLinea {
   ventaLinea: string;
   estadoServicio: EstadoServicio;
   fechaServicio: string | null;
-  servicio: { id: number; codigo: string; nombre: string; nombreEn: string | null } | null;
-  proveedor: { id: number; codigo: string; razonSocial: string } | null;
+  servicio: { id: number; codigo: string; nombre: string; nombreEn: string | null; afectoIva?: boolean } | null;
+  proveedor: { id: number; codigo: string; razonSocial: string; tipoEmision?: TipoEmisionProveedor } | null;
+  // RN-PRV-11/RN-IMP-02: IVA/retención referencial (solo en la versión vigente).
+  impuesto?: ImpuestoLinea | null;
 }
 
 export interface OrdenTrabajoVersion {
@@ -105,6 +110,8 @@ export interface OrdenTrabajoVersion {
   creadoEn?: string;
   creadoPor?: string;
   lineas?: OrdenTrabajoLinea[];
+  // RN-IMP-02: totales referenciales (solo en la versión vigente del detalle).
+  impuestos?: TotalesImpuesto;
 }
 
 // Entrada del historial (listVersionesOT): sin líneas, con evidencia de aprobación.
@@ -192,6 +199,40 @@ export interface NuevaVersionInput {
   aprobacionReferencia?: string;
   lineas: LineaVersionInput[];
 }
+
+// POST /ordenes-trabajo — OT directa (RN-OT-01 enmendada): se digita la cabecera
+// que de otro modo se importa de la cotización. Las líneas llegan valorizadas
+// (mismo LineaVersionInput). `apellido` opcional: si se omite, sale del negocio.
+export interface CrearOrdenDirectaInput {
+  clienteId: number;
+  ejecutivoId?: number;
+  negocioId: number;
+  apellido?: string;
+  areaNegocio: AreaNegocio;
+  fechaOperacion: string;
+  cantidadPax: number;
+  moneda: Moneda;
+  tipoCambio: string;
+  zonaIds?: number[];
+  lineas: LineaVersionInput[];
+}
+
+// POST /ordenes-trabajo/preview-costo — costo del tarifario vigente para una
+// línea ESTANDAR, en la moneda de la OT, sin persistir (ayuda de captura).
+export interface PreviewCostoInput {
+  fechaOperacion: string;
+  moneda: Moneda;
+  tipoCambio: string;
+  dia: number;
+  servicioId: number;
+  proveedorId: number;
+  acomodacion?: Acomodacion;
+  cantidadPax: number;
+}
+
+export type PreviewCostoResponse =
+  | { disponible: false; motivo: string }
+  | { disponible: true; moneda: Moneda; costoTotal: string; advertenciaVigencia: boolean };
 
 // ── Adjuntos (entidad ORDEN_TRABAJO) ─────────────────────────────────────────
 export interface Adjunto {

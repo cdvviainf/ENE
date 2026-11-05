@@ -114,6 +114,7 @@ export function CotizacionDetail({ cotizacionId }: { cotizacionId: number }) {
       <ItinerarioEditor
         cotizacionId={cot.id}
         lineas={cot.versionVigente?.lineas ?? []}
+        impuestos={cot.versionVigente?.impuestos}
         moneda={cot.moneda}
         modo={modo}
         cantidadPaxDefault={cot.cantidadPax}

@@ -534,22 +534,20 @@ model CondicionPagoCuota {
 /// Reemplaza el enum `TipoDocProveedor`. Incluye "A nada" (NINGUNO) y "Boleta de
 /// honorarios a tercero" (RETENCION). `porcentaje` + `formaCalculo` dan la
 /// retención/IVA referencial (interno, no afecta el presupuesto ni el PDF).
-model TipoDocumento {
-  id             Int                  @id @default(autoincrement())
-  codigo         String               @unique
-  nombre         String
-  formaCalculo   FormaCalculoImpuesto @default(NINGUNO)
-  porcentaje     Decimal              @default(0) @db.Decimal(7, 4)
-  creadoEn       DateTime             @default(now())
+/// Indicadores tributarios globales (decisión oct-2026). Singleton (id=1):
+/// tasa de IVA y de retención de honorarios usadas para desglosar el costo en
+/// cotización/OT (Neto/IVA o Bruto/Retención). La venta NO cambia: el desglose
+/// es informativo y el margen se calcula siempre sobre la tarifa (RN-IMP-01).
+model Indicadores {
+  id             Int       @id @default(autoincrement())
+  tasaIva        Decimal   @default(0.19) @db.Decimal(7, 4)
+  tasaRetencion  Decimal   @default(0.1475) @db.Decimal(7, 4)
+  creadoEn       DateTime  @default(now())
   creadoPor      String
-  actualizadoEn  DateTime?            @updatedAt
+  actualizadoEn  DateTime? @updatedAt
   actualizadoPor String?
-  eliminadoEn    DateTime?
-  eliminadoPor   String?
 
-  proveedores Proveedor[]
-
-  @@map("tipo_documento")
+  @@map("indicadores")
 }
 
 /// RN-EMP-01: datos de la empresa emisora (ENE). Singleton (una sola fila,
@@ -662,10 +660,12 @@ model Comuna {
 /// tipo de documento que el proveedor emite a ENE. IVA se suma sobre el costo,
 /// RETENCION se descuenta, NINGUNO no aplica. Es referencial (no afecta el
 /// presupuesto); el monto efectivo es Etapa 10.
-enum FormaCalculoImpuesto {
-  NINGUNO
-  IVA
-  RETENCION
+/// Documento que emite el proveedor (RN-PRV-09 enmendada). FACTURA → afecta o
+/// exenta según el servicio; BOLETA_HONORARIOS → retención; NADA → sin documento.
+enum TipoEmisionProveedor {
+  FACTURA
+  BOLETA_HONORARIOS
+  NADA
 }
 
 model Proveedor {
@@ -674,8 +674,10 @@ model Proveedor {
   razonSocial         String
   rut                 String
   nombreComercial     String?
-  // RN-PRV-09/11: tipo de documento que emite (ahora mantenedor, no enum).
-  tipoDocumentoId     Int?
+  // RN-PRV-09 (enmendada oct-2026): documento que emite el proveedor. Define el
+  // desglose de costo (Factura → Neto/IVA según el servicio; Boleta honorarios →
+  // Bruto/Retención; Nada → sin impuesto). Las tasas viven en Indicadores.
+  tipoEmision         TipoEmisionProveedor @default(FACTURA)
   // RN-PRV-10: link de pago del proveedor (URL a portal de pago o transferencia).
   urlPago             String?
   formaPagoId         Int?
@@ -692,7 +694,6 @@ model Proveedor {
 
   formaPago     FormaPago?     @relation(fields: [formaPagoId], references: [id])
   condicionPago CondicionPago? @relation(fields: [condicionPagoId], references: [id])
-  tipoDocumento TipoDocumento? @relation(fields: [tipoDocumentoId], references: [id])
 
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio a la
   // vez (mismo criterio que zonas, RN-PRV-05) — N:N en vez de FK único.
@@ -843,6 +844,10 @@ model Servicio {
   tipoServicioId Int
   modeloTarifa   ModeloTarifa
   margenSugerido Decimal      @default(0) @db.Decimal(7, 4)
+  // Afectación a IVA del servicio (un mismo proveedor con factura puede emitir
+  // afecto y exento según el servicio). Solo incide cuando el proveedor emite
+  // FACTURA; con boleta de honorarios o "nada" no aplica IVA.
+  afectoIva      Boolean      @default(true)
   duracionDias   Int?
   creadoEn       DateTime     @default(now())
   creadoPor      String
@@ -870,12 +875,16 @@ model Tarifario {
   moneda        Moneda
   vigenciaDesde DateTime
   vigenciaHasta DateTime?
-  version       Int       @default(1)
-  activo        Boolean   @default(true)
-  creadoEn      DateTime  @default(now())
-  creadoPor     String
-  eliminadoEn   DateTime?
-  eliminadoPor  String?
+  version        Int       @default(1)
+  activo         Boolean   @default(true)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  // Edición in-place del tarifario (decisión oct-2026): la tarifa vive
+  // congelada en la cotización (snapshot), así que editar no retroacta.
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
 
   proveedor Proveedor        @relation(fields: [proveedorId], references: [id])
   servicio  Servicio         @relation(fields: [servicioId], references: [id])
@@ -1021,6 +1030,13 @@ model CotizacionLinea {
   costoTotal          Decimal      @db.Decimal(18, 4)
   margenPct           Decimal      @db.Decimal(7, 4)
   ventaTotal          Decimal      @db.Decimal(18, 4)
+  // "El precio ingresado manda" (decisión de usuario, oct-2026): cuando el
+  // usuario digita la venta de la línea, esa venta se persiste EXACTA y el
+  // margen se guarda derivado (venta/costo − 1) solo como referencia. Rompe a
+  // propósito la invariante venta = costo×(1+margen) por el redondeo del margen
+  // a Decimal(7,4): sin esto, 120.000 reaparecía como 120.001. Con `false` la
+  // línea queda gobernada por el margen (comportamiento original, RN-COS-02).
+  ventaManual         Boolean      @default(false)
   // RN-COS-06 [BLOQUEA]: la base tarifaria usada al capturar la línea ESTANDAR
   // (modelo + tramos/valor/valores de acomodación + moneda) se congela acá. El
   // recálculo por pax (RN-COS-07) se hace SIEMPRE contra este snapshot, nunca
@@ -1044,7 +1060,10 @@ model CotizacionLinea {
 model OrdenTrabajo {
   id                   Int         @id @default(autoincrement())
   numero               String      @unique
-  cotizacionId         Int         @unique
+  // RN-OT-01 (enmendada, oct-2026): la OT nace de una cotización aprobada O se
+  // crea directa (sin cotización). Nullable para la OT directa; el @unique
+  // sigue valiendo porque Postgres permite múltiples NULL.
+  cotizacionId         Int?        @unique
   clienteId            Int
   ejecutivoId          Int?
   negocioId            Int
@@ -1067,8 +1086,8 @@ model OrdenTrabajo {
   ejecutivo  ClienteEjecutivo?  @relation(fields: [ejecutivoId], references: [id])
   negocio    Negocio            @relation(fields: [negocioId], references: [id])
   zonas      OrdenTrabajoZona[]
-  // RN-OT-01: la OT nace de una cotización aprobada; cotizacionId es obligatorio.
-  cotizacion Cotizacion         @relation(fields: [cotizacionId], references: [id])
+  // RN-OT-01 (enmendada): opcional — la OT directa no tiene cotización de origen.
+  cotizacion Cotizacion?        @relation(fields: [cotizacionId], references: [id])
 
   versiones      OrdenTrabajoVersion[] @relation("OTVersiones")
   // RN-VER-05: la vigente pertenece a esta OT (par [versionVigenteId, id]).

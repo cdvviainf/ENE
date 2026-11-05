@@ -1,7 +1,7 @@
 import type { Acomodacion, Cotizacion, CotizacionLinea, CotizacionVersion, Moneda, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
-import { tomarLock, LOCK_COTIZACION_CORRELATIVO, LOCK_COTIZACION_VERSION } from '../../shared/advisory-locks.js'
+import { tomarLock, tomarLockPorTexto, LOCK_COTIZACION_CORRELATIVO, LOCK_COTIZACION_VERSION, LOCK_TARIFARIO_VIGENCIA } from '../../shared/advisory-locks.js'
 import { generarNumeroAnual } from '../../shared/correlativos.js'
 import { aClp, aplicarMargen, aString, desdeClp, dividir, margenDesdeVenta, monto, multiplicar, type Decimal, type Montoish } from '../../shared/dinero/index.js'
 import { crearSiguienteVersion, exigirVersionEditable } from '../../shared/versionado/index.js'
@@ -13,6 +13,8 @@ import type { LineaCosteo, LineaEstandar } from '../costeo/costeo.types.js'
 import * as repo from './cotizaciones.repository.js'
 import { TRANSICIONES_ESTADO, type LineaResuelta, type TarifarioSnapshot, type TotalesVersion } from './cotizaciones.types.js'
 import type { CotizacionCreateInput, ItinerarioInput, LineaInput, NuevaVersionInput, PreviewLineaInput } from './cotizaciones.schema.js'
+import { decorarLineasConImpuesto } from '../costeo/impuestos.js'
+import { obtenerIndicadores } from '../config/indicadores/indicadores.service.js'
 
 // ============================================================================
 // Cotización — Docs/reglas-negocio.md §6. Consume el motor de costeo (Etapa 6:
@@ -69,6 +71,23 @@ function margenDeLinea(digitado: string | undefined, margenSugerido: Decimal | n
   return '0'
 }
 
+/** "El precio ingresado manda" (decisión de usuario, oct-2026). Si la línea
+ * trae una venta objetivo digitada, esa venta se PERSISTE exacta y el margen se
+ * deriva de ella (venta/costo − 1, a Decimal(7,4)) solo como referencia —
+ * `ventaManual = true`—. Rompe a propósito la invariante venta = costo×(1+margen)
+ * por el redondeo del margen: sin esto, 120.000 reaparecía como 120.001. Sin
+ * venta objetivo la línea queda gobernada por el margen (RN-COS-02),
+ * `ventaManual = false`. */
+function conVentaObjetivo(linea: LineaResuelta, ventaObjetivo: string | undefined): LineaResuelta {
+  if (ventaObjetivo == null) return { ...linea, ventaManual: false }
+  return {
+    ...linea,
+    ventaTotal: aString(monto(ventaObjetivo)),
+    margenPct: margenDesdeVenta(linea.costoTotal, ventaObjetivo).toFixed(4),
+    ventaManual: true,
+  }
+}
+
 /** Costo unitario informativo por línea. En TRAMO_PAX/UNITARIO_PAX es el costo
  * repartido entre los pasajeros; en ACOMODACION la línea es una habitación
  * (decisión Etapa 6), su unitario es el valor de la habitación. */
@@ -81,7 +100,14 @@ function costoUnitarioDe(modelo: LineaEstandar['modelo'], costoTotal: Decimal, p
  * (RN-COS-06, RN-TAR-05); OTRO usa el costo digitado (RN-COS-05). Lee maestros
  * con el cliente global (fuera de la transacción de escritura): son datos
  * comprometidos, no la cotización que se está guardando. */
-async function armarLineaCosteo(input: LineaInput, ctx: ContextoCosteo): Promise<LineaResuelta> {
+async function armarLineaCosteo(
+  input: LineaInput,
+  ctx: ContextoCosteo,
+  // `db`: cliente de la transacción en curso (QA-R2-001). `tarifarioResuelto`:
+  // tarifario ya resuelto por quien llama, para no leer el maestro dos veces.
+  db: Prisma.TransactionClient = prisma,
+  tarifarioResuelto?: TarifarioVigente,
+): Promise<LineaResuelta> {
   const pax = input.cantidadPax ?? ctx.cantidadPax
   const base = {
     dia: input.dia,
@@ -93,37 +119,42 @@ async function armarLineaCosteo(input: LineaInput, ctx: ContextoCosteo): Promise
   if (input.tipoLinea === 'OTRO') {
     const margenPct = margenDeLinea(input.margenPct, null)
     const costoTotal = monto(input.costoTotal!)
-    return {
-      ...base,
-      tipoLinea: 'OTRO',
-      servicioId: null,
-      proveedorId: null,
-      tarifarioValorId: null,
-      descripcion: input.descripcion!,
-      descripcionEn: input.descripcionEn ?? null,
-      observacion: input.observacion ?? null,
-      observacionEn: input.observacionEn ?? null,
-      acomodacion: null,
-      costoUnitario: aString(costoTotal),
-      costoTotal: aString(costoTotal),
-      margenPct,
-      ventaTotal: aString(aplicarMargen(costoTotal, margenPct)),
-      advertenciaVigencia: false,
-      tarifarioSnapshot: null,
-    }
+    // RN-COT-11: OTRO admite venta digitada (precio manda) igual que ESTANDAR.
+    return conVentaObjetivo(
+      {
+        ...base,
+        tipoLinea: 'OTRO',
+        servicioId: null,
+        proveedorId: null,
+        tarifarioValorId: null,
+        descripcion: input.descripcion!,
+        descripcionEn: input.descripcionEn ?? null,
+        observacion: input.observacion ?? null,
+        observacionEn: input.observacionEn ?? null,
+        acomodacion: null,
+        costoUnitario: aString(costoTotal),
+        costoTotal: aString(costoTotal),
+        margenPct,
+        ventaTotal: aString(aplicarMargen(costoTotal, margenPct)),
+        ventaManual: false,
+        advertenciaVigencia: false,
+        tarifarioSnapshot: null,
+      },
+      input.ventaObjetivo,
+    )
   }
 
   // ESTANDAR — servicio y proveedor deben estar vigentes (RN-MAN-05).
-  const servicio = await prisma.servicio.findFirst({
+  const servicio = await db.servicio.findFirst({
     where: { id: input.servicioId!, eliminadoEn: null },
     select: { nombre: true, nombreEn: true, margenSugerido: true },
   })
   if (!servicio) throw noEncontrado('Servicio', input.servicioId!)
-  const proveedor = await prisma.proveedor.findFirst({ where: { id: input.proveedorId!, eliminadoEn: null }, select: { id: true } })
+  const proveedor = await db.proveedor.findFirst({ where: { id: input.proveedorId!, eliminadoEn: null }, select: { id: true } })
   if (!proveedor) throw noEncontrado('Proveedor', input.proveedorId!)
 
   const fecha = fechaDelDia(ctx.fechaOperacion, input.dia)
-  const tarifario = await resolverTarifarioVigente(input.proveedorId!, input.servicioId!, fecha)
+  const tarifario = tarifarioResuelto ?? (await resolverTarifarioVigente(input.proveedorId!, input.servicioId!, fecha, db))
   if (!tarifario) {
     throw validacion(
       `No hay tarifario vigente para el servicio ${input.servicioId} y el proveedor ${input.proveedorId} en la fecha del día ${input.dia}; ` +
@@ -138,17 +169,20 @@ async function armarLineaCosteo(input: LineaInput, ctx: ContextoCosteo): Promise
   const acomodacion: Acomodacion | null = snapshot.modelo === 'ACOMODACION' ? input.acomodacion! : null
   const margenPct = margenDeLinea(input.margenPct, servicio.margenSugerido)
 
-  return {
-    ...valorizarEstandar(base, lineaEstandar, snapshot, margenPct, pax, ctx),
-    servicioId: input.servicioId!,
-    proveedorId: input.proveedorId!,
-    descripcion: input.descripcion ?? servicio.nombre,
-    descripcionEn: input.descripcionEn ?? servicio.nombreEn,
-    observacion: input.observacion ?? null,
-    observacionEn: input.observacionEn ?? null,
-    acomodacion,
-    advertenciaVigencia: tarifario.advertenciaVigencia,
-  }
+  return conVentaObjetivo(
+    {
+      ...valorizarEstandar(base, lineaEstandar, snapshot, margenPct, pax, ctx),
+      servicioId: input.servicioId!,
+      proveedorId: input.proveedorId!,
+      descripcion: input.descripcion ?? servicio.nombre,
+      descripcionEn: input.descripcionEn ?? servicio.nombreEn,
+      observacion: input.observacion ?? null,
+      observacionEn: input.observacionEn ?? null,
+      acomodacion,
+      advertenciaVigencia: tarifario.advertenciaVigencia,
+    },
+    input.ventaObjetivo,
+  )
 }
 
 /** Construye el snapshot congelable (RN-COS-06) desde el tarifario vigente
@@ -215,6 +249,7 @@ function valorizarEstandar(
     costoTotal: aString(costoTotal),
     margenPct,
     ventaTotal: aString(aplicarMargen(costoTotal, margenPct)),
+    ventaManual: false,
     advertenciaVigencia: false,
     tarifarioSnapshot: snapshot,
   }
@@ -232,30 +267,37 @@ type VigenteLinea = CotizacionLinea
 function conservarLineaEstandar(existing: VigenteLinea, input: LineaInput): LineaResuelta {
   const costoTotal = existing.costoTotal.toString()
   const margenPct = input.margenPct ?? existing.margenPct.toString()
-  return {
-    id: existing.id,
-    dia: input.dia,
-    bloque: input.bloque,
-    orden: input.orden,
-    tipoLinea: 'ESTANDAR',
-    servicioId: existing.servicioId,
-    proveedorId: existing.proveedorId,
-    tarifarioValorId: null,
-    descripcion: input.descripcion ?? existing.descripcion,
-    descripcionEn: input.descripcionEn ?? existing.descripcionEn,
-    observacion: input.observacion ?? existing.observacion,
-    observacionEn: input.observacionEn ?? existing.observacionEn,
-    // El costo está congelado para esta cantidad de pasajeros (RN-COS-06); no
-    // se toca acá. Cambiar el pax pasa por el recálculo explícito (RN-COS-07).
-    cantidadPax: existing.cantidadPax,
-    acomodacion: existing.acomodacion,
-    costoUnitario: existing.costoUnitario.toString(),
-    costoTotal,
-    margenPct,
-    ventaTotal: aString(aplicarMargen(costoTotal, margenPct)),
-    advertenciaVigencia: false,
-    tarifarioSnapshot: (existing.tarifarioSnapshot as TarifarioSnapshot | null),
-  }
+  // Si el input trae venta objetivo, el precio manda (conVentaObjetivo). Si no,
+  // la venta la gobierna el margen —aunque la línea estuviera fijada antes, la
+  // ausencia de venta objetivo significa que el usuario volvió al margen—.
+  return conVentaObjetivo(
+    {
+      id: existing.id,
+      dia: input.dia,
+      bloque: input.bloque,
+      orden: input.orden,
+      tipoLinea: 'ESTANDAR',
+      servicioId: existing.servicioId,
+      proveedorId: existing.proveedorId,
+      tarifarioValorId: null,
+      descripcion: input.descripcion ?? existing.descripcion,
+      descripcionEn: input.descripcionEn ?? existing.descripcionEn,
+      observacion: input.observacion ?? existing.observacion,
+      observacionEn: input.observacionEn ?? existing.observacionEn,
+      // El costo está congelado para esta cantidad de pasajeros (RN-COS-06); no
+      // se toca acá. Cambiar el pax pasa por el recálculo explícito (RN-COS-07).
+      cantidadPax: existing.cantidadPax,
+      acomodacion: existing.acomodacion,
+      costoUnitario: existing.costoUnitario.toString(),
+      costoTotal,
+      margenPct,
+      ventaTotal: aString(aplicarMargen(costoTotal, margenPct)),
+      ventaManual: false,
+      advertenciaVigencia: false,
+      tarifarioSnapshot: (existing.tarifarioSnapshot as TarifarioSnapshot | null),
+    },
+    input.ventaObjetivo,
+  )
 }
 
 /** Arma las líneas del itinerario preservando las existentes (RN-COS-06). Una
@@ -360,9 +402,19 @@ export async function listarCotizaciones(
 }
 
 export async function obtenerCotizacion(id: number) {
-  const cot = await repo.findCotizacionById(id)
+  const cot = await cargarCotizacionConImpuestos(id)
   if (!cot) throw noEncontrado('Cotización', id)
   return cot
+}
+
+/** Detalle de la cotización + IVA/retención referencial por línea de la versión
+ * vigente (RN-PRV-11/RN-IMP-02). Solo lectura: no toca costo, margen ni venta. */
+async function cargarCotizacionConImpuestos(id: number) {
+  const cot = await repo.findCotizacionById(id)
+  if (!cot?.versionVigente) return cot
+  const tasas = await obtenerIndicadores()
+  const { lineas, impuestos } = decorarLineasConImpuesto(cot.versionVigente.lineas, (l) => l.costoTotal, tasas)
+  return { ...cot, versionVigente: { ...cot.versionVigente, lineas, impuestos } }
 }
 
 export async function crearCotizacion(input: CotizacionCreateInput, usuario: string) {
@@ -423,7 +475,7 @@ export async function crearCotizacion(input: CotizacionCreateInput, usuario: str
     return cabecera.id
   })
 
-  return repo.findCotizacionById(id)
+  return cargarCotizacionConImpuestos(id)
 }
 
 /** Cotización con su versión vigente y las líneas de esa versión — la forma
@@ -465,7 +517,7 @@ export async function guardarItinerario(id: number, input: ItinerarioInput, usua
     await tx.cotizacion.update({ where: { id }, data: { actualizadoPor: usuario } })
   })
 
-  return repo.findCotizacionById(id)
+  return cargarCotizacionConImpuestos(id)
 }
 
 /** POST /versiones — nueva versión de negociación tras el envío (RN-VER-02).
@@ -500,7 +552,7 @@ export async function crearNuevaVersion(id: number, input: NuevaVersionInput, us
     await tx.cotizacion.update({ where: { id }, data: { estado: 'EN_NEGOCIACION', actualizadoPor: usuario } })
   })
 
-  return repo.findCotizacionById(id)
+  return cargarCotizacionConImpuestos(id)
 }
 
 /** Recalcula las líneas de la versión vigente para una nueva cantidad de
@@ -536,6 +588,9 @@ function recalcularLineas(cot: CotizacionConLineas, nuevoPax: number): LineaResu
         costoTotal: l.costoTotal.toString(),
         margenPct: l.margenPct.toString(),
         ventaTotal: l.ventaTotal.toString(),
+        // La venta de una línea OTRO no depende del pax: si estaba fijada por el
+        // usuario, se conserva exacta (ventaManual preservado).
+        ventaManual: l.ventaManual,
         advertenciaVigencia: false,
         tarifarioSnapshot: null,
       }
@@ -561,6 +616,113 @@ function recalcularLineas(cot: CotizacionConLineas, nuevoPax: number): LineaResu
       acomodacion: l.acomodacion,
     }
   })
+}
+
+/** Re-resuelve el costo de las líneas ESTANDAR desde el tarifario vigente
+ * ACTUAL (opt-in del usuario, decisión oct-2026 — "si se edita el tarifario, el
+ * usuario tiene un botón para recalcular"). Enmienda acotada a RN-COS-06: el
+ * snapshot congelado protege a las cotizaciones por defecto; este recálculo lo
+ * refresca solo cuando el usuario lo pide. La cantidad de pasajeros y el margen
+ * (o la venta exacta si el precio mandaba, ventaManual) se conservan; solo
+ * cambia el costo. Una línea ESTANDAR sin tarifario vigente hoy conserva su
+ * costo congelado; las OTRO no dependen del tarifario y pasan intactas. */
+async function recalcularCostoLineas(
+  cot: CotizacionConLineas,
+  tx: Prisma.TransactionClient,
+): Promise<{ lineas: LineaResuelta[]; recotizadas: number }> {
+  const ctx = contextoDe(cot)
+  const vigentes = cot.versionVigente?.lineas ?? []
+
+  // QA-R2-001: todas las lecturas del maestro van dentro de la transacción y,
+  // además, se toma el lock de vigencia de cada par proveedor+servicio (el mismo
+  // que serializa PATCH /tarifas y nueva-version, RN-TAR-07/08). Así ninguna
+  // edición del tarifario se intercala a mitad del recálculo. Orden fijo para no
+  // generar deadlocks entre dos recálculos; PATCH /tarifas no toma el lock de la
+  // cotización, de modo que no hay ciclo.
+  const pares = [
+    ...new Set(
+      vigentes.filter((l) => l.tipoLinea === 'ESTANDAR').map((l) => `${l.proveedorId}:${l.servicioId}`),
+    ),
+  ].sort()
+  for (const par of pares) await tomarLockPorTexto(tx, LOCK_TARIFARIO_VIGENCIA, par)
+  const lineas: LineaResuelta[] = []
+  let recotizadas = 0
+
+  for (const l of vigentes) {
+    const inputBase: LineaInput = {
+      id: l.id,
+      dia: l.dia,
+      bloque: l.bloque,
+      orden: l.orden,
+      tipoLinea: l.tipoLinea,
+      servicioId: l.servicioId ?? undefined,
+      proveedorId: l.proveedorId ?? undefined,
+      acomodacion: l.acomodacion ?? undefined,
+      cantidadPax: l.cantidadPax,
+      descripcion: l.descripcion,
+      descripcionEn: l.descripcionEn ?? undefined,
+      observacion: l.observacion ?? undefined,
+      observacionEn: l.observacionEn ?? undefined,
+      costoTotal: l.tipoLinea === 'OTRO' ? l.costoTotal.toString() : undefined,
+      margenPct: l.margenPct.toString(),
+      // "El precio ingresado manda": si la venta la fijó el usuario, se conserva
+      // exacta y el margen se re-deriva contra el costo nuevo.
+      ventaObjetivo: l.ventaManual ? l.ventaTotal.toString() : undefined,
+    }
+
+    if (l.tipoLinea === 'ESTANDAR') {
+      const fecha = fechaDelDia(ctx.fechaOperacion, l.dia)
+      const tarifario = await resolverTarifarioVigente(l.proveedorId!, l.servicioId!, fecha, tx)
+      if (tarifario) {
+        // Se rearma el snapshot con el tarifario ya resuelto (una sola lectura
+        // del maestro); fijamos el id para que reemplazarLineasTx actualice en su
+        // lugar (RN-COS-06).
+        lineas.push({ ...(await armarLineaCosteo(inputBase, ctx, tx, tarifario)), id: l.id })
+        recotizadas++
+        continue
+      }
+      // Ya no hay tarifario vigente: se conserva el costo/snapshot congelado.
+      lineas.push(conservarLineaEstandar(l, inputBase))
+      continue
+    }
+
+    // OTRO: el costo es digitado, no depende del tarifario — pasa intacta.
+    lineas.push({ ...(await armarLineaCosteo(inputBase, ctx, tx)), id: l.id })
+  }
+
+  return { lineas, recotizadas }
+}
+
+/** POST /:id/recalcular-costo — refresca el costo de las líneas desde el
+ * tarifario vigente actual (opt-in, enmienda RN-COS-06). Solo en BORRADOR: tras
+ * el envío los cambios pasan por una versión nueva (RN-VER-02). Transaccional y
+ * serializado por cotización (lock 491007). */
+export async function recalcularCosto(id: number, usuario: string) {
+  await prisma.$transaction(async (tx) => {
+    await tomarLock(tx, LOCK_COTIZACION_VERSION, id)
+    const cot = await cargarCotConLineasTx(tx, id)
+    if (!cot || cot.eliminadoEn) throw noEncontrado('Cotización', id)
+    if (cot.estado !== 'BORRADOR') {
+      throw conflicto(
+        `El recálculo de costo desde el tarifario solo aplica en BORRADOR; en ${cot.estado} los cambios se hacen creando una versión nueva (RN-VER-02, RN-COT-01)`,
+      )
+    }
+    if (cot.versionVigenteId == null || !cot.versionVigente) throw conflicto('La cotización no tiene versión vigente')
+
+    const { lineas } = await recalcularCostoLineas(cot, tx)
+    const totales = totalesDeLineas(lineas)
+    // RN-COS-08: el costo (y por tanto la venta) pudo cambiar; el recargo
+    // pass-through se recalcula sobre la nueva venta con el recargoPct congelado.
+    const recargoPct = cot.versionVigente.recargoPct?.toString() ?? '0'
+    const recargo: Prisma.CotizacionVersionUncheckedUpdateInput = {
+      recargoTotal: aString(multiplicar(monto(totales.ventaTotal), monto(recargoPct))),
+    }
+    await exigirVersionEditable(tx, cotizacionVersionable, id, cot.versionVigenteId)
+    await repo.reemplazarLineasTx(tx, cot.versionVigenteId, lineas, totales, recargo)
+    await tx.cotizacion.update({ where: { id }, data: { actualizadoPor: usuario } })
+  })
+
+  return cargarCotizacionConImpuestos(id)
 }
 
 /** POST /recalcular-pax — preview del recálculo (RN-COS-07). NO persiste:
@@ -683,8 +845,12 @@ export async function previewLinea(id: number, input: PreviewLineaInput) {
  * (RN-DIN-01). */
 function resolverMargenYVenta(costoTotal: string, margenBase: string, ventaObjetivo?: string): { margenPct: string; ventaTotal: string } {
   if (ventaObjetivo != null) {
+    // "El precio ingresado manda": la venta digitada se preserva EXACTA y el
+    // margen se deriva como referencia. Antes se recomponía la venta desde el
+    // margen redondeado a Decimal(7,4), lo que hacía saltar p. ej. 120.000 →
+    // 120.001; ahora el preview muestra lo mismo que se persiste.
     const margenPct = margenDesdeVenta(costoTotal, ventaObjetivo).toFixed(4)
-    return { margenPct, ventaTotal: aString(aplicarMargen(costoTotal, margenPct)) }
+    return { margenPct, ventaTotal: aString(monto(ventaObjetivo)) }
   }
   return { margenPct: margenBase, ventaTotal: aString(aplicarMargen(costoTotal, margenBase)) }
 }
@@ -733,7 +899,7 @@ export async function aplicarRecalculoPax(id: number, nuevoPax: number, motivo: 
     throw conflicto(`Una cotización ${cot.estado} no admite cambios de cantidad de pasajeros (RN-COT-02, RN-COT-03)`)
   })
 
-  return repo.findCotizacionById(id)
+  return cargarCotizacionConImpuestos(id)
 }
 
 /** PATCH /estado — transición comercial validada (RN-COT-01). APROBADA no pasa

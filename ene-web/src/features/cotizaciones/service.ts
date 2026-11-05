@@ -71,6 +71,12 @@ export const cotizacionesService = {
     return api.patch(`cotizaciones/${id}/cantidad-pax`, { json: { cantidadPax, ...(motivo ? { motivo } : {}) } }).json();
   },
 
+  // Refresca el costo de las líneas desde el tarifario vigente actual (opt-in,
+  // enmienda RN-COS-06). Solo BORRADOR.
+  async recalcularCosto(id: number): Promise<Cotizacion> {
+    return api.post(`cotizaciones/${id}/recalcular-costo`).json();
+  },
+
   async cambiarEstado(id: number, estado: EstadoCotizacion): Promise<Cotizacion> {
     return api.patch(`cotizaciones/${id}/estado`, { json: { estado } }).json();
   },

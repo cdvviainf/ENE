@@ -12,6 +12,7 @@ import { Icons } from '@/components/icons';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 import { formatFechaCorta } from '@/lib/format';
 import { formatMonto } from '@/lib/dinero';
+import { ImpuestoLineaInfo, ImpuestosTotales } from '@/components/shared/impuesto-referencial';
 import { ordenTrabajoDetailOptions, ordenesTrabajoKeys } from '../queries';
 import { ordenesTrabajoService } from '../service';
 import {
@@ -139,14 +140,19 @@ export function OrdenTrabajoDetail({ ordenId }: { ordenId: number }) {
           </div>
 
           {/* La OT nace de una cotización aprobada (lenguaje de negocio: "la
-              cotización se convirtió en la OT"). */}
-          {ot.cotizacion && (
+              cotización se convirtió en la OT") o se crea directa (RN-OT-01). */}
+          {ot.cotizacion ? (
             <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
               <Icons.arrowRight className='h-4 w-4' />
               <span>Generada desde la cotización</span>
               <Link href={`/cotizaciones/${ot.cotizacion.id}`} className='text-primary font-medium hover:underline'>
                 {ot.cotizacion.numero}
               </Link>
+            </div>
+          ) : (
+            <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
+              <Icons.info className='h-4 w-4' />
+              <span>OT directa (creada sin cotización)</span>
             </div>
           )}
 
@@ -208,6 +214,8 @@ export function OrdenTrabajoDetail({ ordenId }: { ordenId: number }) {
                                 {l.fechaServicio && (
                                   <span className='text-muted-foreground text-xs'>· {formatFechaCorta(l.fechaServicio)}</span>
                                 )}
+                                {/* RN-PRV-11: IVA/retención referencial interna (no sale en el PDF). */}
+                                <ImpuestoLineaInfo impuesto={l.impuesto} moneda={ot.moneda} />
                               </span>
                               <span className='flex shrink-0 items-center gap-3'>
                                 <span className='font-medium'>{formatMonto(l.ventaLinea, ot.moneda)}</span>
@@ -247,6 +255,9 @@ export function OrdenTrabajoDetail({ ordenId }: { ordenId: number }) {
               )}
             </>
           )}
+          <div className='sm:col-span-4'>
+            <ImpuestosTotales impuestos={v?.impuestos} moneda={ot.moneda} />
+          </div>
         </CardContent>
       </Card>
 

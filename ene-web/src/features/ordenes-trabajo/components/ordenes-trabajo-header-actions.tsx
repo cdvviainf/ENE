@@ -5,15 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
 
-export function TiposDocumentoHeaderActions() {
-  const puedeEscribir = usePuedeEscribir('TIPOS_DOCUMENTO');
+export function OrdenesTrabajoHeaderActions() {
+  const puedeEscribir = usePuedeEscribir('ORDENES_TRABAJO');
   if (!puedeEscribir) return null;
 
   return (
     <Button asChild>
-      <Link href='/config/tipos-documento/nuevo'>
+      <Link href='/ordenes-trabajo/nueva'>
         <Icons.add className='mr-2 h-4 w-4' />
-        Nuevo tipo de documento
+        Nueva OT
       </Link>
     </Button>
   );

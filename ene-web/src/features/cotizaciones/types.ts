@@ -1,3 +1,6 @@
+import type { ImpuestoLinea, TotalesImpuesto } from '@/lib/impuestos';
+import type { TipoEmisionProveedor } from '@/features/proveedores/types';
+
 export type EstadoCotizacion = 'BORRADOR' | 'ENVIADA' | 'EN_NEGOCIACION' | 'APROBADA' | 'PERDIDA' | 'DESISTIDA';
 export type AreaNegocio = 'RECEPTIVO' | 'EVENTOS';
 export type Moneda = 'CLP' | 'USD';
@@ -6,7 +9,6 @@ export type TipoLinea = 'ESTANDAR' | 'OTRO';
 export type Acomodacion = 'SINGLE' | 'DOBLE' | 'TWIN' | 'TRIPLE';
 export type IdiomaDocumento = 'es' | 'en';
 export type ModalidadDocumento = 'total' | 'desglosado' | 'desglosado_pax';
-export type FormaCalculoImpuesto = 'NINGUNO' | 'IVA' | 'RETENCION';
 
 export const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
   BORRADOR: 'Borrador',
@@ -35,11 +37,6 @@ export const MODALIDAD_LABELS: Record<ModalidadDocumento, string> = {
   desglosado_pax: 'Detallado por pasajero'
 };
 
-export const FORMA_CALCULO_LABELS: Record<FormaCalculoImpuesto, string> = {
-  NINGUNO: 'Sin impuesto',
-  IVA: 'IVA',
-  RETENCION: 'Retención'
-};
 
 export interface CotizacionLinea {
   id: number;
@@ -60,14 +57,13 @@ export interface CotizacionLinea {
   costoTotal: string;
   margenPct: string;
   ventaTotal: string;
-  servicio?: { id: number; codigo: string; nombre: string; nombreEn: string | null };
-  // RN-PRV-11: el tipo de documento del proveedor da la retención/IVA referencial interna.
-  proveedor?: {
-    id: number;
-    codigo: string;
-    razonSocial: string;
-    tipoDocumento?: { id: number; codigo: string; nombre: string; formaCalculo: FormaCalculoImpuesto; porcentaje: string } | null;
-  };
+  // "El precio ingresado manda": true si la venta la fijó el usuario (se
+  // persiste exacta; el margen es derivado/referencial).
+  ventaManual: boolean;
+  servicio?: { id: number; codigo: string; nombre: string; nombreEn: string | null; afectoIva?: boolean };
+  proveedor?: { id: number; codigo: string; razonSocial: string; tipoEmision?: TipoEmisionProveedor };
+  // RN-PRV-11/RN-IMP-02: IVA/retención referencial (solo en la versión vigente).
+  impuesto?: ImpuestoLinea | null;
 }
 
 export interface CotizacionVersion {
@@ -93,6 +89,8 @@ export interface CotizacionVersion {
   creadoEn: string;
   creadoPor: string;
   lineas?: CotizacionLinea[];
+  // RN-IMP-02: totales referenciales (solo en la versión vigente del detalle).
+  impuestos?: TotalesImpuesto;
 }
 
 export interface CotizacionZonaRef {
@@ -194,6 +192,10 @@ export interface LineaInput {
   observacionEn?: string;
   costoTotal?: string;
   margenPct?: string;
+  // "El precio ingresado manda" (RN-COT-11): si viene, la venta se persiste
+  // exacta y el margen se deriva de ella. Lo envía el editor para las líneas
+  // cuya venta fijó el usuario (ventaManual).
+  ventaObjetivo?: string;
 }
 
 // POST /:id/preview-linea — costo/venta de una línea ESTANDAR sin persistir.

@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
@@ -103,28 +103,17 @@ export function ComunaForm({ comunaId }: ComunaFormProps) {
                       Provincia <span className='text-destructive'>*</span>
                     </Label>
                     <div className='flex items-center gap-2'>
-                      <Select
-                        value={field.state.value ? String(field.state.value) : ''}
-                        onValueChange={(v) => {
-                          // Radix puede disparar onValueChange con un valor no
-                          // parseable al remontar SelectContent (p. ej. al
-                          // refrescar la lista tras un QuickCreate) — ignorarlo
-                          // evita resetear el campo a NaN.
+                      <Combobox
+                        className='flex-1'
+                        options={provincias.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                        value={field.state.value ? String(field.state.value) : null}
+                        onChange={(v) => {
                           const id = Number.parseInt(v, 10);
                           if (Number.isFinite(id)) field.handleChange(id);
                         }}
-                      >
-                        <SelectTrigger className='flex-1'>
-                          <SelectValue placeholder='Seleccionar provincia...' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {provincias.map((p) => (
-                            <SelectItem key={p.id} value={String(p.id)}>
-                              {p.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder='Seleccionar provincia...'
+                        searchPlaceholder='Buscar provincia...'
+                      />
                       <ProvinciaQuickCreate
                         onCreated={(nueva) => {
                           queryClient.invalidateQueries({ queryKey: ['provincias'] });

@@ -65,6 +65,10 @@ export interface TarifarioNuevaVersionInput {
   valores: TarifarioValorInput[];
 }
 
+// Edición in-place del tarifario vigente (no crea versión). Mismo set que
+// nueva-version: reemplaza vigencia, moneda y valores de la misma versión.
+export type TarifarioUpdateInput = TarifarioNuevaVersionInput;
+
 // RN-TAR-04/RN-TAR-05: nunca bloquean, solo informan.
 export interface Advertencia {
   regla: string;

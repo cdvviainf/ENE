@@ -107,10 +107,16 @@ export function TarifarioDetail({ tarifarioId }: { tarifarioId: number }) {
           Volver al listado
         </Button>
         {tarifario.activo && puedeEscribir && (
-          <Button onClick={() => router.push(`/config/tarifas/${tarifarioId}/nueva-version`)}>
-            <Icons.add className='mr-2 h-4 w-4' />
-            Nueva versión
-          </Button>
+          <>
+            <Button variant='outline' onClick={() => router.push(`/config/tarifas/${tarifarioId}/editar`)}>
+              <Icons.edit className='mr-2 h-4 w-4' />
+              Editar
+            </Button>
+            <Button onClick={() => router.push(`/config/tarifas/${tarifarioId}/nueva-version`)}>
+              <Icons.add className='mr-2 h-4 w-4' />
+              Nueva versión
+            </Button>
+          </>
         )}
       </div>
     </div>

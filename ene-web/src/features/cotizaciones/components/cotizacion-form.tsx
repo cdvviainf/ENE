@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
@@ -131,28 +132,19 @@ export function CotizacionForm() {
               {(field) => (
                 <div className='space-y-1.5'>
                   <Label>Cliente *</Label>
-                  <Select
-                    value={field.state.value ? String(field.state.value) : ''}
-                    onValueChange={(v) => {
+                  <Combobox
+                    options={clientes.map((c) => ({ value: String(c.id), label: `${c.razonSocial} (${c.codigo})` }))}
+                    value={field.state.value ? String(field.state.value) : null}
+                    onChange={(v) => {
                       const id = Number.parseInt(v, 10);
                       if (Number.isFinite(id)) {
                         field.handleChange(id);
                         form.setFieldValue('ejecutivoId', null);
                       }
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Selecciona un cliente...' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.razonSocial}
-                          <span className='text-muted-foreground ml-1.5 text-xs'>({c.codigo})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder='Selecciona un cliente...'
+                    searchPlaceholder='Buscar cliente...'
+                  />
                   {field.state.meta.errors.length > 0 && (
                     <p className='text-destructive text-sm'>{String(field.state.meta.errors[0])}</p>
                   )}
@@ -165,9 +157,13 @@ export function CotizacionForm() {
               {(field) => (
                 <div className='space-y-1.5'>
                   <Label>Ejecutivo</Label>
-                  <Select
-                    value={field.state.value ? String(field.state.value) : ''}
-                    onValueChange={(v) => {
+                  <Combobox
+                    options={[
+                      { value: '__none__', label: 'Sin ejecutivo' },
+                      ...ejecutivos.map((e) => ({ value: String(e.id), label: e.nombre }))
+                    ]}
+                    value={field.state.value ? String(field.state.value) : null}
+                    onChange={(v) => {
                       if (v === '__none__') {
                         field.handleChange(null);
                         return;
@@ -176,21 +172,9 @@ export function CotizacionForm() {
                       if (Number.isFinite(id)) field.handleChange(id);
                     }}
                     disabled={clienteIdSel <= 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={clienteIdSel > 0 ? 'Selecciona un ejecutivo...' : 'Elige un cliente primero'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='__none__'>
-                        <span className='text-muted-foreground'>Sin ejecutivo</span>
-                      </SelectItem>
-                      {ejecutivos.map((e) => (
-                        <SelectItem key={e.id} value={String(e.id)}>
-                          {e.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder={clienteIdSel > 0 ? 'Selecciona un ejecutivo...' : 'Elige un cliente primero'}
+                    searchPlaceholder='Buscar ejecutivo...'
+                  />
                 </div>
               )}
             </form.Field>
@@ -201,30 +185,29 @@ export function CotizacionForm() {
                 <div className='space-y-1.5'>
                   <Label>Negocio *</Label>
                   <div className='flex items-center gap-2'>
-                    <Select
-                      value={field.state.value ? String(field.state.value) : ''}
-                      onValueChange={(v) => {
+                    <Combobox
+                      className='flex-1'
+                      options={negocios.map((g) => ({ value: String(g.id), label: `${g.apellido} (${g.codigo})` }))}
+                      value={field.state.value ? String(field.state.value) : null}
+                      onChange={(v) => {
                         const id = Number.parseInt(v, 10);
-                        if (Number.isFinite(id)) field.handleChange(id);
+                        if (Number.isFinite(id)) {
+                          field.handleChange(id);
+                          // Sugerir la cantidad de pasajeros definida en el negocio.
+                          const neg = negocios.find((g) => g.id === id);
+                          if (neg && neg.cantidadPax >= 1) form.setFieldValue('cantidadPax', neg.cantidadPax);
+                        }
                       }}
-                    >
-                      <SelectTrigger className='flex-1'>
-                        <SelectValue placeholder='Selecciona un negocio...' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {negocios.map((g) => (
-                          <SelectItem key={g.id} value={String(g.id)}>
-                            {g.apellido}
-                            <span className='text-muted-foreground ml-1.5 text-xs'>({g.codigo})</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder='Selecciona un negocio...'
+                      searchPlaceholder='Buscar negocio...'
+                    />
                     <NegocioQuickCreate
                       clienteId={clienteIdSel > 0 ? clienteIdSel : null}
                       onCreated={(nuevo) => {
                         queryClient.invalidateQueries({ queryKey: negociosKeys.all });
                         field.handleChange(nuevo.id);
+                        // Sugerir la cantidad de pasajeros del negocio recién creado.
+                        if (nuevo.cantidadPax >= 1) form.setFieldValue('cantidadPax', nuevo.cantidadPax);
                       }}
                     />
                   </div>

@@ -83,19 +83,6 @@ export const REGISTRO_MAESTROS: HojaSpec[] = [
     ],
   },
   {
-    hoja: 'TiposDocumento',
-    modelo: 'tipoDocumento',
-    titulo: 'Tipos de Documento',
-    descripcion: 'Documento tributario que el proveedor emite a ENE (RN-PRV-11). Ya vienen sembrados — usa esta hoja solo para agregar nuevos.',
-    dependeDe: [],
-    columnas: [
-      { encabezado: 'Código', campo: 'codigo', tipo: 'texto', requerido: true, ayuda: 'Manual, sin espacios.' },
-      COL_NOMBRE,
-      { encabezado: 'Forma de Cálculo', campo: 'formaCalculo', tipo: 'enum', requerido: true, enumValores: ['NINGUNO', 'IVA', 'RETENCION'], ayuda: 'Retención/IVA referencial.' },
-      { encabezado: 'Porcentaje (0-1)', campo: 'porcentaje', tipo: 'decimal', ayuda: 'Ej. 0.19 = 19%. Vacío = 0.' },
-    ],
-  },
-  {
     hoja: 'CondicionesPago',
     modelo: 'condicionPago',
     titulo: 'Condiciones de Pago',
@@ -233,7 +220,7 @@ export const REGISTRO_MAESTROS: HojaSpec[] = [
       { encabezado: 'Razón Social', campo: 'razonSocial', tipo: 'texto', requerido: true },
       { encabezado: 'RUT', campo: 'rut', tipo: 'texto', requerido: true, ayuda: 'Extranjero sin RUT real: usar 55.555.555-5 (RN-PRV-01).' },
       { encabezado: 'Nombre Comercial', campo: 'nombreComercial', tipo: 'texto' },
-      { encabezado: 'Tipo de Documento (código)', campo: 'tipoDocumentoId', tipo: 'fk', fk: { hoja: 'TiposDocumento', externo: true, modelo: 'tipoDocumento' }, ayuda: 'Código del tipo de documento (RN-PRV-11). Vacío = sin documento.' },
+      { encabezado: 'Documento que emite', campo: 'tipoEmision', tipo: 'enum', enumValores: ['FACTURA', 'BOLETA_HONORARIOS', 'NADA'], ayuda: 'RN-PRV-09. Vacío = FACTURA.' },
       { encabezado: 'Link de Pago', campo: 'urlPago', tipo: 'texto', ayuda: 'URL válida si viene.' },
       {
         encabezado: 'Tipos de Servicio (códigos separados por coma)',
@@ -334,6 +321,7 @@ export const REGISTRO_MAESTROS: HojaSpec[] = [
       { encabezado: 'Tipo de Servicio (código)', campo: 'tipoServicioId', tipo: 'fk', requerido: true, fk: { hoja: 'TiposServicio', externo: true, modelo: 'tipoServicio' } },
       { encabezado: 'Modelo de Tarifa', campo: 'modeloTarifa', tipo: 'enum', requerido: true, enumValores: ENUM_MODELO_TARIFA, ayuda: 'Se recomienda calzar con el Modelo de Tarifa por Defecto del Tipo de Servicio.' },
       { encabezado: 'Margen Sugerido', campo: 'margenSugerido', tipo: 'decimal', ayuda: 'Ej. 0.5000 = 50%. Vacío = 0.' },
+      { encabezado: 'Afecto a IVA (SI/NO)', campo: 'afectoIva', tipo: 'booleanSiNo', ayuda: 'RN-IMP-02. Vacío = SI (afecto).' },
       { encabezado: 'Duración (días)', campo: 'duracionDias', tipo: 'entero' },
     ],
   },

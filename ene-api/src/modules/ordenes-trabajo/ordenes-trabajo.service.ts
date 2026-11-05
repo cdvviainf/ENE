@@ -1,4 +1,4 @@
-import type { EstadoOT, EstadoServicio, Prisma } from '@prisma/client'
+import type { Acomodacion, EstadoOT, EstadoServicio, Moneda, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
 import {
@@ -9,15 +9,32 @@ import {
 import { generarNumeroAnual } from '../../shared/correlativos.js'
 import { crearSiguienteVersion } from '../../shared/versionado/index.js'
 import { ordenTrabajoVersionable } from '../../shared/versionado/adaptadores/ordenTrabajo.js'
-import { aplicarMargen, aString, margenDesdeVenta, monto, restar, sumar } from '../../shared/dinero/index.js'
+import {
+  aClp,
+  aplicarMargen,
+  aString,
+  desdeClp,
+  margenDesdeVenta,
+  monto,
+  restar,
+  sumar,
+  type Decimal,
+  type Montoish,
+} from '../../shared/dinero/index.js'
+import { resolverTarifarioVigente, type TarifarioVigente } from '../costeo/costeo.repository.js'
+import { resolverCosto } from '../costeo/costeo.service.js'
+import type { LineaEstandar } from '../costeo/costeo.types.js'
 import * as repo from './ordenes-trabajo.repository.js'
 import type { FiltrosOrdenTrabajo } from './ordenes-trabajo.types.js'
-import type { NuevaVersionOTInput } from './ordenes-trabajo.schema.js'
+import type { CrearOrdenDirectaInput, NuevaVersionOTInput, PreviewCostoInput } from './ordenes-trabajo.schema.js'
+import { decorarLineasConImpuesto } from '../costeo/impuestos.js'
+import { obtenerIndicadores } from '../config/indicadores/indicadores.service.js'
 
 // ============================================================================
-// Orden de Trabajo — Docs/reglas-negocio.md §7 (RN-OT-01..08). La OT nace
-// únicamente de una cotización aprobada, copiando y CONGELANDO su programa en la
-// versión 1 (línea base, RN-VER-12). Consume el correlativo anual (OT-{YYYY}-
+// Orden de Trabajo — Docs/reglas-negocio.md §7 (RN-OT-01..08). La OT nace de una
+// cotización aprobada, copiando y CONGELANDO su programa, o se crea directa sin
+// cotización (RN-OT-01 enmendada); en ambos casos la versión 1 es la línea base
+// (RN-VER-12). Consume el correlativo anual (OT-{YYYY}-
 // {NNNN}) y el mecanismo de versionado compartido (adaptador ordenTrabajoVersionable).
 // ============================================================================
 
@@ -135,6 +152,171 @@ export async function generarDesdeCotizacion(
   return ot
 }
 
+/** Convierte un monto de la moneda del tarifario a la de la OT con el TC
+ * digitado. Solo hay dos monedas (mismo criterio que la cotización). */
+function convertirMoneda(valor: Montoish, desde: Moneda, hacia: Moneda, tipoCambio: string): Decimal {
+  if (desde === hacia) return monto(valor)
+  return desde === 'CLP' ? desdeClp(valor, tipoCambio) : aClp(valor, tipoCambio)
+}
+
+/** Arma la línea de costeo desde el tarifario vigente resuelto (espejo de
+ * `lineaEstandarDeSnapshot` de la cotización, pero desde el maestro: la OT no
+ * congela snapshot). */
+function lineaEstandarDeTarifario(t: TarifarioVigente, acomodacion: Acomodacion | undefined, pax: number): LineaEstandar {
+  const base = { tipoLinea: 'ESTANDAR' as const, cantidadPax: pax, margenPct: '0', costoUnitario: '0', costoTotal: '0', ventaTotal: '0' }
+  if (t.modelo === 'TRAMO_PAX') return { ...base, modelo: 'TRAMO_PAX', tramos: t.tramos }
+  if (t.modelo === 'UNITARIO_PAX') return { ...base, modelo: 'UNITARIO_PAX', valorUnitario: t.valorUnitario }
+  if (!acomodacion) throw validacion('La acomodación es obligatoria para un servicio con modelo ACOMODACION (RN-TAR-01)')
+  const valorHabitacion = t.valoresPorAcomodacion[acomodacion]
+  if (valorHabitacion == null) throw validacion(`El tarifario no tiene valor para la acomodación ${acomodacion}`)
+  return { ...base, modelo: 'ACOMODACION', acomodacion, valorHabitacion }
+}
+
+/** POST /preview-costo — resuelve el costo del tarifario vigente para una línea
+ * ESTANDAR, en la moneda de la OT, SIN persistir. Ayuda de captura del formulario
+ * de OT directa (el costo precargado queda editable). `disponible:false` si no
+ * hay tarifario vigente (la línea se carga como OTRO, RN-COS-05). */
+export async function previewCostoLinea(input: PreviewCostoInput) {
+  const fecha = fechaDelDia(input.fechaOperacion, input.dia)
+  const tarifario = await resolverTarifarioVigente(input.proveedorId, input.servicioId, fecha)
+  if (!tarifario) {
+    return {
+      disponible: false as const,
+      motivo: `No hay tarifario vigente para este servicio y proveedor en la fecha del día ${input.dia}; cárguela como línea OTRO (RN-COS-05).`,
+    }
+  }
+  try {
+    const lineaEstandar = lineaEstandarDeTarifario(tarifario, input.acomodacion, input.cantidadPax)
+    const costoTarifario = resolverCosto(lineaEstandar) // puede lanzar RN-TAR-03 (ningún tramo cubre el pax)
+    const costoTotal = convertirMoneda(costoTarifario, tarifario.moneda, input.moneda, input.tipoCambio)
+    return {
+      disponible: true as const,
+      moneda: input.moneda,
+      costoTotal: aString(costoTotal),
+      advertenciaVigencia: tarifario.advertenciaVigencia,
+    }
+  } catch (e) {
+    return { disponible: false as const, motivo: (e as Error).message }
+  }
+}
+
+/** POST /ordenes-trabajo — crea una OT directa (RN-OT-01 enmendada, oct-2026),
+ * digitando los datos que de otro modo se importan de la cotización. Mismo armado
+ * que `generarDesdeCotizacion` (cabecera + v1 línea base + líneas valorizadas),
+ * pero `cotizacionId` queda null y todo viene del payload. Transaccional y
+ * serializado por el correlativo anual (lock 491002). */
+export async function crearOrdenDirecta(input: CrearOrdenDirectaInput, usuario: string) {
+  const ot = await prisma.$transaction(async (tx) => {
+    const cliente = await tx.cliente.findFirst({ where: { id: input.clienteId, eliminadoEn: null }, select: { id: true } })
+    if (!cliente) throw noEncontrado('Cliente', input.clienteId)
+
+    const negocio = await tx.negocio.findFirst({
+      where: { id: input.negocioId, eliminadoEn: null },
+      select: { id: true, apellido: true, clienteId: true },
+    })
+    if (!negocio) throw noEncontrado('Negocio', input.negocioId)
+    // Decisión de usuario (nov-2026, QA-R2): un negocio asociado a OTRO cliente
+    // no puede usarse; uno sin cliente sí (RN-GRP-05).
+    if (negocio.clienteId != null && negocio.clienteId !== input.clienteId) {
+      throw validacion('El negocio seleccionado pertenece a otro cliente.')
+    }
+
+    if (input.ejecutivoId != null) {
+      const ejecutivo = await tx.clienteEjecutivo.findFirst({
+        where: { id: input.ejecutivoId, clienteId: input.clienteId, eliminadoEn: null },
+        select: { id: true },
+      })
+      if (!ejecutivo) throw validacion('El ejecutivo no pertenece al cliente seleccionado o no está vigente.')
+    }
+
+    // RN-OT-03: el apellido es el identificador operativo; si no se digita, se
+    // toma del negocio.
+    const apellido = input.apellido?.trim() || negocio.apellido?.trim()
+    if (!apellido) throw validacion('El apellido es obligatorio en la OT (RN-OT-03).')
+
+    const zonaIds = [...new Set(input.zonaIds)]
+    if (zonaIds.length > 0) {
+      const existentes = await tx.zona.count({ where: { id: { in: zonaIds }, eliminadoEn: null } })
+      if (existentes !== zonaIds.length) throw validacion('Alguna de las zonas indicadas no existe o fue eliminada.')
+    }
+
+    // QA-R2-002: los servicios y proveedores de las líneas ESTANDAR deben estar
+    // vigentes (soft delete, RN-MAN-05). Se valida en bloque dentro de la
+    // transacción; si alguno fue eliminado se rechaza la OT completa.
+    const estandar = input.lineas.filter((l) => l.tipoLinea === 'ESTANDAR')
+    const servicioIds = [...new Set(estandar.map((l) => l.servicioId!))]
+    const proveedorIds = [...new Set(estandar.map((l) => l.proveedorId!))]
+    if (servicioIds.length > 0) {
+      const vigentes = await tx.servicio.count({ where: { id: { in: servicioIds }, eliminadoEn: null } })
+      if (vigentes !== servicioIds.length) throw validacion('Algún servicio de las líneas no existe o fue eliminado.')
+    }
+    if (proveedorIds.length > 0) {
+      const vigentes = await tx.proveedor.count({ where: { id: { in: proveedorIds }, eliminadoEn: null } })
+      if (vigentes !== proveedorIds.length) throw validacion('Algún proveedor de las líneas no existe o fue eliminado.')
+    }
+
+    // Correlativo anual OT-{YYYY}-{NNNN} (mismo namespace que la conversión).
+    const anio = new Date().getFullYear()
+    await tomarLock(tx, LOCK_ORDEN_TRABAJO_CORRELATIVO, anio)
+    const numero = await generarNumeroAnual(tx, 'ORDEN_TRABAJO', anio)
+
+    const ot = await tx.ordenTrabajo.create({
+      data: {
+        numero,
+        cotizacionId: null,
+        clienteId: input.clienteId,
+        ejecutivoId: input.ejecutivoId ?? null,
+        negocioId: input.negocioId,
+        apellido,
+        areaNegocio: input.areaNegocio,
+        fechaOperacion: input.fechaOperacion,
+        cantidadPax: input.cantidadPax,
+        moneda: input.moneda,
+        tipoCambioCotizacion: input.tipoCambio,
+        estado: 'CONFIRMADA',
+        creadoPor: usuario,
+        zonas: { create: zonaIds.map((zonaId) => ({ zonaId })) },
+      },
+    })
+
+    // Líneas valorizadas (reusa el mismo valorizador que las versiones).
+    const valorizadas = input.lineas.map(valorizarLinea)
+    const totales = totalesDe(valorizadas)
+
+    // Versión 1 = línea base congelada (RN-VER-12), igual que en la conversión.
+    const v1 = await crearSiguienteVersion(tx, ordenTrabajoVersionable, {
+      cabeceraId: ot.id,
+      datos: totales,
+      usuario,
+      motivo: 'Línea base',
+    })
+
+    await tx.ordenTrabajoLinea.createMany({
+      data: valorizadas.map((l) => ({
+        ordenTrabajoVersionId: v1.id,
+        dia: l.dia,
+        bloque: l.bloque,
+        orden: l.orden,
+        tipoLinea: l.tipoLinea,
+        servicioId: l.servicioId,
+        proveedorId: l.proveedorId,
+        descripcion: l.descripcion,
+        descripcionEn: l.descripcionEn,
+        cantidadPax: l.cantidadPax,
+        acomodacion: l.acomodacion,
+        costoTeorico: l.costoTeorico,
+        margenPct: l.margenPct,
+        ventaLinea: l.ventaLinea,
+        estadoServicio: l.estadoServicio,
+        fechaServicio: fechaDelDia(input.fechaOperacion, l.dia),
+      })),
+    })
+
+    return ot
+  })
+  return obtenerOrden(ot.id)
+}
+
 export async function listarOrdenes(page: number, limit: number, filtros: FiltrosOrdenTrabajo) {
   const { data, total } = await repo.findAllOrdenes(page, limit, filtros)
   return { data, meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) } }
@@ -144,7 +326,12 @@ export async function obtenerOrden(id: number) {
   const ot = await repo.findOrdenById(id)
   if (!ot) throw noEncontrado('Orden de Trabajo', id)
   const versiones = await repo.listVersionesOT(id)
-  return { ...ot, versiones }
+  if (!ot.versionVigente) return { ...ot, versiones }
+  // RN-PRV-11/RN-IMP-02: IVA/retención referencial por línea de la versión
+  // vigente. Solo lectura: no toca costo, margen ni venta.
+  const tasas = await obtenerIndicadores()
+  const { lineas, impuestos } = decorarLineasConImpuesto(ot.versionVigente.lineas, (l) => l.costoTeorico, tasas)
+  return { ...ot, versionVigente: { ...ot.versionVigente, lineas, impuestos }, versiones }
 }
 
 /** GET /:id/versiones/:version — RN-VER-09: la versión histórica tal como quedó

@@ -3,6 +3,7 @@ import * as service from './tarifas.service.js'
 import {
   tarifarioCreateSchema,
   tarifarioNuevaVersionSchema,
+  tarifarioUpdateSchema,
   tarifarioIdParamSchema,
   tarifarioListQuerySchema,
 } from './tarifas.schema.js'
@@ -37,4 +38,10 @@ export async function nuevaVersionTarifario(req: FastifyRequest, reply: FastifyR
   const { id } = tarifarioIdParamSchema.parse(req.params)
   const input = tarifarioNuevaVersionSchema.parse(req.body)
   return reply.status(201).send(await service.crearNuevaVersion(id, input, usuarioSesion(req)))
+}
+
+export async function editarTarifario(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = tarifarioIdParamSchema.parse(req.params)
+  const input = tarifarioUpdateSchema.parse(req.body)
+  return reply.send(await service.editarTarifario(id, input, usuarioSesion(req)))
 }

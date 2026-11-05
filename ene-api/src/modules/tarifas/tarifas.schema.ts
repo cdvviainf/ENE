@@ -89,6 +89,20 @@ export const tarifarioNuevaVersionSchema = z
   })
   .superRefine((data, ctx) => validarConsistenciaValores(data.valores, ctx))
 
+// Edición in-place del tarifario vigente (decisión oct-2026): reemplaza por
+// completo vigencia, moneda y valores de la MISMA versión (no crea una nueva).
+// proveedorId/servicioId no se editan (la cadena pertenece a ese par). La tarifa
+// ya congelada en cotizaciones no cambia (snapshot RN-COS-06); para refrescar
+// una cotización existe el botón "recalcular costo".
+export const tarifarioUpdateSchema = z
+  .object({
+    moneda: z.enum(['CLP', 'USD']).optional(),
+    vigenciaDesde: z.coerce.date(),
+    vigenciaHasta: z.coerce.date().optional(),
+    valores: z.array(tarifarioValorInputSchema).min(1, 'Debe haber al menos un valor'),
+  })
+  .superRefine((data, ctx) => validarConsistenciaValores(data.valores, ctx))
+
 export const tarifarioIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 })
@@ -106,4 +120,5 @@ export const tarifarioListQuerySchema = z.object({
 export type TarifarioValorInput = z.infer<typeof tarifarioValorInputSchema>
 export type TarifarioCreateInput = z.infer<typeof tarifarioCreateSchema>
 export type TarifarioNuevaVersionInput = z.infer<typeof tarifarioNuevaVersionSchema>
+export type TarifarioUpdateInput = z.infer<typeof tarifarioUpdateSchema>
 export type TarifarioListQuery = z.infer<typeof tarifarioListQuerySchema>

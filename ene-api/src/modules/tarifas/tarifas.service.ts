@@ -3,7 +3,7 @@ import { noEncontrado, conflicto, validacion } from '../../shared/errors.js'
 import { tomarLockPorTexto, LOCK_TARIFARIO_VIGENCIA } from '../../shared/advisory-locks.js'
 import { multiplicar, restar, monto, aString } from '../../shared/dinero/index.js'
 import * as repo from './tarifas.repository.js'
-import type { TarifarioCreateInput, TarifarioNuevaVersionInput, TarifarioValorInput } from './tarifas.schema.js'
+import type { TarifarioCreateInput, TarifarioNuevaVersionInput, TarifarioUpdateInput, TarifarioValorInput } from './tarifas.schema.js'
 import type { Advertencia, TramoCobertura } from './tarifas.types.js'
 
 // ============================================================================
@@ -138,9 +138,13 @@ async function rechazarSiVigenciaSolapada(
   servicioId: number,
   vigenciaDesde: Date,
   vigenciaHasta: Date | undefined,
+  // Al editar in-place, el propio tarifario no debe chocar consigo mismo.
+  excluirId?: number,
 ) {
   const solapados = await repo.tarifariosActivosSolapados(tx, proveedorId, servicioId)
-  const choque = solapados.find((t) => seSolapanVigencias(vigenciaDesde, vigenciaHasta ?? null, t.vigenciaDesde, t.vigenciaHasta))
+  const choque = solapados
+    .filter((t) => t.id !== excluirId)
+    .find((t) => seSolapanVigencias(vigenciaDesde, vigenciaHasta ?? null, t.vigenciaDesde, t.vigenciaHasta))
   if (choque) {
     throw conflicto(`Ya existe un tarifario activo (v${choque.version}) para este proveedor y servicio con vigencia solapada (RN-TAR-07)`)
   }
@@ -181,6 +185,42 @@ export async function crearTarifario(input: TarifarioCreateInput, creadoPor: str
 
     const tarifario = await repo.createTarifarioTx(tx, input, creadoPor, 1)
     return { ...tarifario, advertencias }
+  })
+}
+
+/** Edición in-place del tarifario vigente (decisión oct-2026). Permitida sin
+ * restricción de "no aplicado": la tarifa vive congelada en cada cotización
+ * (snapshot RN-COS-06), así que editar no afecta cotizaciones anteriores. Las
+ * nuevas capturas usan el valor editado; una cotización en BORRADOR puede
+ * refrescarse con el botón "recalcular costo". Solo se edita el activo de la
+ * cadena, serializado por proveedor+servicio (lock 491010). */
+export async function editarTarifario(id: number, input: TarifarioUpdateInput, actualizadoPor: string) {
+  return prisma.$transaction(async (tx) => {
+    const actual = await tx.tarifario.findFirst({
+      where: { id },
+      include: { servicio: { select: { modeloTarifa: true } } },
+    })
+    if (!actual) throw noEncontrado('Tarifario', id)
+    if (actual.eliminadoEn) throw conflicto('El tarifario fue eliminado y no admite edición')
+
+    await tomarLockPorTexto(tx, LOCK_TARIFARIO_VIGENCIA, `${actual.proveedorId}:${actual.servicioId}`)
+
+    // Releer tras el lock: pudo cambiar mientras esperábamos.
+    const vigente = await tx.tarifario.findUniqueOrThrow({ where: { id } })
+    if (!vigente.activo) {
+      throw conflicto('Solo se puede editar el tarifario activo de la cadena; este ya fue reemplazado por una versión posterior (RN-TAR-06)')
+    }
+
+    const advertencias = validarModeloYTramos(input.valores, actual.servicio.modeloTarifa)
+    await rechazarSiVigenciaSolapada(tx, actual.proveedorId, actual.servicioId, input.vigenciaDesde, input.vigenciaHasta, id)
+
+    const actualizado = await repo.actualizarTarifarioTx(
+      tx,
+      id,
+      { moneda: input.moneda ?? actual.moneda, vigenciaDesde: input.vigenciaDesde, vigenciaHasta: input.vigenciaHasta, valores: input.valores },
+      actualizadoPor,
+    )
+    return { ...actualizado, advertencias }
   })
 }
 

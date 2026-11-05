@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { formatMonto } from '@/lib/dinero';
 import { fraccionAPorcentaje, porcentajeAFraccion, recortarDecimales } from '@/lib/porcentaje';
@@ -326,14 +327,14 @@ function LineaVersionDialog({
   const [margenPct, setMargenPct] = useState('');
   const [estadoServicio, setEstadoServicio] = useState<EstadoServicio>('PENDIENTE');
 
-  const { data: serviciosData } = useQuery({ ...serviciosListOptions({ limit: 200 }), enabled: open });
+  const { data: serviciosData } = useQuery({ ...serviciosListOptions({ limit: 500 }), enabled: open });
   const servicios = serviciosData?.data ?? [];
   const servicioSel = servicios.find((s) => s.id === servicioId);
   const esAcomodacion = servicioSel?.modeloTarifa === 'ACOMODACION';
   const tipoServicioId = servicioSel?.tipoServicioId;
 
   const { data: proveedoresData } = useQuery({
-    ...proveedoresListOptions({ limit: 200, ...(tipoServicioId ? { tipoServicioId } : {}) }),
+    ...proveedoresListOptions({ limit: 500, ...(tipoServicioId ? { tipoServicioId } : {}) }),
     enabled: open && tipoServicioId != null
   });
   const proveedores = proveedoresData?.data ?? [];
@@ -457,9 +458,10 @@ function LineaVersionDialog({
             <>
               <div className='col-span-2 space-y-1.5'>
                 <Label>Servicio</Label>
-                <Select
-                  value={servicioId ? String(servicioId) : ''}
-                  onValueChange={(v) => {
+                <Combobox
+                  options={servicios.map((s) => ({ value: String(s.id), label: `${s.nombre} (${s.codigo})` }))}
+                  value={servicioId ? String(servicioId) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (Number.isFinite(id)) {
                       setServicioId(id);
@@ -467,42 +469,23 @@ function LineaVersionDialog({
                       setAcomodacion(undefined);
                     }
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder='Selecciona un servicio...' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {servicios.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.nombre}
-                        <span className='text-muted-foreground ml-1.5 text-xs'>({s.codigo})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder='Selecciona un servicio...'
+                  searchPlaceholder='Buscar servicio...'
+                />
               </div>
               <div className='col-span-2 space-y-1.5'>
                 <Label>Proveedor</Label>
-                <Select
-                  value={proveedorId ? String(proveedorId) : ''}
-                  onValueChange={(v) => {
+                <Combobox
+                  options={proveedores.map((p) => ({ value: String(p.id), label: `${p.razonSocial} (${p.codigo})` }))}
+                  value={proveedorId ? String(proveedorId) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (Number.isFinite(id)) setProveedorId(id);
                   }}
                   disabled={servicioId == null}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={servicioId == null ? 'Elige un servicio primero' : 'Selecciona un proveedor...'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proveedores.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.razonSocial}
-                        <span className='text-muted-foreground ml-1.5 text-xs'>({p.codigo})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={servicioId == null ? 'Elige un servicio primero' : 'Selecciona un proveedor...'}
+                  searchPlaceholder='Buscar proveedor...'
+                />
               </div>
               {esAcomodacion && (
                 <div className='col-span-2 space-y-1.5'>

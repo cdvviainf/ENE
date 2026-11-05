@@ -4,6 +4,7 @@ import type {
   TarifarioListResponse,
   TarifarioCreateInput,
   TarifarioNuevaVersionInput,
+  TarifarioUpdateInput,
   TarifarioConAdvertencias
 } from './types';
 
@@ -25,13 +26,18 @@ export const tarifasService = {
     return api.get(`tarifas/${id}`).json();
   },
 
-  // Sin update/remove: Tarifario no tiene PATCH/DELETE (RN-TAR-06 — se
-  // versiona, no se edita ni se borra).
   async create(data: TarifarioCreateInput): Promise<TarifarioConAdvertencias> {
     return api.post('tarifas', { json: data }).json();
   },
 
   async nuevaVersion(id: number, data: TarifarioNuevaVersionInput): Promise<TarifarioConAdvertencias> {
     return api.post(`tarifas/${id}/nueva-version`, { json: data }).json();
+  },
+
+  // Edición in-place del tarifario vigente (decisión oct-2026). La tarifa queda
+  // congelada en cada cotización (snapshot), así que editar no retroacta; una
+  // cotización en BORRADOR puede refrescarse con "recalcular costo".
+  async update(id: number, data: TarifarioUpdateInput): Promise<TarifarioConAdvertencias> {
+    return api.patch(`tarifas/${id}`, { json: data }).json();
   }
 };

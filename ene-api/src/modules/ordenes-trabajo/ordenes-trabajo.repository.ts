@@ -9,8 +9,10 @@ const versionVigenteInclude = {
       lineas: {
         orderBy: [{ dia: 'asc' }, { bloque: 'asc' }, { orden: 'asc' }],
         include: {
-          servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true } },
-          proveedor: { select: { id: true, codigo: true, razonSocial: true } },
+          // RN-IMP-02: afectación del servicio y documento del proveedor para
+          // el IVA/retención referencial de la línea.
+          servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true, afectoIva: true } },
+          proveedor: { select: { id: true, codigo: true, razonSocial: true, tipoEmision: true } },
         },
       },
     },

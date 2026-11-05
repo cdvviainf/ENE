@@ -49,9 +49,9 @@ const ITEMS_MENU = [
   // Etapa 5: mantenedor de Tarifario — mismo criterio de mantenedor propio
   // que el resto, entra en MANTENEDORES_SEPARADOS más abajo.
   { codigo: 'TARIFAS', nombre: 'Tarifas', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
-  // RN-PRV-11 / RN-EMP-01: tipos de documento (reemplaza el enum) y datos de
-  // la empresa emisora + logo. Mismo criterio de mantenedor propio.
-  { codigo: 'TIPOS_DOCUMENTO', nombre: 'Tipos de documento', modulo: 'config', ruta: '/config/tipos-documento', orden: 85 },
+  // RN-IMP-01 / RN-EMP-01: indicadores tributarios (tasas IVA/retención, que
+  // reemplazan al mantenedor TipoDocumento) y datos de la empresa emisora + logo.
+  { codigo: 'INDICADORES', nombre: 'Indicadores', modulo: 'config', ruta: '/config/indicadores', orden: 85 },
   { codigo: 'EMPRESA', nombre: 'Datos de empresa', modulo: 'config', ruta: '/config/empresa', orden: 86 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
@@ -75,7 +75,7 @@ const MANTENEDORES_SEPARADOS = [
   'REGIONES',
   'PROVINCIAS',
   'COMUNAS',
-  'TIPOS_DOCUMENTO',
+  'INDICADORES',
   'EMPRESA',
 ]
 
@@ -134,17 +134,6 @@ const FORMAS_PAGO = [
   // RN-COS-08: la tarjeta de crédito suma 3% operacional a la propuesta.
   { codigo: 'TARJETA_CREDITO', nombre: 'Tarjeta de crédito', porcentajeAdicional: 0.03 },
 ]
-
-// RN-PRV-11: tipos de documento que un proveedor emite a ENE (mantenedor que
-// reemplaza el enum TipoDocProveedor). `porcentaje` + `formaCalculo` son la
-// retención/IVA referencial interna. Incluye "A nada" y "Boleta a tercero".
-const TIPOS_DOCUMENTO = [
-  { codigo: 'FACTURA_AFECTA', nombre: 'Factura afecta', formaCalculo: 'IVA', porcentaje: 0.19 },
-  { codigo: 'FACTURA_EXENTA', nombre: 'Factura exenta', formaCalculo: 'NINGUNO', porcentaje: 0 },
-  { codigo: 'BOLETA_HONORARIOS', nombre: 'Boleta de honorarios', formaCalculo: 'RETENCION', porcentaje: 0.1475 },
-  { codigo: 'BOLETA_HONORARIOS_TERCERO', nombre: 'Boleta de honorarios a tercero', formaCalculo: 'RETENCION', porcentaje: 0.1475 },
-  { codigo: 'NINGUNO', nombre: 'A nada (sin documento)', formaCalculo: 'NINGUNO', porcentaje: 0 },
-] as const
 
 // RN-EMP-01: datos de la empresa emisora (singleton). Reemplaza el EMISOR
 // hardcodeado del resolver de documentos.
@@ -262,13 +251,16 @@ async function main() {
     await prisma.formaPago.upsert({ where: { codigo: f.codigo }, update: {}, create: { ...f, creadoPor: SISTEMA } })
   }
 
-  for (const t of TIPOS_DOCUMENTO) {
-    await prisma.tipoDocumento.upsert({
-      where: { codigo: t.codigo },
-      update: {},
-      create: { codigo: t.codigo, nombre: t.nombre, formaCalculo: t.formaCalculo, porcentaje: t.porcentaje, creadoPor: SISTEMA },
-    })
+  // RN-IMP-01: singleton de indicadores tributarios (la migración ya siembra la
+  // fila; esto cubre ambientes creados con `db push`/reset sin esa migración).
+  const indicadoresExistente = await prisma.indicadores.findFirst()
+  if (!indicadoresExistente) {
+    await prisma.indicadores.create({ data: { creadoPor: SISTEMA } })
   }
+
+  // El mantenedor TipoDocumento se retiró (migración impuestos_tipo_emision_
+  // indicadores): su ítem de menú se desactiva en ambientes ya sembrados.
+  await prisma.itemMenu.updateMany({ where: { codigo: 'TIPOS_DOCUMENTO' }, data: { activo: false } })
 
   // RN-EMP-01: singleton de empresa (fila id=1). Idempotente: solo si no existe.
   const empresaExistente = await prisma.empresa.findFirst()
@@ -293,7 +285,7 @@ async function main() {
     }
   }
 
-  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio, prefijos, geografía, formas/condiciones de pago, tipos de documento y empresa.')
+  console.log('Seed completado: perfiles, ítems de menú, zonas, tipos de servicio, prefijos, geografía, formas/condiciones de pago, indicadores y empresa.')
 }
 
 main()

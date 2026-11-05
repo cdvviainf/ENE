@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import {
   Dialog,
@@ -125,26 +124,19 @@ export function DireccionDialog({ open, onOpenChange, initial, onSubmit, isPendi
                     País <span className='text-destructive'>*</span>
                   </Label>
                   <div className='flex items-center gap-2'>
-                    <Select
-                      value={field.state.value ? String(field.state.value) : ''}
-                      onValueChange={(v) => {
+                    <Combobox
+                      className='flex-1'
+                      options={paises.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                      value={field.state.value ? String(field.state.value) : null}
+                      onChange={(v) => {
                         const id = Number.parseInt(v, 10);
                         if (!Number.isFinite(id)) return;
                         field.handleChange(id);
                         if (!idsNacionales.has(id)) form.setFieldValue('comunaId', undefined);
                       }}
-                    >
-                      <SelectTrigger className='flex-1'>
-                        <SelectValue placeholder='Seleccionar país...' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {paises.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder='Seleccionar país...'
+                      searchPlaceholder='Buscar país...'
+                    />
                     <PaisQuickCreate
                       onCreated={(nuevo) => {
                         queryClient.invalidateQueries({ queryKey: ['paises'] });

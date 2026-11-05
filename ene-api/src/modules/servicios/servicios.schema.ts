@@ -18,6 +18,10 @@ export const servicioCreateSchema = z.object({
   // frontend; el backend siempre recibe el valor final, editable o no.
   modeloTarifa: z.enum(['TRAMO_PAX', 'ACOMODACION', 'UNITARIO_PAX']),
   margenSugerido: decimalString.default('0'),
+  // RN-IMP-02: afecto o exento de IVA. Solo incide cuando el proveedor emite
+  // FACTURA. Sin `.default()` para que un PATCH parcial no lo pise: el default
+  // (afecto) lo pone la BD.
+  afectoIva: z.boolean().optional(),
   duracionDias: z.coerce.number().int().positive().optional(),
 })
 
@@ -29,7 +33,7 @@ export const servicioIdParamSchema = z.object({
 
 export const servicioListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(200).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   q: z.string().optional(),
   zonaId: z.coerce.number().int().positive().optional(),
   tipoServicioId: z.coerce.number().int().positive().optional(),

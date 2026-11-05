@@ -70,8 +70,8 @@ export const proveedorCreateSchema = z.object({
   razonSocial: z.string().min(1, 'La razón social es requerida').max(150).trim(),
   rut: z.string().min(1, 'El RUT es requerido').max(12).trim(),
   nombreComercial: z.string().max(150).trim().optional(),
-  // RN-PRV-09/11: tipo de documento que emite (FK al mantenedor, opcional).
-  tipoDocumentoId: z.coerce.number().int().positive().optional(),
+  // RN-PRV-09 (enmendada): documento que emite el proveedor (default FACTURA).
+  tipoEmision: z.enum(['FACTURA', 'BOLETA_HONORARIOS', 'NADA']).optional(),
   // RN-PRV-10: link de pago opcional.
   urlPago: z.string().url('URL inválida').max(500).trim().optional(),
   // RN-PRV-08: un proveedor puede pertenecer a varios tipos de servicio (N:N).
@@ -105,7 +105,7 @@ export const proveedorSubrecursoParamSchema = z.object({
 
 export const proveedorListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(200).default(20),
+  limit: z.coerce.number().int().positive().max(1000).default(20),
   q: z.string().optional(),
   tipoServicioId: z.coerce.number().int().positive().optional(),
   zonaId: z.coerce.number().int().positive().optional(),

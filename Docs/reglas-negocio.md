@@ -114,7 +114,29 @@ tarifario ni servicio del catálogo.
 **RN-COS-06 [BLOQUEA]** El tarifario es **ayuda de captura**. Una vez cargado,
 `costoTeorico` queda plasmado en la línea y **no cambia** aunque el maestro de
 tarifas se modifique después. Nunca se recalcula una línea existente desde el
-tarifario.
+tarifario, **salvo la excepción explícita siguiente**.
+
+**Excepción — recálculo de costo a pedido (enmienda nov-2026, decisión de
+usuario).** El usuario puede pedir explícitamente "Recalcular costo"
+(`POST /api/cotizaciones/:id/recalcular-costo`) para refrescar el costo de las
+líneas `ESTANDAR` desde el tarifario vigente **actual**. Condiciones:
+- **Opt-in:** solo se ejecuta por esa acción del usuario; ningún otro flujo
+  (guardar itinerario, editar margen, recalcular pax, versionar, aprobar)
+  re-resuelve el maestro.
+- **Estado:** solo con la cotización en `BORRADOR`. En cualquier otro estado
+  responde `CONFLICT`; los cambios pasan por una versión nueva.
+- **Alcance:** actúa sobre la versión vigente editable (RN-VER-08) y nunca
+  sobre versiones históricas, que siguen intactas (RN-VER-09). Tampoco alcanza
+  a la OT, cuya versión 1 queda congelada desde la aprobación (RN-OT-02).
+- **Qué cambia:** el costo y el `tarifarioSnapshot` de cada línea `ESTANDAR`
+  con tarifario vigente. Se conservan la cantidad de pasajeros, el margen, o la
+  venta exacta si la fijó el usuario (`ventaManual`, con el margen re-derivado).
+  Si una línea `ESTANDAR` ya no tiene tarifario vigente, conserva su costo y su
+  snapshot congelados. Las líneas `OTRO` no cambian. El recargo de la forma de
+  pago (RN-COS-08) se recalcula sobre la venta nueva.
+- **Auditoría y concurrencia:** se ejecuta en una transacción con el lock
+  `LOCK_COTIZACION_VERSION` (491007), revalida el estado dentro de ella y
+  registra `actualizadoPor` en la cotización.
 
 > **Implementación (Etapa 7).** Cada línea ESTANDAR congela su base tarifaria
 > (`tarifarioSnapshot`: modelo + tramos/valor/valores de acomodación + moneda)
@@ -212,6 +234,24 @@ anterior.
 **RN-TAR-07 [BLOQUEA]** No pueden existir dos tarifarios **activos** del mismo
 proveedor y servicio con vigencias que se solapen. (Trasladada desde
 `Docs/mantenedores.md` §7 al cerrar Etapa 5 — antes solo vivía ahí.)
+
+**RN-TAR-08** (decisión de usuario, oct-2026) El tarifario **activo** de una
+cadena admite **edición en el lugar** (`PATCH /api/tarifas/:id`): vigencia,
+moneda y valores, para corregir una carga sin abrir una versión nueva.
+Restricciones:
+- solo el tarifario activo, no eliminado; uno ya reemplazado por una versión
+  posterior responde `CONFLICT`;
+- la vigencia editada no puede solaparse con otro tarifario activo del mismo
+  proveedor+servicio (RN-TAR-07);
+- se validan modelo y tramos igual que en el alta (RN-TAR-01/02);
+- se serializa con `LOCK_TARIFARIO_VIGENCIA` (491010) y registra
+  `actualizadoEn`/`actualizadoPor`;
+- no conserva historia (los valores se reemplazan). Las cotizaciones ya
+  valorizadas no cambian porque congelan su snapshot (RN-COS-06); solo las
+  alcanza un "Recalcular costo" explícito (excepción de RN-COS-06).
+
+Un cambio de precio que deba conservar historia se registra como versión nueva
+(RN-TAR-06), no como edición. No hay `DELETE`.
 
 ---
 
@@ -362,6 +402,37 @@ margen.
 > "Boleta de honorarios a tercero". La retención/IVA resultante
 > (`costo × porcentaje`) es **referencial e interna**: se muestra en la pantalla
 > de cotización pero **no** afecta el presupuesto ni aparece en el PDF al cliente.
+> *(Reemplazada por la enmienda de impuestos de nov-2026, abajo.)*
+>
+> **Enmienda impuestos (nov-2026): se retira el mantenedor `TipoDocumento`.**
+>
+> **RN-PRV-09 (enmendada)** El proveedor declara el documento que emite a ENE
+> con un valor fijo, `tipoEmision` ∈ {`FACTURA`, `BOLETA_HONORARIOS`, `NADA`},
+> por defecto `FACTURA`. Afecto/exento ya no es atributo del proveedor sino del
+> servicio (RN-IMP-02).
+>
+> **RN-PRV-11 (enmendada)** El IVA o la retención de una línea de costo se
+> calcula combinando el documento del proveedor, la afectación del servicio y
+> las tasas de Indicadores (RN-IMP-01). Sigue siendo **referencial e interno**:
+> se muestra por línea y en total en la cotización y en la OT, **no** modifica
+> costo, margen ni venta (el presupuesto no cambia) y **nunca** aparece en el
+> PDF al cliente. Se calcula al vuelo con el maestro y las tasas actuales, sin
+> congelarse por versión; el monto efectivo a pagar se resuelve en Etapa 10.
+>
+> **RN-IMP-01** Las tasas tributarias (`tasaIva`, por defecto 0,19, y
+> `tasaRetencion`, por defecto 0,1475) son un mantenedor singleton
+> (`Indicadores`), editable con nivel `TOTAL` sobre `INDICADORES` y legible por
+> cualquier usuario autenticado. Se guardan como fracción en el rango [0, 1).
+>
+> **RN-IMP-02** Cálculo por línea (decimal.js, RN-DIN-01). Las líneas `OTRO`, sin
+> proveedor, no llevan impuesto:
+>
+> | Proveedor emite | Servicio | El costo es | Impuesto | Se paga al proveedor |
+> |---|---|---|---|---|
+> | `FACTURA` | afecto (`afectoIva = true`, por defecto) | neto | IVA = costo × tasaIva | neto + IVA |
+> | `FACTURA` | exento | — | ninguno | costo |
+> | `BOLETA_HONORARIOS` | cualquiera | bruto | retención = costo × tasaRetencion | bruto − retención |
+> | `NADA` | cualquiera | — | ninguno | costo |
 >
 > **RN-EMP-01** Los **datos de la empresa emisora** (ENE) son un mantenedor
 > singleton editable (nombre, RUT, dirección, email, web, teléfono) con **logo**
@@ -374,8 +445,19 @@ margen.
 
 ## 7. Orden de Trabajo
 
-**RN-OT-01 [BLOQUEA]** La OT nace **únicamente** de una cotización aprobada,
-copiando sus líneas. No se crea una OT a mano.
+**RN-OT-01 [BLOQUEA]** (enmendada oct-2026) La OT nace de una cotización
+aprobada, copiando sus líneas, **o se crea directa** (sin cotización), digitando
+la cabecera y el itinerario que de otro modo se importan de la cotización. Antes
+la OT nacía únicamente de una cotización; el cliente también opera OT que no
+pasan por cotización, así que ambas vías conviven. La OT directa consume el mismo
+correlativo `OT-{YYYY}-{NNNN}`, su versión 1 es la línea base y `cotizacionId`
+queda nulo (el `@unique` de la columna lo tolera). Las líneas llegan valorizadas:
+el costo se digita o se precarga del tarifario vigente como ayuda de captura
+(queda editable) y la venta se deriva del margen o de la venta objetivo
+(RN-COS-02/RN-COT-11), igual que en una versión de OT. Validaciones de la OT
+directa (nov-2026): cliente, negocio, ejecutivo, zonas, servicios y proveedores
+deben estar vigentes; el ejecutivo debe pertenecer al cliente, y un negocio
+asociado a **otro** cliente se rechaza (uno sin cliente se acepta, RN-GRP-05).
 
 **RN-OT-02** Al generarse, se congelan: programa, costo teórico por línea,
 margen, valor de venta, moneda y tipo de cambio de cotización. Esa es la versión 1.
@@ -623,3 +705,6 @@ Estos deben existir como tests antes de cerrar la etapa correspondiente.
 | 13 | RN-GEO-02 | Dirección con país Chile sin comuna | Rechaza |
 | 14 | RN-GEO-03 | Marcar una segunda dirección como default | La anterior queda `esPorDefecto=false` |
 | 15 | RN-PAG-02 | Condición de pago con cuotas 50%+40% | Rechaza por no sumar 100% |
+| 16 | RN-IMP-02 | Costo 100.000, proveedor FACTURA, servicio afecto, IVA 0,19 | IVA 19.000, se pagan 119.000; venta sin cambios |
+| 17 | RN-IMP-02 | Costo 100.000, proveedor BOLETA_HONORARIOS, retención 0,1475 | Retención 14.750, líquido 85.250 |
+| 18 | RN-IMP-02 | Proveedor FACTURA con servicio exento, o proveedor NADA, o línea OTRO | Sin impuesto |

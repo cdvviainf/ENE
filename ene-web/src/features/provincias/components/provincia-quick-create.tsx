@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { QuickCreateTrigger } from '@/components/shared/quick-create-trigger';
@@ -70,24 +70,16 @@ function ProvinciaQuickForm({ close, onCreated }: { close: () => void; onCreated
               <Label>
                 Región <span className='text-destructive'>*</span>
               </Label>
-              <Select
-                value={field.state.value ? String(field.state.value) : ''}
-                onValueChange={(v) => {
+              <Combobox
+                options={regiones.map((r) => ({ value: String(r.id), label: r.nombre }))}
+                value={field.state.value ? String(field.state.value) : null}
+                onChange={(v) => {
                   const id = Number.parseInt(v, 10);
                   if (Number.isFinite(id)) field.handleChange(id);
                 }}
-              >
-                <SelectTrigger className='w-full'>
-                  <SelectValue placeholder='Seleccionar región...' />
-                </SelectTrigger>
-                <SelectContent>
-                  {regiones.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder='Seleccionar región...'
+                searchPlaceholder='Buscar región...'
+              />
             </div>
           )}
         </form.Field>

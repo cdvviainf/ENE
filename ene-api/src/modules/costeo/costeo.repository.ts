@@ -1,4 +1,4 @@
-import type { Acomodacion, Moneda } from '@prisma/client'
+import type { Acomodacion, Moneda, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { advierteVigenciaVencida } from '../tarifas/tarifas.service.js'
 import type { TramoValor } from './costeo.types.js'
@@ -6,8 +6,8 @@ import type { TramoValor } from './costeo.types.js'
 /** RN-TAR-07: puede haber más de una cadena activa del mismo proveedor+
  * servicio si sus vigencias no se solapan (temporadas distintas negociadas
  * aparte) — por eso se buscan todas las activas y se elige según la fecha. */
-async function tarifariosActivosDe(proveedorId: number, servicioId: number) {
-  return prisma.tarifario.findMany({
+async function tarifariosActivosDe(proveedorId: number, servicioId: number, db: Prisma.TransactionClient) {
+  return db.tarifario.findMany({
     where: { proveedorId, servicioId, activo: true, eliminadoEn: null },
     include: { valores: true },
   })
@@ -32,8 +32,11 @@ export async function resolverTarifarioVigente(
   proveedorId: number,
   servicioId: number,
   fechaOperacion: Date,
+  // Cliente de la transacción en curso cuando la lectura debe quedar dentro de
+  // ella (recalcular-costo, QA-R2-001); por defecto el cliente global.
+  db: Prisma.TransactionClient = prisma,
 ): Promise<TarifarioVigente | null> {
-  const activos = await tarifariosActivosDe(proveedorId, servicioId)
+  const activos = await tarifariosActivosDe(proveedorId, servicioId, db)
   if (activos.length === 0) return null
 
   const cubreFecha = (t: (typeof activos)[number]) =>

@@ -687,8 +687,10 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > `UNITARIO_PAX`). Endpoints: `GET /api/tarifas`, `GET /api/tarifas/:id`,
 > `POST /api/tarifas` (cadena nueva, `version=1`, solo si la vigencia no se
 > solapa con ninguna activa — RN-TAR-06/07), `POST /api/tarifas/:id/nueva-version`
-> (`version+1`, desactiva la anterior). Sin `PATCH`/`DELETE` — no está en el
-> contrato de endpoints ni lo pide el criterio de término. Nuevo advisory lock
+> (`version+1`, desactiva la anterior). Sin `DELETE`. **Enmienda oct/nov-2026
+> (decisión de usuario): se agrega `PATCH /api/tarifas/:id`** para editar en el
+> lugar el tarifario activo (RN-TAR-08), y `POST /api/cotizaciones/:id/recalcular-costo`
+> como excepción opt-in de RN-COS-06 (solo en BORRADOR). Nuevo advisory lock
 > `LOCK_TARIFARIO_VIGENCIA = 491010` (§7) serializa creación/versionado del
 > mismo proveedor+servicio.
 >
@@ -704,9 +706,10 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
 > total, sin regresiones).
 >
 > Frontend en `ene-web/src/features/tarifas/` — mismo patrón que
-> Servicios/Proveedores (`types/service/queries` + `components/`), pero sin
-> `isEdit` (no hay edición in-place): `TarifarioForm` sirve tanto "nuevo" como
-> "nueva-version" con un discriminador de modo. Primer formulario polimórfico
+> Servicios/Proveedores (`types/service/queries` + `components/`). Al cierre de
+> Etapa 5 no había edición in-place: `TarifarioForm` servía para "nuevo" y
+> "nueva-version" con un discriminador de modo (la edición in-place se agregó
+> después, RN-TAR-08 — ver anexo nov-2026). Primer formulario polimórfico
 > del frontend (`ValoresEditor` cambia por completo según `modeloTarifa` —
 > no había precedente). Se construyeron `ProveedorQuickCreate` y
 > `ServicioQuickCreate` (nuevos, no existían) siguiendo `Docs/mantenedores.md`
@@ -903,6 +906,45 @@ las 6 fallas de la regresión completa son deuda previa del anexo —
   aprobar→OT→estados→adjuntos); y el banner cotización→OT desaparece al recargar
   porque `GET /cotizaciones/:id` no incluye la relación `ordenTrabajo`
   (observación no bloqueante de Codex, fácil de cerrar agregándola al include).
+
+
+**Anexo nov-2026: OT directa, precio manda, edición de tarifario e impuestos
+referenciales (4-nov-2026).** Ciclo QA-Codex cerrado `TESTS_OK` (3 rondas, sin
+arbitraje): suites focalizadas 71/71; regresión completa 174 aprobadas y 2
+fallidas, las dos de deuda previa (`zonas.test.ts` + `shared/operaciones-abiertas.ts`
+siguen usando el viejo `Cotizacion.zonaId`); builds de API y web limpios; ESLint
+web 12 errores + 5 warnings idénticos a `main`.
+
+- **OT directa (RN-OT-01 enmendada):** `POST /api/ordenes-trabajo` crea una OT
+  sin cotización (`cotizacionId` nullable), y `POST /api/ordenes-trabajo/preview-costo`
+  precarga el costo desde el tarifario. Valida en la transacción que cliente,
+  negocio, ejecutivo, zonas, servicios y proveedores estén vigentes, y rechaza un
+  negocio de **otro** cliente (uno sin cliente se acepta). La línea admite
+  `ventaObjetivo`: el precio se guarda exacto y el margen se deriva.
+- **Precio ingresado manda** (`CotizacionLinea.ventaManual`), **edición in-place
+  del tarifario** (`PATCH /api/tarifas/:id`, RN-TAR-08) y **recalcular costo**
+  (`POST /api/cotizaciones/:id/recalcular-costo`, excepción opt-in de RN-COS-06,
+  solo en BORRADOR). El recálculo lee todo con el `tx` y toma
+  `LOCK_TARIFARIO_VIGENCIA` por par proveedor+servicio en orden fijo, para que no
+  se intercale un `PATCH` (QA-R2-001).
+- **Impuestos referenciales (RN-PRV-09/11 enmendadas, RN-IMP-01/02):** se retira
+  el mantenedor `TipoDocumento`. `Proveedor.tipoEmision` (FACTURA |
+  BOLETA_HONORARIOS | NADA), `Servicio.afectoIva` y el singleton `Indicadores`
+  (tasaIva 0,19 · tasaRetencion 0,1475; ItemMenu `INDICADORES`, ruta
+  `/config/indicadores`; el seed desactiva `TIPOS_DOCUMENTO`). Cálculo puro en
+  `modules/costeo/impuestos.ts`: con factura, el costo es neto y se suma el IVA;
+  con boleta, el costo es bruto y se descuenta la retención. Se adjunta al
+  detalle de la cotización y de la OT (por línea + `impuestos` en la versión
+  vigente). Es informativo: no toca el presupuesto, no sale en el PDF y no se
+  congela por versión. La migración `20261029210000_impuestos_tipo_emision_indicadores`
+  se corrigió antes del primer commit (QA-R1-002: "A nada" → `NADA`) y se
+  resincronizó el checksum local.
+- **Riesgos y deuda abiertos:** no hay tests nuevos para este alcance (el ciclo
+  solo ejecuta los existentes); falta un test de concurrencia entre
+  `PATCH /tarifas` y `recalcular-costo`. `Indicadores` es un singleton lógico, sin
+  unicidad en la BD. En Zod 4, `.partial()` conserva los `.default()`: un `PATCH`
+  de servicio sin `margenSugerido` lo resetea a 0 (preexistente). Sigue pendiente
+  la verificación en el navegador.
 
 ---
 

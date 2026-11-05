@@ -84,6 +84,11 @@ export async function patchEstado(req: FastifyRequest, reply: FastifyReply) {
   return reply.send(await service.cambiarEstado(id, estado, usuarioSesion(req)))
 }
 
+export async function postRecalcularCosto(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = idParamSchema.parse(req.params)
+  return reply.send(await service.recalcularCosto(id, usuarioSesion(req)))
+}
+
 export async function postAprobar(req: FastifyRequest, reply: FastifyReply) {
   const { id } = idParamSchema.parse(req.params)
   return reply.send(await service.aprobar(id, usuarioSesion(req)))

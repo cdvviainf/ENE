@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
@@ -141,37 +141,25 @@ export function NegocioForm({ negocioId }: NegocioFormProps) {
                       {/* RN-GRP-05: el cliente es opcional. */}
                       <Label>Cliente</Label>
                       <div className='flex items-center gap-2'>
-                        <Select
-                          value={field.state.value ? String(field.state.value) : ''}
-                          onValueChange={(v) => {
+                        <Combobox
+                          className='flex-1'
+                          options={[
+                            { value: '__none__', label: 'Sin cliente' },
+                            ...clientes.map((c) => ({ value: String(c.id), label: `${c.razonSocial} (${c.codigo})` }))
+                          ]}
+                          value={field.state.value ? String(field.state.value) : null}
+                          onChange={(v) => {
                             // "__none__" deja el negocio sin cliente (RN-GRP-05).
                             if (v === '__none__') {
                               field.handleChange(null);
                               return;
                             }
-                            // Radix puede disparar onValueChange con un valor no
-                            // parseable al remontar SelectContent (p. ej. al
-                            // refrescar la lista tras un QuickCreate) — ignorarlo
-                            // evita resetear el campo a NaN.
                             const id = Number.parseInt(v, 10);
                             if (Number.isFinite(id)) field.handleChange(id);
                           }}
-                        >
-                          <SelectTrigger className='flex-1'>
-                            <SelectValue placeholder='Sin cliente...' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value='__none__'>
-                              <span className='text-muted-foreground'>Sin cliente</span>
-                            </SelectItem>
-                            {clientes.map((c) => (
-                              <SelectItem key={c.id} value={String(c.id)}>
-                                {c.razonSocial}
-                                <span className='text-muted-foreground ml-1.5 text-xs'>({c.codigo})</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          placeholder='Sin cliente...'
+                          searchPlaceholder='Buscar cliente...'
+                        />
                         <ClienteQuickCreate
                           onCreated={(nuevo) => {
                             queryClient.invalidateQueries({ queryKey: ['clientes'] });

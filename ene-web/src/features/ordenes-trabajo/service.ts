@@ -1,12 +1,15 @@
 import { api } from '@/lib/api';
 import type {
   Adjunto,
+  CrearOrdenDirectaInput,
   EstadoOT,
   EstadoServicio,
   NuevaVersionInput,
   OrdenTrabajo,
   OrdenTrabajoListResponse,
-  OrdenTrabajoVersion
+  OrdenTrabajoVersion,
+  PreviewCostoInput,
+  PreviewCostoResponse
 } from './types';
 
 export const ordenesTrabajoService = {
@@ -47,6 +50,16 @@ export const ordenesTrabajoService = {
   // RN-VER-02/10: nueva versión de la OT (requiere nivel TOTAL).
   async crearVersion(id: number, data: NuevaVersionInput): Promise<OrdenTrabajo> {
     return api.post(`ordenes-trabajo/${id}/versiones`, { json: data }).json();
+  },
+
+  // RN-OT-01 (enmendada): crea una OT directa, sin cotización (requiere TOTAL).
+  async crearDirecta(data: CrearOrdenDirectaInput): Promise<OrdenTrabajo> {
+    return api.post('ordenes-trabajo', { json: data }).json();
+  },
+
+  // Costo del tarifario vigente para una línea ESTANDAR (ayuda de captura).
+  async previewCosto(data: PreviewCostoInput): Promise<PreviewCostoResponse> {
+    return api.post('ordenes-trabajo/preview-costo', { json: data }).json();
   }
 };
 

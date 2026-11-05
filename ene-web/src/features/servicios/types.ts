@@ -11,6 +11,7 @@ export interface Servicio {
   tipoServicioId: number;
   modeloTarifa: ModeloTarifa;
   margenSugerido: string;
+  afectoIva: boolean;
   duracionDias: number | null;
   creadoEn: string;
   actualizadoEn: string | null;
@@ -35,6 +36,7 @@ export interface ServicioCreateInput {
   tipoServicioId: number;
   modeloTarifa: ModeloTarifa;
   margenSugerido: string;
+  afectoIva?: boolean;
   duracionDias?: number;
 }
 

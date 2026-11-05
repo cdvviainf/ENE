@@ -79,16 +79,32 @@ function agruparMiles(entero: string): string {
   return entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-/** Formatea un monto en la moneda dada: USD con 2 decimales, CLP sin decimales
- * (RN-MON-01). Devuelve "—" si el valor no es un decimal válido. */
-export function formatMonto(valor: string | null | undefined, moneda: Moneda): string {
-  if (valor == null || !/^-?\d+(\.\d+)?$/.test(valor)) return '—';
+/** Cuerpo formateado (sin prefijo de moneda): agrupa miles y aplica los
+ * decimales de la moneda (USD 2, CLP 0 — RN-MON-01). Devuelve null si el valor
+ * no es un decimal válido. */
+function cuerpoFormateado(valor: string | null | undefined, moneda: Moneda): { signo: string; cuerpo: string } | null {
+  if (valor == null || !/^-?\d+(\.\d+)?$/.test(valor)) return null;
   const decimales = moneda === 'USD' ? 2 : 0;
   const negativo = valor.startsWith('-');
   const { entero, frac } = redondear(negativo ? valor.slice(1) : valor, decimales);
   const cuerpo = decimales > 0 ? `${agruparMiles(entero)},${frac}` : agruparMiles(entero);
   const esCero = entero === '0' && /^0*$/.test(frac);
-  const signo = negativo && !esCero ? '-' : '';
+  return { signo: negativo && !esCero ? '-' : '', cuerpo };
+}
+
+/** Formatea un monto en la moneda dada: USD con 2 decimales, CLP sin decimales
+ * (RN-MON-01). Devuelve "—" si el valor no es un decimal válido. */
+export function formatMonto(valor: string | null | undefined, moneda: Moneda): string {
+  const f = cuerpoFormateado(valor, moneda);
+  if (!f) return '—';
   const prefijo = moneda === 'USD' ? 'US$ ' : '$ ';
-  return `${prefijo}${signo}${cuerpo}`;
+  return `${prefijo}${f.signo}${f.cuerpo}`;
+}
+
+/** Igual que `formatMonto` pero sin el prefijo de moneda (solo el número
+ * agrupado): para campos de edición donde el símbolo va en un adorno aparte.
+ * Devuelve '' si el valor no es válido. */
+export function formatMontoPlano(valor: string | null | undefined, moneda: Moneda): string {
+  const f = cuerpoFormateado(valor, moneda);
+  return f ? `${f.signo}${f.cuerpo}` : '';
 }

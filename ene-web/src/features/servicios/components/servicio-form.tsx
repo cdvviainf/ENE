@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
 import { usePuedeEscribir } from '@/hooks/use-item-acceso';
@@ -31,6 +31,8 @@ const servicioSchema = z.object({
   tipoServicioId: z.coerce.number().int().positive('El tipo de servicio es requerido'),
   modeloTarifa: z.enum(['TRAMO_PAX', 'ACOMODACION', 'UNITARIO_PAX']),
   margenSugeridoPct: z.coerce.number().min(0).max(1000).default(0),
+  // RN-IMP-02: afecto o exento de IVA (solo incide si el proveedor emite factura).
+  afectoIva: z.boolean(),
   duracionDias: z.coerce.number().int().positive().optional()
 });
 
@@ -84,6 +86,7 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
       tipoServicioId: 0,
       modeloTarifa: 'TRAMO_PAX',
       margenSugeridoPct: 0,
+      afectoIva: true,
       duracionDias: undefined
     } as ServicioFormValues,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,6 +108,7 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
       form.setFieldValue('modeloTarifa', servicio.modeloTarifa);
       form.setFieldValue('margenSugeridoPct', Number(servicio.margenSugerido) * 100);
       form.setFieldValue('duracionDias', servicio.duracionDias ?? undefined);
+      form.setFieldValue('afectoIva', servicio.afectoIva);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicio]);
@@ -122,7 +126,7 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigoSugerido, isEdit]);
 
-  const { FormTextField, FormSelectField, FormTextareaField } = useFormFields<ServicioFormValues>();
+  const { FormTextField, FormSelectField, FormTextareaField, FormCheckboxField } = useFormFields<ServicioFormValues>();
 
   if (isEdit && isLoading) {
     return (
@@ -156,13 +160,11 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
                       Tipo de servicio <span className='text-destructive'>*</span>
                     </Label>
                     <div className='flex items-center gap-2'>
-                      <Select
-                        value={field.state.value ? String(field.state.value) : ''}
-                        onValueChange={(v) => {
-                          // Radix puede disparar onValueChange con un valor no
-                          // parseable al remontar SelectContent (p. ej. al
-                          // refrescar la lista tras un QuickCreate) — ignorarlo
-                          // evita resetear el campo a NaN.
+                      <Combobox
+                        className='flex-1'
+                        options={tipos.map((t) => ({ value: String(t.id), label: t.nombre }))}
+                        value={field.state.value ? String(field.state.value) : null}
+                        onChange={(v) => {
                           const id = Number.parseInt(v, 10);
                           if (!Number.isFinite(id)) return;
                           field.handleChange(id);
@@ -170,18 +172,9 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
                           const tipo = tipos.find((t) => t.id === id);
                           if (tipo) form.setFieldValue('modeloTarifa', tipo.modeloTarifaDefault);
                         }}
-                      >
-                        <SelectTrigger className='flex-1'>
-                          <SelectValue placeholder='Seleccionar tipo de servicio...' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tipos.map((t) => (
-                            <SelectItem key={t.id} value={String(t.id)}>
-                              {t.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder='Seleccionar tipo de servicio...'
+                        searchPlaceholder='Buscar tipo de servicio...'
+                      />
                       <TipoServicioQuickCreate
                         onCreated={(nuevo) => {
                           queryClient.invalidateQueries({ queryKey: ['tipos-servicio'] });
@@ -202,28 +195,17 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
                   <div className='space-y-1.5'>
                     <Label>Zona</Label>
                     <div className='flex items-center gap-2'>
-                      <Select
-                        value={field.state.value ? String(field.state.value) : ''}
-                        onValueChange={(v) => {
-                          // Radix puede disparar onValueChange con un valor no
-                          // parseable al remontar SelectContent (p. ej. al
-                          // refrescar la lista tras un QuickCreate) — ignorarlo
-                          // evita resetear el campo a NaN.
+                      <Combobox
+                        className='flex-1'
+                        options={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                        value={field.state.value ? String(field.state.value) : null}
+                        onChange={(v) => {
                           const id = Number.parseInt(v, 10);
                           if (Number.isFinite(id)) field.handleChange(id);
                         }}
-                      >
-                        <SelectTrigger className='flex-1'>
-                          <SelectValue placeholder='Sin zona específica...' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {zonas.map((z) => (
-                            <SelectItem key={z.id} value={String(z.id)}>
-                              {z.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder='Sin zona específica...'
+                        searchPlaceholder='Buscar zona...'
+                      />
                       <ZonaQuickCreate
                         onCreated={(nueva) => {
                           queryClient.invalidateQueries({ queryKey: ['zonas'] });
@@ -251,6 +233,11 @@ export function ServicioForm({ servicioId }: ServicioFormProps) {
                 placeholder='50'
               />
               <FormTextField name='duracionDias' label='Duración (días)' type='number' placeholder='Opcional' />
+              <FormCheckboxField
+                name='afectoIva'
+                label='Afecto a IVA'
+                description='Desmárcalo si el servicio es exento. Solo incide cuando el proveedor emite factura (RN-IMP-02).'
+              />
             </div>
 
             <div className='grid gap-4 sm:grid-cols-2'>

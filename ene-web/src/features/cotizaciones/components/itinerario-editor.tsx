@@ -6,14 +6,18 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertModal } from '@/components/modal/alert-modal';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
-import { formatMonto } from '@/lib/dinero';
+import { formatMonto, formatMontoPlano } from '@/lib/dinero';
 import { fraccionAPorcentaje, porcentajeAFraccion, recortarDecimales } from '@/lib/porcentaje';
+import type { ImpuestoLinea, TotalesImpuesto } from '@/lib/impuestos';
+import { ImpuestoLineaInfo, ImpuestosTotales } from '@/components/shared/impuesto-referencial';
 import { serviciosListOptions } from '@/features/servicios/queries';
 import { proveedoresListOptions } from '@/features/proveedores/queries';
 import { formasPagoListOptions } from '@/features/formas-pago/queries';
@@ -21,7 +25,6 @@ import { cotizacionesService } from '../service';
 import { cotizacionesKeys } from '../queries';
 import {
   ACOMODACION_LABELS,
-  FORMA_CALCULO_LABELS,
   type Acomodacion,
   type Bloque,
   type ContenidoVersionInput,
@@ -40,12 +43,17 @@ function limpio(v: string): string | null {
 interface Row extends LineaInput {
   _key: string;
   _ventaTotal?: string;
+  // "El precio ingresado manda": true si la venta de la línea la fijó el
+  // usuario. El editor reenvía `ventaObjetivo` para estas líneas en cada
+  // guardado, para que el valor exacto no derive de nuevo desde el margen.
+  ventaManual?: boolean;
 }
 
 function desdeServidor(lineas: CotizacionLinea[]): Row[] {
   return lineas.map((l, i) => ({
     _key: `srv-${l.id}-${i}`,
     _ventaTotal: l.ventaTotal,
+    ventaManual: l.ventaManual,
     // RN-COS-06: conservar la identidad de la línea para que el backend
     // preserve su costo congelado en vez de re-cotizar.
     id: l.id,
@@ -85,6 +93,8 @@ interface Props {
   modo: ModoEditor;
   cantidadPaxDefault: number;
   contenidoInicial: ContenidoInicial;
+  // RN-IMP-02: totales referenciales de IVA/retención de la versión vigente.
+  impuestos?: TotalesImpuesto;
 }
 
 // Solo la parte fecha (yyyy-mm-dd) de un ISO, para el <input type=date>.
@@ -92,22 +102,17 @@ function soloFecha(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '';
 }
 
-export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadPaxDefault, contenidoInicial }: Props) {
+export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadPaxDefault, contenidoInicial, impuestos }: Props) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<Row[]>(() => desdeServidor(lineas));
   const [dirty, setDirty] = useState(false);
 
-  // RN-PRV-11: retención/IVA referencial interna por línea (del tipo de documento
-  // del proveedor). Se arma desde las líneas del servidor (traen el proveedor);
-  // es solo informativo, no entra al PDF ni al presupuesto.
+  // RN-PRV-11/RN-IMP-02: IVA/retención referencial por línea, calculado por el
+  // backend sobre el costo GUARDADO. Solo informativo: no entra al PDF ni al
+  // presupuesto. Con cambios sin guardar se oculta (el costo local puede diferir).
   const impuestoPorLineaId = useMemo(() => {
-    const map = new Map<number, { label: string; pct: string }>();
-    for (const l of lineas) {
-      const td = l.proveedor?.tipoDocumento;
-      if (td && td.formaCalculo !== 'NINGUNO') {
-        map.set(l.id, { label: FORMA_CALCULO_LABELS[td.formaCalculo], pct: td.porcentaje });
-      }
-    }
+    const map = new Map<number, ImpuestoLinea>();
+    for (const l of lineas) if (l.impuesto) map.set(l.id, l.impuesto);
     return map;
   }, [lineas]);
 
@@ -189,7 +194,10 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
       observacion: r.observacion,
       observacionEn: r.observacionEn,
       costoTotal: r.costoTotal,
-      margenPct: r.margenPct
+      margenPct: r.margenPct,
+      // Precio manda: reenvía la venta exacta para las líneas que la fijó el
+      // usuario, para que el backend la persista tal cual (RN-COT-11).
+      ventaObjetivo: r.ventaManual ? r._ventaTotal : undefined
     }));
   }
 
@@ -229,6 +237,22 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
     onError: (e: Error) => toast.error(e.message || 'No se pudo crear la versión')
   });
 
+  // Recalcular costo desde el tarifario vigente actual (opt-in, enmienda
+  // RN-COS-06): refresca el costo congelado de las líneas ESTANDAR. Solo en
+  // BORRADOR; el backend lo revalida.
+  const [recalcCostoOpen, setRecalcCostoOpen] = useState(false);
+  const recalcularCostoMutation = useMutation({
+    mutationFn: () => cotizacionesService.recalcularCosto(cotizacionId),
+    onSuccess: (cot) => {
+      toast.success('Costos recalculados desde el tarifario vigente');
+      setRecalcCostoOpen(false);
+      setRows(desdeServidor(cot.versionVigente?.lineas ?? []));
+      queryClient.invalidateQueries({ queryKey: cotizacionesKeys.detail(cotizacionId) });
+      queryClient.invalidateQueries({ queryKey: cotizacionesKeys.versiones(cotizacionId) });
+    },
+    onError: (e: Error) => toast.error(e.message || 'No se pudo recalcular el costo')
+  });
+
   const guardando = saveMutation.isPending;
 
   // Aplica un conjunto de líneas nuevo: en BORRADOR lo auto-guarda (el servidor
@@ -256,7 +280,9 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
       return;
     }
     const fraccion = porcentajeAFraccion(margenGlobalPct);
-    aplicarCambio(rows.map((r) => ({ ...r, margenPct: fraccion, _ventaTotal: undefined })));
+    // Aplicar un margen global vuelve todas las líneas a venta gobernada por el
+    // margen (deja de mandar el precio fijado antes).
+    aplicarCambio(rows.map((r) => ({ ...r, margenPct: fraccion, _ventaTotal: undefined, ventaManual: false })));
   }
 
   function agregar(row: Omit<Row, '_key'>) {
@@ -322,6 +348,30 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
               bloqueado={autoguardado ? guardando : dirty}
               sinLineas={sinLineas}
             />
+            {/* Opt-in: refresca el costo congelado desde el tarifario vigente
+                actual (enmienda RN-COS-06). Solo en BORRADOR. */}
+            {autoguardado && (
+              <>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setRecalcCostoOpen(true)}
+                  disabled={sinLineas || guardando}
+                  title='Vuelve a tomar el costo del tarifario vigente para cada línea de servicio'
+                >
+                  <Icons.reopen className='mr-2 h-4 w-4' />
+                  Recalcular costo
+                </Button>
+                <AlertModal
+                  isOpen={recalcCostoOpen}
+                  onClose={() => setRecalcCostoOpen(false)}
+                  onConfirm={() => recalcularCostoMutation.mutate()}
+                  loading={recalcularCostoMutation.isPending}
+                  title='¿Recalcular el costo desde el tarifario?'
+                  description='Vuelve a tomar el costo del tarifario vigente para cada línea de servicio. El margen se conserva (o la venta exacta, si el precio mandaba). Las líneas "Otro" no cambian.'
+                />
+              </>
+            )}
             <LineaDialog
               moneda={moneda}
               cotizacionId={cotizacionId}
@@ -402,35 +452,27 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
             </div>
             <div className='space-y-1.5'>
               <Label>Forma de pago</Label>
-              <Select
-                value={formaPagoId != null ? String(formaPagoId) : '__none__'}
-                onValueChange={(v) => {
+              <Combobox
+                options={[
+                  { value: '__none__', label: 'Sin forma de pago' },
+                  ...formasPago.map((f) => {
+                    const pa = String(f.porcentajeAdicional ?? '0');
+                    const conRecargo = pa !== '' && pa !== '0' && pa !== '0.0000';
+                    return {
+                      value: String(f.id),
+                      label: conRecargo ? `${f.nombre} (+${fraccionAPorcentaje(pa)}%)` : f.nombre
+                    };
+                  })
+                ]}
+                value={formaPagoId != null ? String(formaPagoId) : null}
+                onChange={(v) => {
                   setFormaPagoId(v === '__none__' ? null : (Number.isFinite(Number.parseInt(v, 10)) ? Number.parseInt(v, 10) : null));
                   setEncabezadoDirty(true);
                 }}
                 disabled={!editable}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder='Sin forma de pago' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='__none__'>
-                    <span className='text-muted-foreground'>Sin forma de pago</span>
-                  </SelectItem>
-                  {formasPago.map((f) => {
-                    const pa = String(f.porcentajeAdicional ?? '0');
-                    const conRecargo = pa !== '' && pa !== '0' && pa !== '0.0000';
-                    return (
-                      <SelectItem key={f.id} value={String(f.id)}>
-                        {f.nombre}
-                        {conRecargo ? (
-                          <span className='text-muted-foreground ml-1.5 text-xs'>(+{fraccionAPorcentaje(pa)}%)</span>
-                        ) : null}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                placeholder='Sin forma de pago'
+                searchPlaceholder='Buscar forma de pago...'
+              />
             </div>
           </div>
           <div className='grid gap-3 sm:grid-cols-3'>
@@ -513,10 +555,8 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
                               )}
                               <span className='text-muted-foreground text-xs'>· {r.cantidadPax} pax</span>
                               {/* RN-PRV-11: retención/IVA referencial interna (no sale en el PDF). */}
-                              {r.id != null && impuestoPorLineaId.has(r.id) && (
-                                <span className='text-muted-foreground text-xs'>
-                                  · {impuestoPorLineaId.get(r.id)!.label} {fraccionAPorcentaje(impuestoPorLineaId.get(r.id)!.pct)}%
-                                </span>
+                              {!dirty && r.id != null && (
+                                <ImpuestoLineaInfo impuesto={impuestoPorLineaId.get(r.id)} moneda={moneda} />
                               )}
                             </span>
                             <span className='flex items-center gap-3'>
@@ -552,6 +592,7 @@ export function ItinerarioEditor({ cotizacionId, lineas, moneda, modo, cantidadP
             </div>
           ))
         )}
+        {!dirty && <ImpuestosTotales impuestos={impuestos} moneda={moneda} />}
         {/* Solo en modo 'version': en BORRADOR cada cambio se auto-guarda y no hay
             estado pendiente. */}
         {(dirty || encabezadoDirty) && !autoguardado && (
@@ -601,12 +642,20 @@ function LineaDialog({
   const [costoTotal, setCostoTotal] = useState('');
   // Margen en PORCENTAJE (máscara); se convierte a fracción al confirmar.
   const [margenPctInput, setMargenPctInput] = useState('');
-  // Venta editable (monto) para líneas ESTANDAR: deriva el margen al perder foco.
+  // Venta editable (monto): deriva el margen al perder foco. Se guarda cruda
+  // (dígitos + '.') y se muestra con formato de moneda cuando el campo no tiene
+  // foco (ítem de UX: "precio de venta con formato de moneda").
   const [ventaInput, setVentaInput] = useState('');
+  const [ventaFocus, setVentaFocus] = useState(false);
   // Venta tipeada pero aún no reflejada en el margen (derivación asíncrona
   // pendiente): mientras esté true se bloquea confirmar para no persistir un
   // margen obsoleto (RN-COS-04).
   const [ventaSinDerivar, setVentaSinDerivar] = useState(false);
+  // "El precio ingresado manda": true cuando la última acción del usuario fue
+  // fijar la venta (no el margen). Mientras lo esté, el preview NO sobreescribe
+  // la venta tipeada con la recompuesta desde el margen redondeado, y al
+  // confirmar la línea se persiste con esa venta exacta (ventaManual).
+  const [fuenteVenta, setFuenteVenta] = useState(false);
 
   // Preview de costo/venta de la línea ESTANDAR (no persiste). `disponible:false`
   // cuando no hay tarifario vigente para la combinación (RN-COS-05).
@@ -619,7 +668,7 @@ function LineaDialog({
   const [previewCargando, setPreviewCargando] = useState(false);
   const previewReqId = useRef(0);
 
-  const { data: serviciosData } = useQuery(serviciosListOptions({ limit: 200 }));
+  const { data: serviciosData } = useQuery(serviciosListOptions({ limit: 500 }));
   const servicios = serviciosData?.data ?? [];
   const servicioSel = servicios.find((s) => s.id === servicioId);
   const esAcomodacion = servicioSel?.modeloTarifa === 'ACOMODACION';
@@ -628,7 +677,7 @@ function LineaDialog({
   // elegido —solo los proveedores de ese tipo pueden tener tarifario para él—.
   const tipoServicioId = servicioSel?.tipoServicioId;
   const { data: proveedoresData } = useQuery({
-    ...proveedoresListOptions({ limit: 200, ...(tipoServicioId ? { tipoServicioId } : {}) }),
+    ...proveedoresListOptions({ limit: 500, ...(tipoServicioId ? { tipoServicioId } : {}) }),
     enabled: open && tipoServicioId != null
   });
   const proveedores = proveedoresData?.data ?? [];
@@ -654,6 +703,9 @@ function LineaDialog({
   if (previewSig !== previewSigSembrada) {
     setPreviewSigSembrada(previewSig);
     setPreview(null);
+    // Cambió un insumo del costo: la venta tipeada ya no corresponde, vuelve a
+    // gobernar el margen (el preview recompone la venta desde él).
+    setFuenteVenta(false);
   }
 
   // RN-COS-06/07: una línea existente que conserva su base tiene costo y pax
@@ -683,6 +735,9 @@ function LineaDialog({
       setCostoTotal(initial.costoTotal ?? '');
       setMargenPctInput(initial.margenPct ? fraccionAPorcentaje(initial.margenPct) : '');
       setVentaInput(initial._ventaTotal ? recortarDecimales(initial._ventaTotal) : '');
+      // Si la venta de esta línea la fijó el usuario, el diálogo arranca con el
+      // precio mandando (se preserva exacto si confirma sin tocar el margen).
+      setFuenteVenta(initial.ventaManual ?? false);
     } else {
       setDia('1');
       setBloque('AM');
@@ -696,9 +751,11 @@ function LineaDialog({
       setMargenPctInput(margenGlobalPct.trim());
       setVentaInput('');
       setCantidadPax(String(cantidadPaxDefault));
+      setFuenteVenta(false);
     }
     setPreview(null);
     setVentaSinDerivar(false);
+    setVentaFocus(false);
   }
 
   // Preview dirigido por el margen (y por los campos que definen el costo).
@@ -736,7 +793,9 @@ function LineaDialog({
             margenPct: res.margenPct,
             advertenciaVigencia: res.advertenciaVigencia
           });
-          setVentaInput(recortarDecimales(res.ventaTotal));
+          // Precio manda: si el usuario fijó la venta, no la pisamos con la
+          // recompuesta desde el margen redondeado (evita 120.000 → 120.001).
+          if (!fuenteVenta) setVentaInput(recortarDecimales(res.ventaTotal));
           // La venta quedó recompuesta desde el margen: ya no hay nada por derivar.
           setVentaSinDerivar(false);
           // Si el usuario no fijó margen, reflejar el efectivo (sugerido del
@@ -752,7 +811,7 @@ function LineaDialog({
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, listoParaPreview, tipoLinea, diaN, paxN, servicioId, proveedorId, acomodacion, esAcomodacion, margenPctInput, costoTotal]);
+  }, [open, listoParaPreview, tipoLinea, diaN, paxN, servicioId, proveedorId, acomodacion, esAcomodacion, margenPctInput, costoTotal, fuenteVenta]);
 
   // Deriva el margen desde la venta digitada (RN-COS-04): al salir del campo,
   // consulta el backend con `ventaObjetivo` y escribe el margen resultante. El
@@ -825,6 +884,10 @@ function LineaDialog({
     if (margenPctInput && !/^\d+(\.\d+)?$/.test(margenPctInput)) return toast.error('Margen inválido (ej: 50)');
 
     const margenFraccion = margenPctInput ? porcentajeAFraccion(margenPctInput) : undefined;
+    // "El precio ingresado manda": si el usuario fijó la venta y es válida, la
+    // línea se persiste con esa venta exacta (ventaManual) y el margen pasa a
+    // ser referencial. Si no, la venta la gobierna el margen (RN-COS-02).
+    const ventaValida = fuenteVenta && /^\d+(\.\d+)?$/.test(ventaInput);
     onSubmit({
       // Conserva la identidad de la línea en edición (RN-COS-06).
       id: initial?.id,
@@ -840,9 +903,11 @@ function LineaDialog({
       observacion: observacion.trim() || undefined,
       costoTotal: tipoLinea === 'OTRO' ? costoTotal : undefined,
       margenPct: margenFraccion,
-      // Venta previsualizada para feedback inmediato en la lista; el valor
-      // definitivo se confirma al guardar el itinerario (RN-COS-06).
-      _ventaTotal: preview?.estado === 'disponible' ? preview.ventaTotal : initial?._ventaTotal
+      ventaManual: ventaValida,
+      // Venta para feedback inmediato en la lista: la exacta tipeada cuando el
+      // precio manda, o la previsualizada desde el margen si no. El valor
+      // definitivo lo confirma el guardado del itinerario (RN-COS-06).
+      _ventaTotal: ventaValida ? ventaInput : preview?.estado === 'disponible' ? preview.ventaTotal : initial?._ventaTotal
     });
     setOpen(false);
   }
@@ -894,9 +959,10 @@ function LineaDialog({
             <>
               <div className='col-span-2 space-y-1.5'>
                 <Label>Servicio</Label>
-                <Select
-                  value={servicioId ? String(servicioId) : ''}
-                  onValueChange={(v) => {
+                <Combobox
+                  options={servicios.map((s) => ({ value: String(s.id), label: `${s.nombre} (${s.codigo})` }))}
+                  value={servicioId ? String(servicioId) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (Number.isFinite(id)) {
                       setServicioId(id);
@@ -906,42 +972,23 @@ function LineaDialog({
                       setAcomodacion(undefined);
                     }
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder='Selecciona un servicio...' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {servicios.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.nombre}
-                        <span className='text-muted-foreground ml-1.5 text-xs'>({s.codigo})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder='Selecciona un servicio...'
+                  searchPlaceholder='Buscar servicio...'
+                />
               </div>
               <div className='col-span-2 space-y-1.5'>
                 <Label>Proveedor</Label>
-                <Select
-                  value={proveedorId ? String(proveedorId) : ''}
-                  onValueChange={(v) => {
+                <Combobox
+                  options={proveedores.map((p) => ({ value: String(p.id), label: `${p.razonSocial} (${p.codigo})` }))}
+                  value={proveedorId ? String(proveedorId) : null}
+                  onChange={(v) => {
                     const id = Number.parseInt(v, 10);
                     if (Number.isFinite(id)) setProveedorId(id);
                   }}
                   disabled={servicioId == null}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={servicioId == null ? 'Elige un servicio primero' : 'Selecciona un proveedor...'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proveedores.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.razonSocial}
-                        <span className='text-muted-foreground ml-1.5 text-xs'>({p.codigo})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={servicioId == null ? 'Elige un servicio primero' : 'Selecciona un proveedor...'}
+                  searchPlaceholder='Buscar proveedor...'
+                />
                 {servicioId != null && proveedores.length === 0 && (
                   <p className='text-muted-foreground text-xs'>Este servicio no tiene proveedores de su tipo cargados.</p>
                 )}
@@ -996,7 +1043,11 @@ function LineaDialog({
             <div className='relative'>
               <Input
                 value={margenPctInput}
-                onChange={(e) => setMargenPctInput(e.target.value.replace(/[^\d.]/g, ''))}
+                onChange={(e) => {
+                  setMargenPctInput(e.target.value.replace(/[^\d.]/g, ''));
+                  // Editar el margen manda sobre la venta: deja de mandar el precio.
+                  setFuenteVenta(false);
+                }}
                 placeholder='Ej: 50'
                 className='pr-6'
                 inputMode='decimal'
@@ -1041,15 +1092,27 @@ function LineaDialog({
                 <div className='flex items-center justify-between gap-2'>
                   <span className='text-muted-foreground'>Venta</span>
                   <div className='relative w-40'>
+                    <span className='text-muted-foreground pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs'>
+                      {moneda === 'USD' ? 'US$' : '$'}
+                    </span>
                     <Input
-                      value={ventaInput}
+                      // Formato de moneda cuando el campo no tiene foco; crudo
+                      // (dígitos + '.') mientras se edita, para no pelear con el
+                      // separador de miles y el caret.
+                      value={ventaFocus ? ventaInput : formatMontoPlano(ventaInput, moneda)}
+                      onFocus={() => setVentaFocus(true)}
                       onChange={(e) => {
                         setVentaInput(e.target.value.replace(/[^\d.]/g, ''));
                         setVentaSinDerivar(true);
+                        // El usuario fija la venta: el precio manda (RN-COT-11).
+                        setFuenteVenta(true);
                       }}
-                      onBlur={derivarMargenDesdeVenta}
+                      onBlur={() => {
+                        setVentaFocus(false);
+                        void derivarMargenDesdeVenta();
+                      }}
                       placeholder='0'
-                      className='h-8 text-right'
+                      className='h-8 pl-8 text-right'
                       inputMode='decimal'
                       disabled={preview?.estado !== 'disponible'}
                     />

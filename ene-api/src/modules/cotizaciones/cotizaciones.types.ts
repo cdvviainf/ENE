@@ -37,6 +37,10 @@ export interface LineaResuelta {
   costoTotal: string
   margenPct: string
   ventaTotal: string
+  /** "El precio ingresado manda": true cuando la venta la fijó el usuario
+   * (se persiste exacta y el margen es derivado/referencial); false cuando la
+   * venta la gobierna el margen (RN-COS-02). */
+  ventaManual: boolean
   advertenciaVigencia: boolean
   /** RN-COS-06: base tarifaria congelada (null en OTRO). */
   tarifarioSnapshot: TarifarioSnapshot | null

@@ -12,19 +12,19 @@ import type { LineaResuelta, TotalesVersion } from './cotizaciones.types.js'
 
 const lineaOrderBy: Prisma.CotizacionLineaOrderByWithRelationInput[] = [{ dia: 'asc' }, { bloque: 'asc' }, { orden: 'asc' }]
 
-// RN-COT-10/RN-PRV-11: la línea incluye el tipo de documento de su proveedor
-// para mostrar la retención/IVA referencial interna; la versión incluye su
+// RN-COT-10/RN-PRV-11/RN-IMP-02: la línea incluye el documento que emite su
+// proveedor y la afectación del servicio para el IVA/retención referencial; la versión incluye su
 // forma de pago (recargo RN-COS-08).
 const lineaInclude = {
   orderBy: lineaOrderBy,
   include: {
-    servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true } },
+    servicio: { select: { id: true, codigo: true, nombre: true, nombreEn: true, afectoIva: true } },
     proveedor: {
       select: {
         id: true,
         codigo: true,
         razonSocial: true,
-        tipoDocumento: { select: { id: true, codigo: true, nombre: true, formaCalculo: true, porcentaje: true } },
+        tipoEmision: true,
       },
     },
   },
@@ -144,6 +144,8 @@ export async function reemplazarLineasTx(
     costoTotal: l.costoTotal,
     margenPct: l.margenPct,
     ventaTotal: l.ventaTotal,
+    // "El precio ingresado manda": true si la venta la fijó el usuario.
+    ventaManual: l.ventaManual,
     // RN-COS-06: base tarifaria congelada (SQL NULL en OTRO).
     tarifarioSnapshot: (l.tarifarioSnapshot ?? Prisma.DbNull) as Prisma.InputJsonValue | typeof Prisma.DbNull,
   })

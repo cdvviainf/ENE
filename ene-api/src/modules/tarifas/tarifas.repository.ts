@@ -104,3 +104,35 @@ export async function createTarifarioTx(
 export async function desactivarTarifario(tx: Prisma.TransactionClient, id: number) {
   return tx.tarifario.update({ where: { id }, data: { activo: false } })
 }
+
+// Edición in-place: reemplaza vigencia/moneda y el set completo de valores de
+// la MISMA versión. Es seguro borrar los TarifarioValor porque las cotizaciones
+// congelan un snapshot y no referencian `tarifarioValorId` (RN-COS-06).
+export async function actualizarTarifarioTx(
+  tx: Prisma.TransactionClient,
+  id: number,
+  data: { moneda: 'CLP' | 'USD'; vigenciaDesde: Date; vigenciaHasta?: Date; valores: TarifarioValorInput[] },
+  actualizadoPor: string,
+) {
+  await tx.tarifarioValor.deleteMany({ where: { tarifarioId: id } })
+  return tx.tarifario.update({
+    where: { id },
+    data: {
+      moneda: data.moneda,
+      vigenciaDesde: data.vigenciaDesde,
+      vigenciaHasta: data.vigenciaHasta ?? null,
+      actualizadoPor,
+      valores: {
+        create: data.valores.map((v) => ({
+          modelo: v.modelo,
+          paxDesde: v.paxDesde ?? null,
+          paxHasta: v.paxHasta ?? null,
+          acomodacion: v.acomodacion ?? null,
+          valor: v.valor,
+          suplementoSingle: v.suplementoSingle ?? null,
+        })),
+      },
+    },
+    include: INCLUYE_RELACIONES,
+  })
+}

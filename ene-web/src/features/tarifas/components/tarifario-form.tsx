@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { MultiCombobox } from '@/components/ui/multi-combobox';
 import { Icons } from '@/components/icons';
 import { useAppForm, useFormFields } from '@/components/ui/tanstack-form';
@@ -76,19 +76,26 @@ function construirValoresPayload(modelo: ModeloTarifa, filas: FilaValor[]): Tari
     }));
 }
 
-type TarifarioFormMode = { kind: 'nuevo' } | { kind: 'nueva-version'; tarifarioId: number };
+type TarifarioFormMode =
+  | { kind: 'nuevo' }
+  | { kind: 'nueva-version'; tarifarioId: number }
+  | { kind: 'editar'; tarifarioId: number };
 
 export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
   const isNuevaVersion = mode.kind === 'nueva-version';
+  const isEditar = mode.kind === 'editar';
+  // Ambos modos precargan la cabecera/valores de un tarifario existente y dejan
+  // proveedor+servicio fijos (la cadena pertenece a ese par).
+  const esPrecargado = isNuevaVersion || isEditar;
   const router = useRouter();
   const queryClient = useQueryClient();
   const puedeEscribir = usePuedeEscribir('TARIFAS');
 
   const { data: anterior, isLoading: cargandoAnterior } = useQuery(
-    tarifarioDetailOptions(mode.kind === 'nueva-version' ? mode.tarifarioId : 0)
+    tarifarioDetailOptions(mode.kind === 'nuevo' ? 0 : mode.tarifarioId)
   );
-  const { data: proveedoresData } = useQuery(proveedoresListOptions({ limit: 200 }));
-  const { data: serviciosData } = useQuery(serviciosListOptions({ limit: 200 }));
+  const { data: proveedoresData } = useQuery(proveedoresListOptions({ limit: 500 }));
+  const { data: serviciosData } = useQuery(serviciosListOptions({ limit: 500 }));
   const proveedores = proveedoresData?.data ?? [];
   const servicios = serviciosData?.data ?? [];
 
@@ -137,11 +144,17 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
     }
   });
 
-  // Nueva versión: precarga cabecera y valores desde el tarifario que se versiona.
+  // Nueva versión / edición: precarga cabecera y valores desde el tarifario.
   useEffect(() => {
-    if (mode.kind === 'nueva-version' && anterior) {
+    if (esPrecargado && anterior) {
       form.setFieldValue('proveedorId', anterior.proveedorId);
       form.setFieldValue('moneda', anterior.moneda);
+      // Al editar se conserva la vigencia existente (editable); al versionar se
+      // deja en blanco para forzar una vigencia nueva (RN-TAR-06).
+      if (isEditar) {
+        form.setFieldValue('vigenciaDesde', anterior.vigenciaDesde.slice(0, 10));
+        form.setFieldValue('vigenciaHasta', anterior.vigenciaHasta ? anterior.vigenciaHasta.slice(0, 10) : '');
+      }
       // Precarga única al llegar la data async de `anterior` — mismo criterio
       // que el resto del efecto (ver servicio-form.tsx para el mismo patrón).
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -162,13 +175,16 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
   const mutation = useMutation({
     mutationFn: async (cabecera: CabeceraValues) => {
       const valoresPayload = construirValoresPayload(modeloTarifaActual!, valores);
-      if (mode.kind === 'nueva-version') {
+      if (mode.kind === 'nueva-version' || mode.kind === 'editar') {
         const payload: TarifarioNuevaVersionInput = {
           moneda: cabecera.moneda,
           vigenciaDesde: cabecera.vigenciaDesde,
           ...(cabecera.vigenciaHasta ? { vigenciaHasta: cabecera.vigenciaHasta } : {}),
           valores: valoresPayload
         };
+        if (mode.kind === 'editar') {
+          return { tipo: 'editar' as const, resultado: await tarifasService.update(mode.tarifarioId, payload) };
+        }
         return { tipo: 'nueva-version' as const, resultado: await tarifasService.nuevaVersion(mode.tarifarioId, payload) };
       }
       // Un POST /tarifas por servicio seleccionado: son tarifarios
@@ -191,9 +207,10 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: tarifasKeys.all });
 
-      if (data.tipo === 'nueva-version') {
-        toast.success('Nueva versión creada');
+      if (data.tipo === 'nueva-version' || data.tipo === 'editar') {
+        toast.success(data.tipo === 'editar' ? 'Tarifario actualizado' : 'Nueva versión creada');
         data.resultado.advertencias.forEach((a) => toast.warning(a.mensaje));
+        queryClient.invalidateQueries({ queryKey: tarifasKeys.detail(data.resultado.id) });
         router.push(`/config/tarifas/${data.resultado.id}`);
         return;
       }
@@ -220,7 +237,7 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
 
   const { FormSelectField, FormTextField } = useFormFields<CabeceraValues>();
 
-  if (isNuevaVersion && cargandoAnterior) {
+  if (esPrecargado && cargandoAnterior) {
     return (
       <div className='space-y-4'>
         <div className='bg-muted h-10 animate-pulse rounded' />
@@ -242,7 +259,7 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
           </CardHeader>
           <CardContent className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2'>
-              {isNuevaVersion ? (
+              {esPrecargado ? (
                 <>
                   <div className='space-y-1.5 sm:col-span-2'>
                     <Label>Proveedor</Label>
@@ -262,24 +279,17 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
                           Proveedor <span className='text-destructive'>*</span>
                         </Label>
                         <div className='flex items-center gap-2'>
-                          <Select
-                            value={field.state.value ? String(field.state.value) : ''}
-                            onValueChange={(v) => {
+                          <Combobox
+                            className='flex-1'
+                            options={proveedores.map((p) => ({ value: String(p.id), label: p.razonSocial }))}
+                            value={field.state.value ? String(field.state.value) : null}
+                            onChange={(v) => {
                               const id = Number.parseInt(v, 10);
                               if (Number.isFinite(id)) field.handleChange(id);
                             }}
-                          >
-                            <SelectTrigger className='flex-1'>
-                              <SelectValue placeholder='Seleccionar proveedor...' />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {proveedores.map((p) => (
-                                <SelectItem key={p.id} value={String(p.id)}>
-                                  {p.razonSocial}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder='Seleccionar proveedor...'
+                            searchPlaceholder='Buscar proveedor...'
+                          />
                           <ProveedorQuickCreate
                             onCreated={(nuevo) => {
                               queryClient.invalidateQueries({ queryKey: ['proveedores'] });
@@ -342,7 +352,13 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
           </Button>
           <Button type='submit' isLoading={mutation.isPending}>
             <Icons.check className='mr-2 h-4 w-4' />
-            {isNuevaVersion ? 'Crear nueva versión' : servicioIds.length > 1 ? `Crear ${servicioIds.length} tarifarios` : 'Crear tarifario'}
+            {isEditar
+              ? 'Guardar cambios'
+              : isNuevaVersion
+                ? 'Crear nueva versión'
+                : servicioIds.length > 1
+                  ? `Crear ${servicioIds.length} tarifarios`
+                  : 'Crear tarifario'}
           </Button>
         </div>
       </form.Form>

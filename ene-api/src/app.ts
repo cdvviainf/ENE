@@ -23,7 +23,7 @@ import { negociosRoutes } from './modules/negocios/negocios.routes.js'
 import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
 import { formasPagoRoutes } from './modules/config/formas-pago/formas-pago.routes.js'
 import { condicionesPagoRoutes } from './modules/config/condiciones-pago/condiciones-pago.routes.js'
-import { tiposDocumentoRoutes } from './modules/config/tipos-documento/tipos-documento.routes.js'
+import { indicadoresRoutes } from './modules/config/indicadores/indicadores.routes.js'
 import { empresaRoutes } from './modules/config/empresa/empresa.routes.js'
 import { paisesRoutes } from './modules/config/paises/paises.routes.js'
 import { regionesRoutes } from './modules/config/regiones/regiones.routes.js'
@@ -166,7 +166,7 @@ export async function construirApp() {
   await app.register(proveedoresRoutes, { prefix: '/api' })
   await app.register(formasPagoRoutes, { prefix: '/api/config' })
   await app.register(condicionesPagoRoutes, { prefix: '/api/config' })
-  await app.register(tiposDocumentoRoutes, { prefix: '/api/config' })
+  await app.register(indicadoresRoutes, { prefix: '/api/config' })
   await app.register(empresaRoutes, { prefix: '/api/config' })
   await app.register(paisesRoutes, { prefix: '/api/config' })
   await app.register(regionesRoutes, { prefix: '/api/config' })

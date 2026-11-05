@@ -56,16 +56,15 @@ export interface DireccionInput {
   esPorDefecto?: boolean;
 }
 
-// Documento tributario que emite el proveedor: ahora es FK a TipoDocumento
-// (catálogo config/tipos-documento), ya no un enum fijo. En lectura viaja
-// embebido; en escritura solo su id.
-export interface ProveedorTipoDocumento {
-  id: number;
-  codigo: string;
-  nombre: string;
-  formaCalculo: 'NINGUNO' | 'IVA' | 'RETENCION';
-  porcentaje: number;
-}
+// RN-PRV-09 (enmendada): documento que el proveedor emite a ENE. Junto con la
+// afectación del servicio define el IVA/retención referencial (RN-IMP-02).
+export type TipoEmisionProveedor = 'FACTURA' | 'BOLETA_HONORARIOS' | 'NADA';
+
+export const TIPO_EMISION_LABELS: Record<TipoEmisionProveedor, string> = {
+  FACTURA: 'Factura',
+  BOLETA_HONORARIOS: 'Boleta de honorarios',
+  NADA: 'Sin documento'
+};
 
 export interface Proveedor {
   id: number;
@@ -73,8 +72,7 @@ export interface Proveedor {
   razonSocial: string;
   rut: string;
   nombreComercial: string | null;
-  tipoDocumentoId: number | null;
-  tipoDocumento: ProveedorTipoDocumento | null;
+  tipoEmision: TipoEmisionProveedor;
   urlPago: string | null;
   formaPagoId: number | null;
   condicionPagoId: number | null;
@@ -124,8 +122,7 @@ export interface ProveedorCreateInput {
   razonSocial: string;
   rut: string;
   nombreComercial?: string;
-  // null solo es válido en edición (desasignar); en creación se omite.
-  tipoDocumentoId?: number | null;
+  tipoEmision?: TipoEmisionProveedor;
   // null solo es válido en edición (vaciar el campo); en creación se omite.
   urlPago?: string | null;
   tiposServicio: number[];
