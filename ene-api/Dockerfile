@@ -46,4 +46,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-scripts ./dist-scripts
 EXPOSE 3011
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# El seed es idempotente (upserts con `update: {}`, no pisa niveles ajustados a
+# mano): corre en cada arranque para que los ítems de menú y permisos nuevos de
+# cada versión (p. ej. CONFIGURACION_GENERAL) existan sin un paso manual.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist-scripts/prisma/seed.js && node dist/server.js"]

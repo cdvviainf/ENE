@@ -26,7 +26,7 @@ const ITEMS_MENU = [
   // por mantenedor (ej. TOTAL en Proveedores, LECTURA en Clientes). La ruta
   // más específica gana en `resolverNivelPorRuta` (menu-acceso-context.tsx),
   // así que no hay ambigüedad con MAESTROS (ruta '/config').
-  { codigo: 'MAESTROS', nombre: 'Mantenedores', modulo: 'config', ruta: '/config', orden: 70 },
+  { codigo: 'MAESTROS', nombre: 'Datos maestros', modulo: 'config', ruta: '/config', orden: 70 },
   { codigo: 'CLIENTES', nombre: 'Clientes', modulo: 'config', ruta: '/config/clientes', orden: 71 },
   { codigo: 'NEGOCIOS', nombre: 'Negocios', modulo: 'config', ruta: '/config/negocios', orden: 72 },
   { codigo: 'PROVEEDORES', nombre: 'Proveedores', modulo: 'config', ruta: '/config/proveedores', orden: 73 },

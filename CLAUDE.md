@@ -1009,6 +1009,13 @@ web 12 errores + 5 warnings idénticos a `main`.
 >   con los campos deshabilitados.
 > - **Pendiente:** no hay tests automatizados del ciclo del logo, de la detección
 >   por firma binaria ni de la herencia de permisos del seed.
+> - **Menú (5-nov-2026, decisión de usuario):** Configuración general es un ítem
+>   propio del grupo Configuración, al mismo nivel que **Datos maestros** (antes
+>   "Mantenedores", ItemMenu `MAESTROS` renombrado) y Usuarios y perfiles.
+> - **Seed en cada arranque:** el `CMD` del `Dockerfile` de la API corre
+>   `node dist-scripts/prisma/seed.js` después de `migrate deploy`. Antes el seed
+>   era un paso manual, y QA quedó sin el ítem `CONFIGURACION_GENERAL` (sin
+>   permiso para entrar). El seed es idempotente y no pisa niveles ajustados.
 
 ### Catálogo de documentos de ENE
 

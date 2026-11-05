@@ -67,7 +67,7 @@ export const navGroups: NavGroup[] = [
     label: 'Configuración',
     items: [
       {
-        title: 'Mantenedores',
+        title: 'Datos maestros',
         url: '/config',
         icon: 'settings',
         items: [
@@ -117,11 +117,6 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
-            title: 'Configuración general',
-            url: '/config/general',
-            items: []
-          },
-          {
             title: 'Países',
             url: '/config/paises',
             items: []
@@ -152,6 +147,12 @@ export const navGroups: NavGroup[] = [
             items: []
           }
         ]
+      },
+      {
+        title: 'Configuración general',
+        url: '/config/general',
+        icon: 'adjustments',
+        items: []
       },
       {
         title: 'Usuarios y perfiles',
