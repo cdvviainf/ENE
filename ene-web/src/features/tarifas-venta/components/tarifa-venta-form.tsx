@@ -108,6 +108,7 @@ export function TarifaVentaForm({ mode }: { mode: TarifaVentaFormMode }) {
   // Servicio precargado desde el listado (?servicioId=): fija el modelo cuando
   // llega la lista de servicios.
   const servicioInicial = esNuevo ? mode.servicioId : undefined;
+  const servicioFijo = servicioInicial ? servicios.find((s) => s.id === servicioInicial) : undefined;
   useEffect(() => {
     if (servicioInicial && servicios.length > 0 && modelo == null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -186,27 +187,37 @@ export function TarifaVentaForm({ mode }: { mode: TarifaVentaFormMode }) {
             <div className='grid gap-4 sm:grid-cols-2'>
               {esNuevo ? (
                 <>
-                  <form.Field name='servicioId'>
-                    {(field) => (
-                      <div className='space-y-1.5 sm:col-span-2'>
-                        <Label>
-                          Servicio <span className='text-destructive'>*</span>
-                        </Label>
-                        <Combobox
-                          options={servicios.map((s) => ({ value: String(s.id), label: `${s.codigo} · ${s.nombre}` }))}
-                          value={field.state.value ? String(field.state.value) : null}
-                          onChange={(v) => {
-                            const id = Number.parseInt(v, 10);
-                            if (!Number.isFinite(id)) return;
-                            field.handleChange(id);
-                            aplicarServicio(id);
-                          }}
-                          placeholder='Seleccionar servicio...'
-                          searchPlaceholder='Buscar servicio...'
-                        />
-                      </div>
-                    )}
-                  </form.Field>
+                  {servicioInicial ? (
+                    // Viene desde "Agregar tarifa" de un servicio: queda fijo.
+                    <div className='space-y-1.5 sm:col-span-2'>
+                      <Label>Servicio</Label>
+                      <p className='text-sm font-medium'>
+                        {servicioFijo ? `${servicioFijo.codigo} · ${servicioFijo.nombre}` : 'Cargando...'}
+                      </p>
+                    </div>
+                  ) : (
+                    <form.Field name='servicioId'>
+                      {(field) => (
+                        <div className='space-y-1.5 sm:col-span-2'>
+                          <Label>
+                            Servicio <span className='text-destructive'>*</span>
+                          </Label>
+                          <Combobox
+                            options={servicios.map((s) => ({ value: String(s.id), label: `${s.codigo} · ${s.nombre}` }))}
+                            value={field.state.value ? String(field.state.value) : null}
+                            onChange={(v) => {
+                              const id = Number.parseInt(v, 10);
+                              if (!Number.isFinite(id)) return;
+                              field.handleChange(id);
+                              aplicarServicio(id);
+                            }}
+                            placeholder='Seleccionar servicio...'
+                            searchPlaceholder='Buscar servicio...'
+                          />
+                        </div>
+                      )}
+                    </form.Field>
+                  )}
                   <FormSelectField name='moneda' label='Moneda' required options={MONEDA_OPTIONS} placeholder='Seleccionar...' />
                   <div />
                 </>
