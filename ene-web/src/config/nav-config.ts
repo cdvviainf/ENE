@@ -92,8 +92,13 @@ export const navGroups: NavGroup[] = [
             items: []
           },
           {
-            title: 'Tarifas',
+            title: 'Tarifas proveedores',
             url: '/config/tarifas',
+            items: []
+          },
+          {
+            title: 'Tarifas de venta',
+            url: '/config/tarifas-venta',
             items: []
           },
           {

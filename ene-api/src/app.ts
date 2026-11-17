@@ -19,6 +19,7 @@ import { tiposServicioRoutes } from './modules/config/tipos-servicio/tipos-servi
 import { clientesRoutes } from './modules/clientes/clientes.routes.js'
 import { serviciosRoutes } from './modules/servicios/servicios.routes.js'
 import { tarifasRoutes } from './modules/tarifas/tarifas.routes.js'
+import { tarifasVentaRoutes } from './modules/tarifas-venta/tarifas-venta.routes.js'
 import { negociosRoutes } from './modules/negocios/negocios.routes.js'
 import { proveedoresRoutes } from './modules/proveedores/proveedores.routes.js'
 import { formasPagoRoutes } from './modules/config/formas-pago/formas-pago.routes.js'
@@ -162,6 +163,7 @@ export async function construirApp() {
   await app.register(clientesRoutes, { prefix: '/api' })
   await app.register(serviciosRoutes, { prefix: '/api' })
   await app.register(tarifasRoutes, { prefix: '/api' })
+  await app.register(tarifasVentaRoutes, { prefix: '/api' })
   await app.register(negociosRoutes, { prefix: '/api' })
   await app.register(proveedoresRoutes, { prefix: '/api' })
   await app.register(formasPagoRoutes, { prefix: '/api/config' })

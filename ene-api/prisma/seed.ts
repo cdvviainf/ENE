@@ -48,11 +48,15 @@ const ITEMS_MENU = [
   { codigo: 'CARGA_MASIVA', nombre: 'Carga masiva', modulo: 'config', ruta: '/config/carga-masiva', orden: 83 },
   // Etapa 5: mantenedor de Tarifario — mismo criterio de mantenedor propio
   // que el resto, entra en MANTENEDORES_SEPARADOS más abajo.
-  { codigo: 'TARIFAS', nombre: 'Tarifas', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
+  { codigo: 'TARIFAS', nombre: 'Tarifas proveedores', modulo: 'config', ruta: '/config/tarifas', orden: 84 },
+  // Tarifas de venta (nov-2026, RN-TVE-01): precio de lista por servicio. NO
+  // entra en MANTENEDORES_SEPARADOS: hereda el nivel de TARIFAS (más abajo),
+  // que es el permiso análogo, no el de MAESTROS.
+  { codigo: 'TARIFAS_VENTA', nombre: 'Tarifas de venta', modulo: 'config', ruta: '/config/tarifas-venta', orden: 85 },
   // Configuración general (nov-2026): una sola página con viñetas Empresa,
   // Logo e Indicadores (RN-EMP-01, RN-IMP-01). Reemplaza a los ítems EMPRESA e
   // INDICADORES, que se desactivan más abajo heredando su nivel a este ítem.
-  { codigo: 'CONFIGURACION_GENERAL', nombre: 'Configuración general', modulo: 'config', ruta: '/config/general', orden: 85 },
+  { codigo: 'CONFIGURACION_GENERAL', nombre: 'Configuración general', modulo: 'config', ruta: '/config/general', orden: 86 },
   { codigo: 'USUARIOS', nombre: 'Usuarios y perfiles', modulo: 'config', ruta: '/config/usuarios', orden: 90 },
 ]
 
@@ -217,6 +221,23 @@ async function main() {
     }
   }
   await prisma.itemMenu.updateMany({ where: { codigo: { in: ['EMPRESA', 'INDICADORES'] } }, data: { activo: false } })
+
+  // Tarifas de venta hereda el nivel que cada perfil ya tenía en TARIFAS
+  // (Tarifas proveedores). Mismo criterio que Configuración general: corre
+  // ANTES del alta por defecto de GERENCIA/ADMINISTRADOR, y `update: {}` no
+  // pisa un nivel ajustado a mano después.
+  const itemTarifas = await prisma.itemMenu.findUnique({ where: { codigo: 'TARIFAS' } })
+  const itemTarifasVenta = await prisma.itemMenu.findUnique({ where: { codigo: 'TARIFAS_VENTA' } })
+  if (itemTarifas && itemTarifasVenta) {
+    const nivelesTarifas = await prisma.perfilItemMenu.findMany({ where: { itemMenuId: itemTarifas.id } })
+    for (const n of nivelesTarifas) {
+      await prisma.perfilItemMenu.upsert({
+        where: { perfilId_itemMenuId: { perfilId: n.perfilId, itemMenuId: itemTarifasVenta.id } },
+        update: {},
+        create: { perfilId: n.perfilId, itemMenuId: itemTarifasVenta.id, nivel: n.nivel },
+      })
+    }
+  }
 
   // Gerencia y Administrador ven todo; el resto se ajusta al configurar.
   const total = await prisma.perfil.findMany({ where: { codigo: { in: ['GERENCIA', 'ADMINISTRADOR'] } } })

@@ -26,7 +26,8 @@ import { resolverCosto } from '../costeo/costeo.service.js'
 import type { LineaEstandar } from '../costeo/costeo.types.js'
 import * as repo from './ordenes-trabajo.repository.js'
 import type { FiltrosOrdenTrabajo } from './ordenes-trabajo.types.js'
-import type { CrearOrdenDirectaInput, NuevaVersionOTInput, PreviewCostoInput } from './ordenes-trabajo.schema.js'
+import type { CrearOrdenDirectaInput, NuevaVersionOTInput, PreviewCostoInput, PreviewVentaInput } from './ordenes-trabajo.schema.js'
+import { resolverTarifaVentaVigente } from '../tarifas-venta/tarifas-venta.service.js'
 import { decorarLineasConImpuesto } from '../costeo/impuestos.js'
 import { obtenerIndicadores } from '../config/indicadores/indicadores.service.js'
 
@@ -194,6 +195,33 @@ export async function previewCostoLinea(input: PreviewCostoInput) {
       moneda: input.moneda,
       costoTotal: aString(costoTotal),
       advertenciaVigencia: tarifario.advertenciaVigencia,
+    }
+  } catch (e) {
+    return { disponible: false as const, motivo: (e as Error).message }
+  }
+}
+
+/** POST /preview-venta — resuelve la venta de la línea desde la tarifa de venta
+ * del servicio (RN-TVE-06), en la moneda de la OT, SIN persistir. Solo la usa
+ * la OT directa: el frontend la precarga como venta objetivo (RN-COT-11), así
+ * que el precio queda exacto y el margen se deriva del costo. `disponible:false`
+ * si el servicio no tiene tarifa de venta (la venta se deriva del margen). */
+export async function previewVentaLinea(input: PreviewVentaInput) {
+  const fecha = fechaDelDia(input.fechaOperacion, input.dia)
+  const tarifa = await resolverTarifaVentaVigente(input.servicioId, fecha, input.moneda)
+  if (!tarifa) {
+    return { disponible: false as const, motivo: 'El servicio no tiene tarifa de venta; la venta se calcula con el margen.' }
+  }
+  try {
+    // resolverCosto calcula el total del modelo de tarifa: sirve igual para venta.
+    const ventaTarifa = resolverCosto(lineaEstandarDeTarifario(tarifa, input.acomodacion, input.cantidadPax))
+    const ventaTotal = convertirMoneda(ventaTarifa, tarifa.moneda, input.moneda, input.tipoCambio)
+    return {
+      disponible: true as const,
+      moneda: input.moneda,
+      monedaTarifa: tarifa.moneda,
+      ventaTotal: aString(ventaTotal),
+      advertenciaVigencia: tarifa.advertenciaVigencia,
     }
   } catch (e) {
     return { disponible: false as const, motivo: (e as Error).message }

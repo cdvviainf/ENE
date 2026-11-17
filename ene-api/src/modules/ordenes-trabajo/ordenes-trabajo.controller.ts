@@ -10,6 +10,7 @@ import {
   nuevaVersionSchema,
   crearOrdenDirectaSchema,
   previewCostoSchema,
+  previewVentaSchema,
 } from './ordenes-trabajo.schema.js'
 
 function usuarioSesion(req: FastifyRequest): string {
@@ -64,4 +65,9 @@ export async function postOrdenDirecta(req: FastifyRequest, reply: FastifyReply)
 export async function postPreviewCosto(req: FastifyRequest, reply: FastifyReply) {
   const input = previewCostoSchema.parse(req.body)
   return reply.send(await service.previewCostoLinea(input))
+}
+
+export async function postPreviewVenta(req: FastifyRequest, reply: FastifyReply) {
+  const input = previewVentaSchema.parse(req.body)
+  return reply.send(await service.previewVentaLinea(input))
 }

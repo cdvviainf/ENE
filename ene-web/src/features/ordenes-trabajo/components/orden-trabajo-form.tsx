@@ -502,6 +502,13 @@ function LineaDialog({
   const [previewMsg, setPreviewMsg] = useState<string | null>(null);
   const [previewCargando, setPreviewCargando] = useState(false);
   const previewReqId = useRef(0);
+  // RN-TVE-06: la venta se precarga de la tarifa de venta del servicio. true
+  // cuando el usuario escribió (o borró) la venta: el preview ya no la pisa.
+  const [ventaTocada, setVentaTocada] = useState(false);
+  const [ventaMsg, setVentaMsg] = useState<string | null>(null);
+  const ventaReqId = useRef(0);
+  // true si la venta actual vino de la tarifa (se puede reemplazar o limpiar).
+  const ventaDeTarifa = useRef(false);
 
   const { data: serviciosData } = useQuery({ ...serviciosListOptions({ limit: 500 }), enabled: open });
   const servicios = serviciosData?.data ?? [];
@@ -545,6 +552,7 @@ function LineaDialog({
       setVentaObjetivo(initial.ventaObjetivo ?? '');
       setEstadoServicio(initial.estadoServicio);
       setCostoTocado(true); // respeta el costo ya cargado; no lo pisa el preview
+      setVentaTocada(true); // ídem con la venta
     } else {
       setDia('1');
       setBloque('AM');
@@ -560,8 +568,11 @@ function LineaDialog({
       setVentaObjetivo('');
       setEstadoServicio('PENDIENTE');
       setCostoTocado(false);
+      setVentaTocada(false);
     }
+    ventaDeTarifa.current = false;
     setPreviewMsg(null);
+    setVentaMsg(null);
   }
 
   // Precarga el costo del tarifario vigente al tener servicio+proveedor+pax+día
@@ -602,6 +613,57 @@ function LineaDialog({
     }, 350);
     return () => clearTimeout(t);
   }, [open, listoParaPreview, costoTocado, diaN, paxN, servicioId, proveedorId, acomodacion, esAcomodacion, costeoCtx]);
+
+  // Precarga la venta desde la tarifa de venta del servicio (RN-TVE-06). No
+  // depende del proveedor. Va como venta objetivo: se guarda exacta y el margen
+  // se deriva del costo (RN-COT-11). No pisa una venta escrita a mano.
+  const listoParaVenta =
+    tipoLinea === 'ESTANDAR' &&
+    servicioId != null &&
+    (!esAcomodacion || acomodacion != null) &&
+    Number.isFinite(paxN) &&
+    paxN >= 1 &&
+    Number.isFinite(diaN) &&
+    diaN >= 1 &&
+    ctxCompleto;
+  useEffect(() => {
+    if (!open || !listoParaVenta || ventaTocada) return;
+    const reqId = ++ventaReqId.current;
+    const t = setTimeout(async () => {
+      try {
+        const res = await ordenesTrabajoService.previewVenta({
+          fechaOperacion: costeoCtx.fechaOperacion,
+          moneda: costeoCtx.moneda,
+          tipoCambio: costeoCtx.tipoCambio,
+          dia: diaN,
+          servicioId: servicioId!,
+          acomodacion: esAcomodacion ? acomodacion : undefined,
+          cantidadPax: paxN
+        });
+        if (reqId !== ventaReqId.current) return;
+        if (!res.disponible) {
+          // Solo limpia una venta que vino de la tarifa (p. ej. de otro
+          // servicio); una escrita a mano se respeta.
+          if (ventaDeTarifa.current) setVentaObjetivo('');
+          ventaDeTarifa.current = false;
+          setVentaMsg(null);
+        } else {
+          setVentaObjetivo(recortarDecimales(res.ventaTotal));
+          ventaDeTarifa.current = true;
+          setVentaMsg(
+            res.advertenciaVigencia
+              ? 'Ninguna tarifa de venta cubre la fecha; se usó la más reciente.'
+              : res.monedaTarifa !== res.moneda
+                ? `Venta convertida desde la tarifa en ${res.monedaTarifa}.`
+                : 'Venta precargada de la tarifa de venta del servicio.'
+          );
+        }
+      } catch {
+        if (reqId === ventaReqId.current) setVentaMsg(null);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [open, listoParaVenta, ventaTocada, diaN, paxN, servicioId, acomodacion, esAcomodacion, costeoCtx]);
 
   function confirmar() {
     if (!Number.isFinite(diaN) || diaN < 1) return toast.error('Día inválido');
@@ -705,6 +767,7 @@ function LineaDialog({
                       setProveedorId(undefined);
                       setAcomodacion(undefined);
                       setCostoTocado(false); // re-precargar el costo del tarifario
+                      setVentaTocada(false); // y la venta de la tarifa de venta
                     }
                   }}
                   placeholder='Selecciona un servicio...'
@@ -736,6 +799,7 @@ function LineaDialog({
                     onValueChange={(v) => {
                       setAcomodacion(v as Acomodacion);
                       setCostoTocado(false);
+                      setVentaTocada(false);
                     }}
                   >
                     <SelectTrigger>
@@ -772,6 +836,7 @@ function LineaDialog({
               onChange={(e) => {
                 setCantidadPax(e.target.value);
                 setCostoTocado(false);
+                setVentaTocada(false);
               }}
             />
           </div>
@@ -810,12 +875,17 @@ function LineaDialog({
             <Label>Venta total ({moneda})</Label>
             <Input
               value={ventaObjetivo}
-              onChange={(e) => setVentaObjetivo(e.target.value.replace(/[^\d.]/g, ''))}
+              onChange={(e) => {
+                setVentaObjetivo(e.target.value.replace(/[^\d.]/g, ''));
+                setVentaTocada(true);
+                ventaDeTarifa.current = false;
+                setVentaMsg(null);
+              }}
               placeholder='Opcional'
               inputMode='decimal'
             />
             <p className='text-muted-foreground text-xs'>
-              Si la ingresas, se guarda exacta y el margen se deriva (RN-COT-11).
+              {ventaMsg ?? 'Si la ingresas, se guarda exacta y el margen se deriva (RN-COT-11).'}
             </p>
           </div>
           <div className='space-y-1.5'>

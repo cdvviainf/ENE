@@ -121,7 +121,8 @@ function calcularAdvertenciasSuplemento(valores: TarifarioValorInput[]): Adverte
 
 // ─── Validaciones compartidas por crear y nueva-version ─────────────────────
 
-function validarModeloYTramos(valores: TarifarioValorInput[], modeloServicio: string): Advertencia[] {
+/** Exportada para Tarifas de venta (RN-TVE-02), que valida igual modelo y tramos. */
+export function validarModeloYTramos(valores: TarifarioValorInput[], modeloServicio: string): Advertencia[] {
   const modeloPayload = valores[0]!.modelo
   if (modeloPayload !== modeloServicio) {
     throw validacion(

@@ -877,6 +877,7 @@ model Servicio {
   tipoServicio TipoServicio @relation(fields: [tipoServicioId], references: [id])
 
   tarifarios       Tarifario[]
+  tarifasVenta     TarifaVenta[]
   lineasCotizacion CotizacionLinea[]
   lineasOT         OrdenTrabajoLinea[]
 
@@ -931,6 +932,52 @@ model TarifarioValor {
 
   @@index([tarifarioId])
   @@map("tarifario_valor")
+}
+
+/// Tarifa de VENTA de un servicio (RN-TVE-01..06, nov-2026). Precio de lista
+/// que ENE cobra por el servicio, independiente del proveedor: el tarifario de
+/// arriba (`Tarifario`) es el COSTO del proveedor. Mismos tres modelos que el
+/// servicio (`Servicio.modeloTarifa`), una moneda por tarifa y cadenas con
+/// versión/vigencia igual que los tarifarios de proveedor. Solo la consume la
+/// OT directa para precargar la venta; el cotizador sigue usando el margen
+/// sugerido del servicio.
+model TarifaVenta {
+  id             Int       @id @default(autoincrement())
+  servicioId     Int
+  moneda         Moneda
+  vigenciaDesde  DateTime
+  vigenciaHasta  DateTime?
+  version        Int       @default(1)
+  activo         Boolean   @default(true)
+  creadoEn       DateTime  @default(now())
+  creadoPor      String
+  actualizadoEn  DateTime? @updatedAt
+  actualizadoPor String?
+  eliminadoEn    DateTime?
+  eliminadoPor   String?
+
+  servicio Servicio           @relation(fields: [servicioId], references: [id])
+  valores  TarifaVentaValor[]
+
+  @@index([servicioId, moneda, vigenciaDesde])
+  @@map("tarifa_venta")
+}
+
+/// Valor de una tarifa de venta — misma forma polimórfica que TarifarioValor
+/// (RN-TAR-01), sin suplemento single (es un dato del costo del proveedor).
+model TarifaVentaValor {
+  id            Int          @id @default(autoincrement())
+  tarifaVentaId Int
+  modelo        ModeloTarifa
+  paxDesde      Int?
+  paxHasta      Int?
+  acomodacion   Acomodacion?
+  valor         Decimal      @db.Decimal(18, 4)
+
+  tarifaVenta TarifaVenta @relation(fields: [tarifaVentaId], references: [id], onDelete: Cascade)
+
+  @@index([tarifaVentaId])
+  @@map("tarifa_venta_valor")
 }
 
 // ─── Cotización ─────────────────────────────────────────────────────────────

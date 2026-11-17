@@ -247,7 +247,7 @@ export function TarifarioForm({ mode }: { mode: TarifarioFormMode }) {
   }
 
   if (!puedeEscribir) {
-    return <SoloLectura mensaje='Tu perfil solo tiene acceso de lectura a Tarifas. No puedes crear ni versionar tarifarios.' />;
+    return <SoloLectura mensaje='Tu perfil solo tiene acceso de lectura a Tarifas proveedores. No puedes crear ni versionar tarifarios.' />;
   }
 
   return (

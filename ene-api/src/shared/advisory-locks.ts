@@ -47,6 +47,12 @@ export const LOCK_MAESTRO_CODIGO_CORRELATIVO = 491009
 /// Clave: `hashtext('${proveedorId}:${servicioId}')`.
 export const LOCK_TARIFARIO_VIGENCIA = 491010
 
+/// Vigencia de Tarifa de venta (RN-TVE-03) — serializa alta/versionado/edición
+/// de tarifas de venta del mismo servicio y moneda (dos cadenas en monedas
+/// distintas conviven, así que la moneda es parte de la clave).
+/// Clave: `hashtext('${servicioId}:${moneda}')`.
+export const LOCK_TARIFA_VENTA_VIGENCIA = 491011
+
 import type { Prisma } from '@prisma/client'
 
 /// Toma el lock dentro de la transacción actual. Se libera al hacer commit

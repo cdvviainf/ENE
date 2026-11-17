@@ -28,6 +28,9 @@ interface ValoresEditorProps {
   modeloTarifa: ModeloTarifa;
   valores: FilaValor[];
   onChange: (valores: FilaValor[]) => void;
+  /** false en Tarifas de venta: el suplemento single es un dato del costo del
+   * proveedor (RN-TVE-01). */
+  conSuplemento?: boolean;
 }
 
 // Editor polimórfico de TarifarioValor — no hay precedente de esta forma en
@@ -35,7 +38,7 @@ interface ValoresEditorProps {
 // `modeloTarifa`. Las validaciones de negocio (RN-TAR-02 solape/hueco,
 // RN-TAR-04 cuadre de suplemento) las hace el backend al guardar; acá solo se
 // valida la forma mínima (campos no vacíos) antes de enviar.
-export function ValoresEditor({ modeloTarifa, valores, onChange }: ValoresEditorProps) {
+export function ValoresEditor({ modeloTarifa, valores, onChange, conSuplemento = true }: ValoresEditorProps) {
   function actualizarFila(index: number, cambios: Partial<FilaValor>) {
     onChange(valores.map((f, i) => (i === index ? { ...f, ...cambios } : f)));
   }
@@ -74,7 +77,7 @@ export function ValoresEditor({ modeloTarifa, valores, onChange }: ValoresEditor
             <TableRow>
               <TableHead>Acomodación</TableHead>
               <TableHead>Valor</TableHead>
-              <TableHead>Suplemento single</TableHead>
+              {conSuplemento && <TableHead>Suplemento single</TableHead>}
               <TableHead className='w-10' />
             </TableRow>
           </TableHeader>
@@ -98,15 +101,17 @@ export function ValoresEditor({ modeloTarifa, valores, onChange }: ValoresEditor
                 <TableCell>
                   <Input type='number' placeholder='Ej: 100000' value={fila.valor} onChange={(e) => actualizarFila(i, { valor: e.target.value })} className='w-32' />
                 </TableCell>
-                <TableCell>
-                  <Input
-                    type='number'
-                    placeholder='Opcional'
-                    value={fila.suplementoSingle}
-                    onChange={(e) => actualizarFila(i, { suplementoSingle: e.target.value })}
-                    className='w-32'
-                  />
-                </TableCell>
+                {conSuplemento && (
+                  <TableCell>
+                    <Input
+                      type='number'
+                      placeholder='Opcional'
+                      value={fila.suplementoSingle}
+                      onChange={(e) => actualizarFila(i, { suplementoSingle: e.target.value })}
+                      className='w-32'
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Button type='button' variant='ghost' size='icon' onClick={() => quitarFila(i)} disabled={valores.length <= 1}>
                     <Icons.trash className='h-4 w-4' />

@@ -149,6 +149,20 @@ export const previewCostoSchema = z.object({
   cantidadPax: z.coerce.number().int().positive(),
 })
 
+// ── POST /ordenes-trabajo/preview-venta ──────────────────────────────────────
+/** Resuelve la venta desde la tarifa de venta del servicio (RN-TVE-06), sin
+ * persistir. No depende del proveedor: la tarifa de venta es por servicio. */
+export const previewVentaSchema = z.object({
+  fechaOperacion: z.coerce.date(),
+  moneda: z.enum(['CLP', 'USD']),
+  tipoCambio: decimalString,
+  dia: z.coerce.number().int().min(1),
+  servicioId: z.coerce.number().int().positive(),
+  acomodacion: z.enum(['SINGLE', 'DOBLE', 'TWIN', 'TRIPLE']).optional(),
+  cantidadPax: z.coerce.number().int().positive(),
+})
+
+export type PreviewVentaInput = z.infer<typeof previewVentaSchema>
 export type CrearOrdenDirectaInput = z.infer<typeof crearOrdenDirectaSchema>
 export type PreviewCostoInput = z.infer<typeof previewCostoSchema>
 export type NuevaVersionOTInput = z.infer<typeof nuevaVersionSchema>

@@ -487,6 +487,8 @@ Generar dentro de transacción con `pg_advisory_xact_lock`. Namespaces propios d
         (namespace compartido entre las cuatro entidades, clave: hashtext(entidad))
 491010  Vigencia de Tarifario (RN-TAR-07, serializa creación/versionado del
         mismo proveedor+servicio; clave: hashtext('proveedorId:servicioId'))
+491011  Vigencia de Tarifa de venta (RN-TVE-03, serializa alta/versión/edición
+        del mismo servicio+moneda; clave: hashtext('servicioId:moneda'))
 ```
 
 > **Cierre etapa 4 (agosto 2026).** Los seis mantenedores generales (Zona, TipoServicio,
@@ -945,6 +947,28 @@ web 12 errores + 5 warnings idénticos a `main`.
   unicidad en la BD. En Zod 4, `.partial()` conserva los `.default()`: un `PATCH`
   de servicio sin `margenSugerido` lo resetea a 0 (preexistente). Sigue pendiente
   la verificación en el navegador.
+
+**Anexo nov-2026: Tarifas de venta (16-nov-2026).** Decisión de usuario: el
+mantenedor de Tarifas pasa a llamarse **Tarifas proveedores** (ItemMenu
+`TARIFAS`, ruta `/config/tarifas` sin cambios) y se agrega **Tarifas de venta**
+(RN-TVE-01..06, `Docs/reglas-negocio.md` §4 bis). Modelos `TarifaVenta` +
+`TarifaVentaValor` (migración `20261117004804_tarifas_venta`, no destructiva):
+precio por servicio sin proveedor, mismos tres modelos que el servicio, una
+moneda por tarifa, cadenas con versión/vigencia igual que proveedores (lock
+491011 por servicio+moneda). Módulo `src/modules/tarifas-venta/` reutiliza
+`validarModeloYTramos`/`seSolapanVigencias` de `tarifas.service.ts`. Listado
+`GET /api/tarifas-venta/servicios` (todos los servicios con estado Vigente/
+Programada/Vencido/Sin tarifa, inicio y término por moneda, filtro `?estado=`
+paginado en memoria); CRUD en `/api/tarifas-venta`. ItemMenu `TARIFAS_VENTA`
+(`/config/tarifas-venta`) hereda en el seed el nivel de `TARIFAS`, no el de
+`MAESTROS`. Frontend `features/tarifas-venta/` + `app/(app)/config/tarifas-venta/`
+(`ValoresEditor` ganó `conSuplemento`). **Uso:** solo la OT directa
+(`POST /api/ordenes-trabajo/preview-venta`) precarga la venta como venta
+objetivo; el cotizador sigue con el margen sugerido. 17 tests nuevos en
+`tests/tarifas-venta.test.ts`; regresión 191 aprobados, solo falla
+`zonas.test.ts` (deuda previa, `Cotizacion.zonaId`). Builds de API y web
+limpios. **Pendiente:** verificación en navegador (extensión de Chrome no
+conectada).
 
 ---
 

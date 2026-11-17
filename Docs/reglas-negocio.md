@@ -253,6 +253,52 @@ Restricciones:
 Un cambio de precio que deba conservar historia se registra como versión nueva
 (RN-TAR-06), no como edición. No hay `DELETE`.
 
+## 4 bis. Tarifas de venta (nov-2026)
+
+> Decisión de usuario (16-nov-2026). El mantenedor de Tarifas existente pasa a
+> llamarse **Tarifas proveedores** (costo, `Tarifario`) y se agrega **Tarifas de
+> venta** (`TarifaVenta`): el precio de lista que ENE cobra por un servicio,
+> independiente del proveedor.
+
+**RN-TVE-01** Una tarifa de venta pertenece a un **servicio** (no a un
+proveedor), tiene **una moneda** (USD o CLP) y una vigencia `[inicio, término]`
+(término opcional = sin término). Usa los mismos tres modelos que el tarifario
+de proveedor (RN-TAR-01), **sin suplemento single**, que es un dato del costo.
+
+**RN-TVE-02 [BLOQUEA]** El modelo de los valores debe coincidir con el
+`modeloTarifa` del servicio, y los tramos no pueden solaparse ni dejar huecos
+(RN-TAR-02). El término no puede ser anterior al inicio.
+
+**RN-TVE-03 [BLOQUEA]** No pueden existir dos tarifas de venta **activas** del
+mismo servicio **y moneda** con vigencias solapadas. Un servicio puede tener una
+tarifa en USD y otra en CLP vigentes a la vez. Se serializa con
+`LOCK_TARIFA_VENTA_VIGENCIA` (491011, clave `servicioId:moneda`).
+
+**RN-TVE-04** Estado de una tarifa, calculado (no almacenado) contra la fecha de
+hoy en `America/Santiago`, con extremos inclusivos: **Vigente** (hoy dentro de
+la vigencia), **Programada** (el inicio es futuro), **Vencido** (el término ya
+pasó). El listado muestra **todos** los servicios: los que no tienen ninguna
+tarifa activa aparecen como **Sin tarifa**. Por moneda se muestra la tarifa
+representativa —la vigente; si no hay, la programada más próxima; si no, la
+vencida más reciente— y el estado del servicio es el mejor de sus monedas.
+
+**RN-TVE-05** Versiones y edición igual que el tarifario de proveedor
+(RN-TAR-06/08): `POST /tarifas-venta` crea una cadena nueva (`version = 1`);
+`POST /tarifas-venta/:id/nueva-version` crea `version + 1` y desactiva la
+anterior; `PATCH /tarifas-venta/:id` edita en el lugar la tarifa **activa**.
+Servicio y moneda no cambian dentro de la cadena. Sin `DELETE`.
+
+**RN-TVE-06** La tarifa de venta **solo la consume la OT directa**
+(`POST /ordenes-trabajo/preview-venta`): al capturar una línea `ESTANDAR`, la
+venta se precarga como **venta objetivo** (RN-COT-11: se guarda exacta y el
+margen se deriva del costo) y queda editable. Se elige la tarifa activa que
+cubre la fecha del día en la moneda de la OT; si no, la que la cubre en la otra
+moneda (convertida con el TC de la OT); si ninguna cubre la fecha, la más
+reciente con **[ADVIERTE]** (como RN-TAR-05). Sin tarifa de venta, la venta se
+deriva del margen como antes. **El cotizador no la usa**: sigue tomando el
+margen sugerido del servicio (RN-COS-02). Editar una tarifa de venta no altera
+OT existentes: la venta queda copiada en la línea.
+
 ---
 
 ## 5. Versionado — mecanismo transversal (etapa 2)

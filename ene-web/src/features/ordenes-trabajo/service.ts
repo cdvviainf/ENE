@@ -9,7 +9,9 @@ import type {
   OrdenTrabajoListResponse,
   OrdenTrabajoVersion,
   PreviewCostoInput,
-  PreviewCostoResponse
+  PreviewCostoResponse,
+  PreviewVentaInput,
+  PreviewVentaResponse
 } from './types';
 
 export const ordenesTrabajoService = {
@@ -60,6 +62,11 @@ export const ordenesTrabajoService = {
   // Costo del tarifario vigente para una línea ESTANDAR (ayuda de captura).
   async previewCosto(data: PreviewCostoInput): Promise<PreviewCostoResponse> {
     return api.post('ordenes-trabajo/preview-costo', { json: data }).json();
+  },
+
+  // Venta desde la tarifa de venta del servicio (RN-TVE-06, solo OT directa).
+  async previewVenta(data: PreviewVentaInput): Promise<PreviewVentaResponse> {
+    return api.post('ordenes-trabajo/preview-venta', { json: data }).json();
   }
 };
 

@@ -234,6 +234,14 @@ export type PreviewCostoResponse =
   | { disponible: false; motivo: string }
   | { disponible: true; moneda: Moneda; costoTotal: string; advertenciaVigencia: boolean };
 
+// POST /ordenes-trabajo/preview-venta — venta desde la tarifa de venta del
+// servicio (RN-TVE-06), en la moneda de la OT. Solo la usa la OT directa.
+export type PreviewVentaInput = Omit<PreviewCostoInput, 'proveedorId'>;
+
+export type PreviewVentaResponse =
+  | { disponible: false; motivo: string }
+  | { disponible: true; moneda: Moneda; monedaTarifa: Moneda; ventaTotal: string; advertenciaVigencia: boolean };
+
 // ── Adjuntos (entidad ORDEN_TRABAJO) ─────────────────────────────────────────
 export interface Adjunto {
   id: number;
